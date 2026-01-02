@@ -1,0 +1,325 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+
+:root {
+    --radar-bg: #020617;       /* Azul marino muy oscuro */
+    --radar-color: #06b6d4;    /* Cyan para el radar */
+    --radar-light: #67e8f9;    /* Cyan claro para brillos */
+    --tech-blue: #3b82f6;      /* Azul para botones */
+    --input-bg: rgba(30, 41, 59, 0.7); 
+    --text-white: #f8fafc;
+    --text-gray: #94a3b8;
+    --border-color: rgba(59, 130, 246, 0.2);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+.split-screen-container {
+    font-family: 'Inter', sans-serif;
+    display: flex;
+    height: 100vh;
+    width: 100%;
+    background-color: var(--radar-bg);
+    color: var(--text-white);
+    overflow: hidden;
+}
+
+/* =========================================
+   IZQUIERDA: RADAR / SONAR SYSTEM
+   ========================================= */
+
+/* 1. Animación de Giro del Radar */
+@keyframes radarSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* 2. Animación del "Blip" (Objeto detectado) */
+@keyframes blipPulse {
+    0% { opacity: 0; transform: scale(0.5); box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.7); }
+    50% { opacity: 1; transform: scale(1); box-shadow: 0 0 20px 10px rgba(6, 182, 212, 0); }
+    100% { opacity: 0; transform: scale(1); }
+}
+
+/* 3. Entrada suave del texto */
+@keyframes techSlideIn {
+    0% { opacity: 0; transform: translateY(20px); filter: blur(5px); }
+    100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+/* --- Variante C: Escáner Digital --- */
+
+@keyframes gridScan {
+    0% { left: -50%; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { left: 150%; opacity: 0; }
+}
+
+.brand-section {
+    width: 45%;
+    background-color: #020617;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 4rem;
+    overflow: hidden;
+    border-right: 1px solid rgba(6, 182, 212, 0.3);
+}
+
+/* Fondo: Cuadrícula Tecnológica */
+.brand-section::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background-image: 
+        linear-gradient(rgba(6, 182, 212, 0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(6, 182, 212, 0.1) 1px, transparent 1px);
+    background-size: 50px 50px;
+    z-index: 1;
+}
+
+/* El Haz de Escaneo Vertical */
+.brand-section::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -50%; /* Empieza fuera */
+    width: 200px; /* Ancho del haz */
+    height: 100%;
+    
+    /* Degradado lateral */
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(6, 182, 212, 0.1), 
+        rgba(34, 211, 238, 0.6) 95%, 
+        rgba(255, 255, 255, 0.8) 100% /* Borde blanco brillante líder */
+    );
+    
+    /* Efecto de resplandor */
+    box-shadow: 20px 0 50px rgba(6, 182, 212, 0.4);
+    
+    transform: skewX(-20deg); /* Inclinamos el haz para velocidad */
+    animation: gridScan 4s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* El "Blip" (Punto detectado) */
+.radar-blip {
+    position: absolute;
+    top: 35%; /* Ubicación aleatoria en el radar */
+    left: 75%;
+    width: 12px;
+    height: 12px;
+    background: #22d3ee;
+    border-radius: 50%;
+    z-index: 3;
+    animation: blipPulse 5s ease-out infinite; /* Sincronizado con el giro */
+    animation-delay: 2.2s; /* Se ilumina cuando pasa el barrido */
+}
+
+/* Elementos de Texto (Por encima del radar) */
+.brand-logo-large, .brand-section h1, .brand-tagline {
+    position: relative;
+    z-index: 10;
+    text-shadow: 0 4px 10px rgba(0,0,0,0.8); /* Sombra para legibilidad */
+}
+
+.brand-logo-large {
+    width: 100px;
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(2, 6, 23, 0.6);
+    border: 1px solid var(--radar-color);
+    backdrop-filter: blur(4px);
+    margin-bottom: 2rem;
+    box-shadow: 0 0 20px rgba(6, 182, 212, 0.2);
+    
+    opacity: 0;
+    animation: techSlideIn 0.8s forwards;
+}
+
+.brand-section h1 {
+    font-size: 4rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 1.5rem;
+    color: #ffffff;
+    
+    opacity: 0;
+    animation: techSlideIn 0.8s forwards 0.2s;
+}
+
+.brand-tagline {
+    font-size: 1.1rem;
+    color: var(--text-gray);
+    border-left: 3px solid var(--radar-color);
+    padding-left: 1.5rem;
+    background: linear-gradient(90deg, rgba(6, 182, 212, 0.1), transparent);
+    
+    opacity: 0;
+    animation: techSlideIn 0.8s forwards 0.4s;
+}
+
+
+/* =========================================
+   DERECHA: FORMULARIO
+   ========================================= */
+.form-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    background-color: var(--radar-bg);
+}
+
+.btn-back-simple {
+    position: absolute;
+    top: 2rem;
+    right: 3rem;
+    background: transparent;
+    border: none;
+    color: var(--text-gray);
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: color 0.3s;
+    z-index: 50;
+}
+.btn-back-simple:hover { color: var(--radar-light); }
+
+.form-container-wide {
+    width: 100%;
+    max-width: 550px;
+    padding: 2rem;
+    animation: techSlideIn 0.8s ease-out;
+}
+
+.form-header { margin-bottom: 3rem; }
+.form-header h2 { font-size: 2.5rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-white); }
+.form-header p { color: var(--text-gray); font-size: 1.1rem; }
+
+/* Tabs de Roles */
+.role-selector-wide {
+    display: flex;
+    background: rgba(15, 23, 42, 0.8);
+    padding: 6px;
+    border-radius: 4px;
+    margin-bottom: 2.5rem;
+    border: 1px solid var(--border-color);
+}
+
+.role-btn {
+    flex: 1;
+    padding: 12px;
+    background: transparent;
+    border: none;
+    color: var(--text-gray);
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.3s;
+}
+
+.role-btn.active {
+    background: rgba(6, 182, 212, 0.15); /* Fondo Cyan suave */
+    color: var(--radar-light);
+    border: 1px solid var(--radar-color);
+    box-shadow: 0 0 10px rgba(6, 182, 212, 0.2);
+}
+
+/* Inputs */
+.enterprise-form { display: flex; flex-direction: column; gap: 1.5rem; }
+
+.input-block label {
+    display: block;
+    margin-bottom: 0.8rem;
+    font-size: 0.85rem;
+    color: var(--radar-color);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.input-field {
+    width: 100%;
+    padding: 16px 20px;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: white;
+    font-size: 1rem;
+    outline: none;
+    transition: all 0.3s;
+}
+
+.input-field:focus {
+    border-color: var(--radar-color);
+    box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
+    background: rgba(30, 41, 59, 0.9);
+}
+
+.form-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.5rem;
+}
+
+.checkbox-simple { color: var(--text-gray); font-size: 0.9rem; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.link-recover { color: var(--radar-color); text-decoration: none; font-size: 0.9rem; transition: 0.3s; }
+.link-recover:hover { color: var(--radar-light); text-shadow: 0 0 8px rgba(6, 182, 212, 0.6); }
+
+/* --- Opción 3: Tactical Cut --- */
+.btn-submit-wide {
+    margin-top: 1.5rem;
+    padding: 18px;
+    width: 100%;
+    
+    background: var(--tech-blue);
+    color: white;
+    border: none;
+    
+    /* Corte en la esquina inferior derecha */
+    clip-path: polygon(
+        0 0, 
+        100% 0, 
+        100% 70%, 
+        95% 100%, 
+        0 100%
+    );
+    
+    border-bottom: 4px solid var(--radar-color); /* Línea de acento abajo */
+    
+    border-radius: 4px 4px 0 0; /* Solo bordes redondeados arriba */
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.btn-submit-wide:hover {
+    background: var(--radar-color);
+    border-bottom-color: white; /* La línea cambia a blanco */
+    color: var(--radar-bg); /* Texto oscuro para contraste */
+    text-shadow: none;
+    box-shadow: 0 0 30px rgba(6, 182, 212, 0.4);
+    padding-left: 25px; /* Pequeño desplazamiento a la derecha */
+}
+
+.form-footer { margin-top: 4rem; text-align: center; color: #475569; font-size: 0.85rem; }
+
+/* Responsive */
+@media (max-width: 900px) {
+    .split-screen-container { flex-direction: column; height: auto; min-height: 100vh; }
+    .brand-section { width: 100%; padding: 3rem 2rem; min-height: 350px; border-right: none; border-bottom: 1px solid var(--radar-color); }
+    .radar-blip { display: none; } /* Ocultar detalles finos en móvil */
+    .brand-logo-large { width: 70px; height: 70px; }
+    .brand-section h1 { font-size: 3rem; }
+}
