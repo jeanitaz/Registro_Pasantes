@@ -35,7 +35,7 @@ const AdminHome = () => {
                 <div className="menu-group">
                     <p className="menu-label">Administración</p>
                     <a href="/historial" className="menu-item">Usuarios</a>
-                    <a href="#" className="menu-item">Configuración</a>
+                    <a href="/historialP" className="menu-item">Pasantes</a>
                     <a href="#" className="menu-item warning">Edición Directa</a>
                 </div>
 

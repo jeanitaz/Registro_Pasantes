@@ -323,3 +323,149 @@
     .brand-logo-large { width: 70px; height: 70px; }
     .brand-section h1 { font-size: 3rem; }
 }
+
+/* ... estilos anteriores ... */
+
+/* --- MODAL STYLES --- */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(15, 23, 42, 0.6); /* Fondo oscuro semitransparente */
+    backdrop-filter: blur(8px); /* Efecto vidrio */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.modal-content-warning {
+    background: white;
+    width: 90%;
+    max-width: 420px;
+    border-radius: 24px;
+    padding: 2.5rem 2rem;
+    text-align: center;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-icon-wrapper {
+    background: #fff7ed; /* Naranja muy suave */
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    display: flex; justify-content: center; align-items: center;
+    margin: 0 auto 1.5rem auto;
+}
+
+.icon-warning {
+    color: #f97316; /* Naranja alerta */
+}
+
+.modal-content-warning h3 {
+    color: #1e293b;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    font-weight: 700;
+}
+
+.modal-message {
+    color: #64748b;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 2rem;
+}
+
+.modal-message strong {
+    color: #f97316;
+    font-weight: 600;
+}
+
+.btn-modal-action {
+    background: #0f172a;
+    color: white;
+    border: none;
+    padding: 12px 0;
+    width: 100%;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-modal-action:hover {
+    background: #334155;
+}
+
+.close-modal-btn {
+    position: absolute;
+    top: 15px; right: 15px;
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    transition: 0.2s;
+}
+.close-modal-btn:hover {
+    background: #f1f5f9;
+    color: #ef4444;
+}
+
+/* Animaciones */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { 
+    from { transform: translateY(30px); opacity: 0; } 
+    to { transform: translateY(0); opacity: 1; } 
+}
+
+/* ... estilos previos ... */
+
+/* --- ESTILOS PARA EL MODAL DE FINALIZADO (AZUL) --- */
+
+.modal-content-finished {
+    background: white;
+    width: 90%;
+    max-width: 420px;
+    border-radius: 24px;
+    padding: 2.5rem 2rem;
+    text-align: center;
+    box-shadow: 0 25px 50px -12px rgba(37, 99, 235, 0.25); /* Sombra azulada */
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-icon-finished {
+    background: #eff6ff; /* Azul muy suave */
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    display: flex; justify-content: center; align-items: center;
+    margin: 0 auto 1.5rem auto;
+}
+
+.icon-info {
+    color: #2563eb; /* Azul corporativo */
+}
+
+/* Botón Azul para el modal de finalizado */
+.btn-modal-action-blue {
+    background: #2563eb;
+    color: white;
+    border: none;
+    padding: 12px 0;
+    width: 100%;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-modal-action-blue:hover {
+    background: #1d4ed8;
+}

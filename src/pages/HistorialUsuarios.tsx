@@ -104,6 +104,7 @@ const HistorialUsuarios = () => {
     };
 
     return (
+        
         <div className="sophisticated-wrapper">
             <div className="ambient-light light-1"></div>
             <div className="ambient-light light-2"></div>
@@ -127,6 +128,7 @@ const HistorialUsuarios = () => {
                         </div>
                     </div>
                 </header>
+                
 
                 {/* --- GRID DE TARJETAS --- */}
                 <div className="cards-grid">

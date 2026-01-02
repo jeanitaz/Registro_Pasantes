@@ -7,13 +7,15 @@ import RRHHHome from "../pages/RRHHHome";
 import CreacionPasante from "../pages/CreacionPasante";
 import CreacionUsuarios from "../pages/CreacionUsuarios";
 import HistorialUsuarios from "../pages/HistorialUsuarios";
+import HistorialPasantes from "../pages/HistorialPasantes";
 const AppRoutes = () => {
     return (
         <Routes>
             {/* Rutas Públicas */}
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/creacion-pasante" element={<CreacionPasante />} />
+            <Route path="/Registro" element={<CreacionPasante />} />
+            <Route path="/historialP" element={<HistorialPasantes/>} />
             <Route path="/usuarios" element={<CreacionUsuarios />} />
             <Route path="/historial" element={<HistorialUsuarios />} />
 

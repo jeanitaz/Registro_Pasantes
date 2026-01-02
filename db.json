@@ -16,8 +16,9 @@
       "usuario": "jitaz",
       "password": "jitaz123",
       "fotoNombre": "default.jpg",
-      "estado": "No habilitado",
-      "fechaRegistro": "2026-01-02T08:41:41.414Z"
+      "estado": "Activo",
+      "fechaRegistro": "2026-01-02T08:41:41.414Z",
+      "horasCompletadas": 399
     },
     {
       "id": "8aa9",
@@ -36,8 +37,32 @@
       "password": "ariel123",
       "fotoNombre": "default.jpg",
       "estado": "No habilitado",
-      "fechaRegistro": "2026-01-02T08:45:16.368Z"
+      "fechaRegistro": "2026-01-02T08:45:16.368Z",
+      "horasCompletadas": 10
     }
   ],
-  "usuarios": []
+  "usuarios": [
+    {
+      "id": "7327",
+      "nombres": "Maria Lorena ",
+      "apellidos": "Naranjo Hurtado",
+      "cedula": "1724617053",
+      "rol": "Talento Humano",
+      "usuario": "mnaranjo",
+      "password": "lore123",
+      "estado": "Activo",
+      "fechaCreacion": "2026-01-02T09:31:47.505Z"
+    },
+    {
+      "id": "486b",
+      "nombres": "Dufer Vinicio",
+      "apellidos": "Itaz Espinoza",
+      "cedula": "1724617053",
+      "rol": "Seguridad",
+      "usuario": "ditaz",
+      "password": "vinicio123",
+      "estado": "Activo",
+      "fechaCreacion": "2026-01-02T09:32:21.456Z"
+    }
+  ]
 }

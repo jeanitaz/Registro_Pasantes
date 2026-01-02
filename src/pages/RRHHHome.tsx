@@ -133,9 +133,13 @@ const RRHHModern = () => {
                         <div className="nav-icon"><Bell size={20}/></div>
                         <span>Alertas</span>
                     </button>
-                    <button className="nav-item" onClick={() => navigate('/creacion-pasante')}>
+                    <button className="nav-item" onClick={() => navigate('/Registro')}>
                         <div className="nav-icon"><Users size={20}/></div>
                         <span>Creacion Pasante</span>
+                    </button>
+                    <button className="nav-item" onClick={() => navigate('/historialP')}>
+                        <div className="nav-icon"><Users size={20}/></div>
+                        <span>Historial Pasante</span>
                     </button>
 
                     {/* SEPARADOR VISUAL */}

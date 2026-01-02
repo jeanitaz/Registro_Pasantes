@@ -1,17 +1,23 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AlertCircle, X, GraduationCap } from 'lucide-react'; // Ensure you have lucide-react installed
 import '../styles/Login.css';
 
 const Login = () => {
     const [activeRole, setActiveRole] = useState('pasante');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    
+    // --- MODAL STATES ---
+    const [showStatusModal, setShowStatusModal] = useState(false);   // For "No habilitado" / "Inactivo"
+    const [showFinishedModal, setShowFinishedModal] = useState(false); // For "Finalizado"
+    
     const navigate = useNavigate();
 
     const roles = [
         { id: 'admin', label: 'Administrador' },
         { id: 'human_resources', label: 'RR.HH.' },
-        { id: 'security', label: 'Seguridad' }, // Nuevo rol agregado
+        { id: 'security', label: 'Seguridad' },
         { id: 'pasante', label: 'Pasante' }
     ];
 
@@ -19,95 +25,104 @@ const Login = () => {
         e.preventDefault();
 
         // ---------------------------------------------------------
-        // CASO 1: ADMINISTRADOR (CUENTA QUEMADA / HARDCODED)
+        // 1. ADMIN LOGIC (HARDCODED)
         // ---------------------------------------------------------
         if (activeRole === 'admin') {
-            // Solo entra si coincide exactamente con esto
             if (email === 'admin@inamhi.gob.ec' && password === 'admin123') {
                 localStorage.setItem('user', JSON.stringify({ nombre: 'Super Admin', rol: 'admin' }));
                 localStorage.setItem('role', 'admin');
-                alert("Bienvenido, Administrador.");
                 navigate('/admin');
             } else {
                 alert("Credenciales de Administrador incorrectas.");
             }
-            return; // Detenemos la ejecución aquí, no buscamos en la BD
+            return;
         }
 
         // ---------------------------------------------------------
-        // CASO 2: RRHH, SEGURIDAD Y PASANTES (BASE DE DATOS)
+        // 2. DATABASE LOGIC (Interns, HR, Security)
         // ---------------------------------------------------------
-        
-        // Determinar en qué colección buscar (pasantes vs usuarios)
         const endpoint = activeRole === 'pasante' ? 'pasantes' : 'usuarios';
 
         try {
-            // Buscamos coincidencia en la base de datos local
-            const response = await fetch(`http://localhost:3001/${endpoint}?q=${email}`);
+            // Fetch all users from the endpoint to filter safely on the client side
+            const response = await fetch(`http://localhost:3001/${endpoint}`);
             
             if (response.ok) {
                 const data = await response.json();
                 
-                // Validación estricta de usuario/email y contraseña
-                const usuarioEncontrado = data.find((user: any) => 
-                    (user.usuario === email || user.email === email) && user.password === password
-                );
+                // Smart Search: Case insensitive & trimmed
+                const usuarioEncontrado = data.find((user: any) => {
+                    const inputUser = email.trim().toLowerCase();
+                    const inputPass = password.trim();
+                    
+                    const dbUser = (user.usuario || '').trim().toLowerCase();
+                    const dbEmail = (user.email || '').trim().toLowerCase();
+                    const dbPass = (user.password || '').trim();
+
+                    // Match User OR Email AND Password
+                    return (dbUser === inputUser || dbEmail === inputUser) && (dbPass === inputPass);
+                });
 
                 if (usuarioEncontrado) {
                     
-                    // VALIDACIÓN DE ROL (Para asegurar que un Guardia no entre como RRHH)
-                    // Mapa: ID del botón -> Valor en la Base de Datos
+                    // --- ROLE VALIDATION ---
                     const rolMap: Record<string, string> = {
                         'human_resources': 'Talento Humano',
                         'security': 'Seguridad',
-                        'pasante': 'Pasante' // (Opcional si tu pasante no tiene campo rol, el endpoint ya filtra)
+                        'pasante': 'Pasante'
                     };
 
-                    // Si no es pasante (que ya filtramos por endpoint), verificamos el rol exacto
-                    if (activeRole !== 'pasante' && usuarioEncontrado.rol !== rolMap[activeRole]) {
-                        alert(`Error: Estas credenciales pertenecen a ${usuarioEncontrado.rol}, no a ${roles.find(r => r.id === activeRole)?.label}.`);
-                        return;
+                    if (activeRole !== 'pasante') {
+                        const rolBD = (usuarioEncontrado.rol || '').toLowerCase();
+                        const rolRequerido = (rolMap[activeRole] || '').toLowerCase();
+                        
+                        if (rolBD !== rolRequerido) {
+                            alert(`Error: Estas credenciales pertenecen al rol "${usuarioEncontrado.rol}". Por favor cambia de pestaña.`);
+                            return;
+                        }
                     }
 
-                    // Verificar estado activo
-                    if (usuarioEncontrado.estado === 'Inactivo' || usuarioEncontrado.estado === 'No habilitado') {
-                        alert("Su cuenta se encuentra inactiva o deshabilitada.");
-                        return;
+                    // --- STATUS VALIDATION ---
+                    const estadoNormalizado = (usuarioEncontrado.estado || '').toLowerCase().trim();
+
+                    // CASE 1: FINALIZED -> Blue Modal
+                    if (estadoNormalizado === 'finalizado') {
+                        setShowFinishedModal(true);
+                        return; // Stop login process
                     }
 
-                    // --- LOGIN EXITOSO ---
+                    // CASE 2: NOT ENABLED / INACTIVE -> Orange Modal
+                    if (estadoNormalizado === 'no habilitado' || estadoNormalizado === 'inactivo') {
+                        setShowStatusModal(true);
+                        return; // Stop login process
+                    }
+
+                    // --- LOGIN SUCCESS ---
                     localStorage.setItem('user', JSON.stringify(usuarioEncontrado));
                     localStorage.setItem('role', activeRole);
                     
-                    // Redirecciones
                     switch (activeRole) {
-                        case 'human_resources':
-                            navigate('/rrhh');
-                            break;
-                        case 'security':
-                            navigate('/seguridad'); // Asegúrate de crear esta ruta
-                            break;
-                        case 'pasante':
-                            navigate('/pasante');
-                            break;
+                        case 'human_resources': navigate('/rrhh'); break;
+                        case 'security': navigate('/seguridad'); break;
+                        case 'pasante': navigate('/pasante'); break;
                     }
 
                 } else {
                     alert("Usuario o contraseña incorrectos.");
                 }
             } else {
-                alert("Error al consultar la base de datos.");
+                alert("Error al conectar con la base de datos.");
             }
         } catch (error) {
-            console.error("Error de conexión:", error);
-            alert("No se pudo conectar con el servidor. Asegúrese de que 'npm run server' esté ejecutándose.");
+            console.error("Error:", error);
+            alert("No se pudo conectar con el servidor (db.json).");
         }
     };
 
     return (
         <div className="split-screen-container">
 
-            {/* SECCIÓN IZQUIERDA */}
+            {/* LEFT SECTION (RADAR) */}
             <div className="brand-section">
                 <div className="radar-blip"></div> 
                 <div className="brand-logo-large">
@@ -122,11 +137,9 @@ const Login = () => {
                 </div>
             </div>
 
-            {/* SECCIÓN DERECHA */}
+            {/* RIGHT SECTION (FORM) */}
             <div className="form-section">
-                <button className="btn-back-simple" onClick={() => navigate('/')}>
-                    ← Volver
-                </button>
+                <button className="btn-back-simple" onClick={() => navigate('/')}>← Volver</button>
 
                 <div className="form-container-wide">
                     <div className="form-header">
@@ -134,7 +147,6 @@ const Login = () => {
                         <p>Selecciona tu rol de acceso</p>
                     </div>
 
-                    {/* Selector de Rol Actualizado */}
                     <div className="role-selector-wide">
                         {roles.map((role) => (
                             <button
@@ -190,6 +202,56 @@ const Login = () => {
                     </footer>
                 </div>
             </div>
+
+            {/* --- MODAL 1: ACCOUNT NOT ENABLED (Orange) --- */}
+            {showStatusModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content-warning">
+                        <button className="close-modal-btn" onClick={() => setShowStatusModal(false)}>
+                            <X size={20} />
+                        </button>
+                        <div className="modal-icon-wrapper">
+                            <AlertCircle size={48} className="icon-warning" />
+                        </div>
+                        <h3>Acceso Restringido</h3>
+                        <p className="modal-message">
+                            Tu cuenta se encuentra en estado <strong>"No Habilitado"</strong>.
+                            <br/><br/>
+                            Espera a que Talento Humano active tu perfil.
+                        </p>
+                        <button className="btn-modal-action" onClick={() => setShowStatusModal(false)}>
+                            Entendido
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* --- MODAL 2: INTERNSHIP FINISHED (Blue) --- */}
+            {showFinishedModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content-finished">
+                        <button className="close-modal-btn" onClick={() => setShowFinishedModal(false)}>
+                            <X size={20} />
+                        </button>
+                        
+                        <div className="modal-icon-finished">
+                            <GraduationCap size={48} className="icon-info" />
+                        </div>
+                        
+                        <h3>Pasantía Finalizada</h3>
+                        <p className="modal-message">
+                            Tu periodo de pasantías ha concluido exitosamente y tu cuenta ha sido cerrada.
+                            <br/><br/>
+                            ¡Gracias por tu colaboración en el <strong>INAMHI</strong>!
+                        </p>
+                        
+                        <button className="btn-modal-action-blue" onClick={() => setShowFinishedModal(false)}>
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 };
