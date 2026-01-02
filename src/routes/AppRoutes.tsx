@@ -8,6 +8,7 @@ import CreacionPasante from "../pages/CreacionPasante";
 import CreacionUsuarios from "../pages/CreacionUsuarios";
 import HistorialUsuarios from "../pages/HistorialUsuarios";
 import HistorialPasantes from "../pages/HistorialPasantes";
+import HistorialAlertas from "../pages/HistorialAlertas";
 const AppRoutes = () => {
     return (
         <Routes>
@@ -18,6 +19,7 @@ const AppRoutes = () => {
             <Route path="/historialP" element={<HistorialPasantes/>} />
             <Route path="/usuarios" element={<CreacionUsuarios />} />
             <Route path="/historial" element={<HistorialUsuarios />} />
+            <Route path="/historialAlertas" element={<HistorialAlertas />} />
 
             <Route path="/admin" element={<AdminHome />} />
             <Route path="/rrhh" element={<RRHHHome />} />

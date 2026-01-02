@@ -14,9 +14,9 @@
       "email": "jeanrap-@inamhi.gob.ec",
       "telefono": "0993643838",
       "usuario": "jitaz",
-      "password": "jitaz123",
+      "password": "jitaz2210",
       "fotoNombre": "default.jpg",
-      "estado": "Activo",
+      "estado": "Finalizado",
       "fechaRegistro": "2026-01-02T08:41:41.414Z",
       "horasCompletadas": 399
     },
@@ -36,7 +36,7 @@
       "usuario": "aalcivar",
       "password": "ariel123",
       "fotoNombre": "default.jpg",
-      "estado": "No habilitado",
+      "estado": "Activo",
       "fechaRegistro": "2026-01-02T08:45:16.368Z",
       "horasCompletadas": 10
     }

@@ -324,14 +324,15 @@
     .brand-section h1 { font-size: 3rem; }
 }
 
-/* ... estilos anteriores ... */
+/* =========================================
+   MODAL STYLES - TECH THEME
+   ========================================= */
 
-/* --- MODAL STYLES --- */
 .modal-overlay {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(15, 23, 42, 0.6); /* Fondo oscuro semitransparente */
-    backdrop-filter: blur(8px); /* Efecto vidrio */
+    background: rgba(0, 0, 0, 0.85); /* Fondo más oscuro para resaltar el modal */
+    backdrop-filter: blur(5px);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -339,133 +340,188 @@
     animation: fadeIn 0.3s ease-out;
 }
 
-.modal-content-warning {
-    background: white;
+/* Base para todos los contenidos de modal */
+.modal-content-warning,
+.modal-content-finished,
+.modal-content-success {
+    background: rgba(2, 6, 23, 0.95); /* Fondo casi negro */
     width: 90%;
-    max-width: 420px;
-    border-radius: 24px;
+    max-width: 450px;
     padding: 2.5rem 2rem;
     text-align: center;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     position: relative;
-    border: 1px solid rgba(255, 255, 255, 0.5);
+    
+    /* Bordes y Esquinas Tech */
+    border-radius: 4px; /* Menos redondeado, más técnico */
+    border: 1px solid; /* El color se define abajo por tipo */
+    
+    /* Sombra resplandeciente */
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
+    
     animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.modal-icon-wrapper {
-    background: #fff7ed; /* Naranja muy suave */
+/* --- TIPO 1: WARNING (Naranja/Rojo) --- */
+.modal-content-warning {
+    border-color: #f97316; /* Borde Naranja */
+    box-shadow: 0 0 20px rgba(249, 115, 22, 0.15); /* Resplandor naranja */
+}
+
+.modal-content-warning .modal-icon-wrapper {
+    background: rgba(249, 115, 22, 0.1);
+    color: #f97316;
+}
+
+.modal-content-warning h3 { color: #f97316; }
+
+/* --- TIPO 2: FINISHED (Azul Tech) --- */
+.modal-content-finished {
+    border-color: var(--tech-blue);
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+}
+
+.modal-content-finished .modal-icon-finished {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--tech-blue);
+}
+
+.modal-content-finished h3 { color: var(--tech-blue); }
+
+/* --- TIPO 3: SUCCESS (Verde) / ATTENDED (Morado) --- */
+/* Nota: El modal morado usa esta misma clase pero con estilos en línea en React.
+   Aquí definimos la base oscura para que funcione bien. */
+.modal-content-success {
+    border-color: #10b981; /* Verde base */
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+}
+
+.modal-content-success .modal-icon-success {
+    background: rgba(16, 185, 129, 0.1); /* Fondo transparente tintado */
+    /* El color del icono lo hereda o se define en linea */
+}
+
+.modal-content-success h3 {
+    color: #f8fafc; /* Blanco por defecto, o el color del borde */
+}
+
+/* --- ESTILOS COMUNES DE TEXTO E ICONOS --- */
+
+.modal-icon-wrapper,
+.modal-icon-finished,
+.modal-icon-success {
     width: 80px; height: 80px;
     border-radius: 50%;
     display: flex; justify-content: center; align-items: center;
     margin: 0 auto 1.5rem auto;
+    border: 1px solid currentColor; /* El borde del círculo toma el color del texto */
+    box-shadow: 0 0 15px currentColor; /* El icono brilla */
 }
 
-.icon-warning {
-    color: #f97316; /* Naranja alerta */
-}
-
-.modal-content-warning h3 {
-    color: #1e293b;
+/* Títulos */
+.modal-content-warning h3,
+.modal-content-finished h3,
+.modal-content-success h3 {
     font-size: 1.5rem;
     margin-bottom: 1rem;
     font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px currentColor; /* Texto brillante */
 }
 
+/* Texto del cuerpo */
 .modal-message {
-    color: #64748b;
-    font-size: 0.95rem;
+    color: #94a3b8; /* Gris azulado claro */
+    font-size: 1rem;
     line-height: 1.6;
     margin-bottom: 2rem;
 }
 
 .modal-message strong {
-    color: #f97316;
-    font-weight: 600;
-}
-
-.btn-modal-action {
-    background: #0f172a;
     color: white;
-    border: none;
-    padding: 12px 0;
-    width: 100%;
-    border-radius: 12px;
     font-weight: 600;
+}
+
+.email-highlight {
+    display: block;
+    margin-top: 10px;
+    color: var(--radar-light);
+    background: rgba(6, 182, 212, 0.1);
+    border: 1px dashed var(--radar-color);
+    padding: 8px;
+    font-family: monospace;
+}
+
+/* BOTONES DEL MODAL */
+.btn-modal-action,
+.btn-modal-action-blue,
+.btn-modal-action-green {
+    background: transparent;
+    width: 100%;
+    padding: 14px 0;
+    border: 1px solid;
+    font-weight: 700;
     font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
 }
 
+/* Botón Warning */
+.btn-modal-action {
+    color: #f97316;
+    border-color: #f97316;
+}
 .btn-modal-action:hover {
-    background: #334155;
+    background: #f97316;
+    color: black;
+    box-shadow: 0 0 20px #f97316;
 }
 
+/* Botón Blue */
+.btn-modal-action-blue {
+    color: var(--tech-blue);
+    border-color: var(--tech-blue);
+}
+.btn-modal-action-blue:hover {
+    background: var(--tech-blue);
+    color: white;
+    box-shadow: 0 0 20px var(--tech-blue);
+}
+
+/* Botón Green (y Purple hereda estructura) */
+.btn-modal-action-green {
+    color: #10b981; /* Verde por defecto */
+    border-color: currentColor; /* Toma el color que venga (verde o morado inline) */
+}
+.btn-modal-action-green:hover {
+    background: currentColor; /* Se rellena del color actual */
+    color: black; /* Texto negro para contraste */
+    box-shadow: 0 0 20px currentColor;
+}
+
+/* Botón de cerrar (X) */
 .close-modal-btn {
     position: absolute;
     top: 15px; right: 15px;
     background: transparent;
     border: none;
-    color: #94a3b8;
+    color: #64748b;
     cursor: pointer;
     padding: 5px;
-    border-radius: 50%;
     transition: 0.2s;
 }
 .close-modal-btn:hover {
-    background: #f1f5f9;
-    color: #ef4444;
+    color: white;
+    transform: rotate(90deg);
 }
 
 /* Animaciones */
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { 
-    from { transform: translateY(30px); opacity: 0; } 
-    to { transform: translateY(0); opacity: 1; } 
-}
-
-/* ... estilos previos ... */
-
-/* --- ESTILOS PARA EL MODAL DE FINALIZADO (AZUL) --- */
-
-.modal-content-finished {
-    background: white;
-    width: 90%;
-    max-width: 420px;
-    border-radius: 24px;
-    padding: 2.5rem 2rem;
-    text-align: center;
-    box-shadow: 0 25px 50px -12px rgba(37, 99, 235, 0.25); /* Sombra azulada */
-    position: relative;
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.modal-icon-finished {
-    background: #eff6ff; /* Azul muy suave */
-    width: 80px; height: 80px;
-    border-radius: 50%;
-    display: flex; justify-content: center; align-items: center;
-    margin: 0 auto 1.5rem auto;
-}
-
-.icon-info {
-    color: #2563eb; /* Azul corporativo */
-}
-
-/* Botón Azul para el modal de finalizado */
-.btn-modal-action-blue {
-    background: #2563eb;
-    color: white;
-    border: none;
-    padding: 12px 0;
-    width: 100%;
-    border-radius: 12px;
-    font-weight: 600;
-    font-size: 1rem;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.btn-modal-action-blue:hover {
-    background: #1d4ed8;
+    from { transform: translateY(50px) scale(0.9); opacity: 0; } 
+    to { transform: translateY(0) scale(1); opacity: 1; } 
 }
