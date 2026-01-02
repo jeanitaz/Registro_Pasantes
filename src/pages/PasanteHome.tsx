@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Clock, AlertTriangle, LogOut, 
   Briefcase, Calendar, FileText, 
@@ -7,39 +8,87 @@ import {
 } from 'lucide-react';
 import '../styles/PasanteHome.css';
 
-const PasanteHome = () => {
-  // --- MOCK DATA ---
-  const [pasante] = useState({
-    nombre: "Juan Pérez",
-    carrera: "Desarrollo de Software",
-    estado: "Activo", 
-    horasRequeridas: 400,
-    horasCompletadas: 320,
-    faltas: 1,
-    atrasos: 6,
-    llamadosAtencion: 1,
-    historialReciente: [
-      { fecha: '2024-01-20', tipo: 'Asistencia', detalle: 'Entrada: 08:00 - Salida: 14:00', estado: 'ok' },
-      { fecha: '2024-01-19', tipo: 'Atraso', detalle: 'Entrada: 08:15 (+15 min)', estado: 'warn' },
-      { fecha: '2024-01-18', tipo: 'Asistencia', detalle: 'Entrada: 08:00 - Salida: 14:00', estado: 'ok' },
-    ]
-  });
+interface HistorialItem {
+  fecha: string;
+  tipo: string;
+  detalle: string;
+  estado: string;
+}
 
-  const porcentaje = Math.min((pasante.horasCompletadas / pasante.horasRequeridas) * 100, 100);
+interface PasanteData {
+  nombre: string; // Used for display (combined from login)
+  nombres: string; // Raw data
+  apellidos: string; // Raw data
+  carrera: string;
+  estado: string;
+  horasRequeridas: number;
+  horasCompletadas: number; // This might not be in initial creation, so we default it
+  faltas: number;
+  atrasos: number;
+  llamadosAtencion: number;
+  historialReciente: HistorialItem[];
+}
+
+const PasanteHome = () => {
+  const navigate = useNavigate();
+  const [pasante, setPasante] = useState<PasanteData | null>(null);
+
+  // --- LOAD USER DATA FROM LOCAL STORAGE ---
+  useEffect(() => {
+    // 1. Get the user object saved during Login
+    const storedUser = localStorage.getItem('user');
+    
+    if (storedUser) {
+      const userData = JSON.parse(storedUser);
+      
+      // 2. Set state with real data + defaults for missing dashboard fields
+      setPasante({
+        ...userData,
+        // If 'nombre' exists use it, otherwise combine names
+        nombre: userData.nombre || `${userData.nombres} ${userData.apellidos}`,
+        // Default values for dashboard metrics (since creation form doesn't set them)
+        horasCompletadas: userData.horasCompletadas || 0,
+        // Ensure horasRequeridas is a number
+        horasRequeridas: Number(userData.horasRequeridas) || 0,
+        faltas: userData.faltas || 0,
+        atrasos: userData.atrasos || 0,
+        llamadosAtencion: userData.llamadosAtencion || 0,
+        historialReciente: userData.historialReciente || [
+            // Default mock history if none exists
+            { fecha: '2024-01-20', tipo: 'Sistema', detalle: 'Cuenta creada exitosamente', estado: 'ok' }
+        ]
+      });
+    } else {
+      // If no user found, redirect to login
+      navigate('/login');
+    }
+  }, [navigate]);
+
+  const handleLogout = () => {
+    if (window.confirm("¿Deseas cerrar tu sesión?")) {
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      localStorage.removeItem('role');
+      navigate('/login');
+    }
+  };
+
+  // Show loading state while checking auth
+  if (!pasante) return <div className="loading-screen">Cargando perfil...</div>;
+
+  // --- CALCULATIONS ---
+  const porcentaje = pasante.horasRequeridas > 0 
+    ? Math.min((pasante.horasCompletadas / pasante.horasRequeridas) * 100, 100) 
+    : 0;
+    
   const esCompletado = porcentaje >= 100;
   const limiteLlamados = 3;
   const esCritico = pasante.llamadosAtencion >= limiteLlamados;
 
-  const handleLogout = () => {
-    if (window.confirm("¿Deseas cerrar tu sesión?")) {
-      window.location.href = "/login";
-    }
-  };
-
   return (
     <div className="layout-wrapper">
       
-      {/* SIDEBAR (Con botón salir integrado arriba) */}
+      {/* SIDEBAR */}
       <aside className="modern-sidebar">
         <div className="sidebar-header">
           <div className="logo-box">
@@ -62,10 +111,8 @@ const PasanteHome = () => {
             <span>Notificaciones</span>
           </button>
 
-          {/* SEPARADOR VISUAL */}
           <div className="nav-separator"></div>
 
-          {/* BOTÓN SALIR (Integrado en el flujo) */}
           <button onClick={handleLogout} className="nav-item logout-item">
             <div className="nav-icon"><LogOut size={20} /></div>
             <span>Cerrar Sesión</span>
@@ -79,12 +126,13 @@ const PasanteHome = () => {
         {/* HEADER */}
         <header className="top-header">
           <div>
+            {/* Display first name only for greeting */}
             <h1>Hola, {pasante.nombre.split(' ')[0]} 👋</h1>
             <p className="subtitle">Resumen de tu pasantía en {pasante.carrera}</p>
           </div>
           <div className="profile-pill">
             <div className={`status-dot ${esCritico ? 'dot-red' : 'dot-green'}`}></div>
-            <span>{pasante.estado}</span>
+            <span>{pasante.estado || "Activo"}</span>
             <div className="avatar-circle">{pasante.nombre.charAt(0)}</div>
           </div>
         </header>
@@ -92,7 +140,7 @@ const PasanteHome = () => {
         {/* GRID DASHBOARD */}
         <div className="dashboard-grid">
           
-          {/* 1. TARJETA PROGRESO (Hero) */}
+          {/* 1. TARJETA PROGRESO */}
           <div className="card hero-card">
             <div className="hero-content">
               <h3>Progreso General</h3>
@@ -111,7 +159,6 @@ const PasanteHome = () => {
               </div>
             </div>
 
-            {/* Gráfico Circular SVG */}
             <div className="circular-chart-wrapper">
               <svg viewBox="0 0 36 36" className="circular-chart">
                 <path className="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />

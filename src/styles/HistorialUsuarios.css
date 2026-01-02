@@ -1,0 +1,271 @@
+/* Heredamos variables del tema global */
+
+/* --- LAYOUT DEL GRID --- */
+.cards-grid {
+    display: grid;
+    /* Esto hace la magia: crea columnas automáticas de mínimo 280px */
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 24px;
+    padding-bottom: 2rem;
+}
+
+/* --- TARJETA ESTILO CRISTAL --- */
+.user-card-glass {
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid white;
+    border-radius: 20px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.05);
+    backdrop-filter: blur(12px);
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+}
+
+.user-card-glass:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 30px -10px rgba(37, 99, 235, 0.15);
+    border-color: #dbeafe;
+}
+
+/* Header Tarjeta */
+.card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.role-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 30px;
+    letter-spacing: 0.5px;
+}
+.badge-blue { background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; }
+.badge-purple { background: #f3e8ff; color: #9333ea; border: 1px solid #e9d5ff; }
+
+.icon-btn-mini {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 4px;
+    transition: 0.2s;
+}
+.icon-btn-mini:hover { color: #ef4444; }
+
+/* Perfil */
+.card-profile {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.avatar-large {
+    width: 64px; height: 64px;
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    color: white;
+    font-size: 1.5rem;
+    font-weight: 700;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 12px auto;
+    box-shadow: 0 8px 16px rgba(37, 99, 235, 0.2);
+}
+
+.card-profile h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #0f172a;
+}
+
+.lastname {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.95rem;
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+
+.status-dot-text {
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.text-green { color: #16a34a; }
+.text-red { color: #ef4444; }
+
+/* Detalles */
+.card-details {
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 12px;
+    padding: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.detail-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #475569;
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+    font-weight: 500;
+}
+
+.credentials-container {
+    background: #f8fafc;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.cred-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: #64748b;
+    margin-bottom: 4px;
+}
+.cred-row:last-child { margin-bottom: 0; }
+
+.mono {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    color: #334155;
+}
+.pass { letter-spacing: 1px; }
+
+.icon-gray { color: #94a3b8; }
+
+/* Footer */
+.card-footer {
+    margin-top: auto;
+    padding-top: 1.2rem;
+}
+
+.btn-edit-full {
+    width: 100%;
+    padding: 10px;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    color: #475569;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+    font-size: 0.9rem;
+}
+.btn-edit-full:hover {
+    background: #f1f5f9;
+    color: #2563eb;
+    border-color: #bfdbfe;
+}
+
+/* Search Pill en Header */
+.search-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: white;
+    padding: 8px 16px;
+    border-radius: 30px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+    margin-right: 15px;
+}
+.search-pill input {
+    border: none; outline: none;
+    font-size: 0.9rem;
+    width: 180px;
+    color: #475569;
+}
+.btn-glow.small {
+    padding: 8px 20px;
+    font-size: 0.85rem;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .header-actions {
+        width: 100%;
+        margin-top: 15px;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .search-pill { width: 100%; margin: 0; }
+    .search-pill input { width: 100%; }
+    .btn-glow.small { width: 100%; }
+}
+
+/* ... (Keep all previous styles) ... */
+
+/* --- MODAL STYLES --- */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.modal-glass {
+    background: white;
+    width: 90%;
+    max-width: 400px;
+    border-radius: 16px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    animation: slideUp 0.3s ease-out;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 1rem;
+}
+
+.modal-header h3 { margin: 0; font-size: 1.2rem; color: #0f172a; }
+
+.close-btn {
+    background: transparent; border: none; cursor: pointer; color: #64748b;
+    padding: 4px; border-radius: 50%; transition: 0.2s;
+}
+.close-btn:hover { background: #f1f5f9; color: #ef4444; }
+
+.user-summary {
+    background: #f8fafc;
+    padding: 1rem;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+    margin-bottom: 1rem;
+    border: 1px solid #e2e8f0;
+}
+.user-summary strong { color: #0f172a; }
+.user-summary span { font-size: 0.85rem; color: #64748b; }
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 1rem;
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }

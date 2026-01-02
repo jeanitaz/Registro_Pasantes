@@ -1,0 +1,43 @@
+{
+  "pasantes": [
+    {
+      "id": "bc41",
+      "nombres": "Jean Carlos ",
+      "apellidos": "Itaz Naranjo",
+      "cedula": "1724617053",
+      "fechaNacimiento": "20000-10-22",
+      "institucion": "itsqmet",
+      "carrera": "Desarrollo de software",
+      "dependencia": "Tecnologías de la Información",
+      "horasRequeridas": 400,
+      "discapacidad": "No",
+      "email": "jeanrap-@inamhi.gob.ec",
+      "telefono": "0993643838",
+      "usuario": "jitaz",
+      "password": "jitaz123",
+      "fotoNombre": "default.jpg",
+      "estado": "No habilitado",
+      "fechaRegistro": "2026-01-02T08:41:41.414Z"
+    },
+    {
+      "id": "8aa9",
+      "nombres": "Ariel Alejandro",
+      "apellidos": "Alcivar Fernandez",
+      "cedula": "1724617053",
+      "fechaNacimiento": "2004-06-28",
+      "institucion": "itsqmet",
+      "carrera": "Desarrollo de software",
+      "dependencia": "Tecnologías de la Información",
+      "horasRequeridas": 140,
+      "discapacidad": "No",
+      "email": "ariel-@inamhi.gob.ec",
+      "telefono": "0993643838",
+      "usuario": "aalcivar",
+      "password": "ariel123",
+      "fotoNombre": "default.jpg",
+      "estado": "No habilitado",
+      "fechaRegistro": "2026-01-02T08:45:16.368Z"
+    }
+  ],
+  "usuarios": []
+}

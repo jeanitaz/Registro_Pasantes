@@ -5,7 +5,6 @@ const AdminHome = () => {
     const navigate = useNavigate();
 
     const handleLogout = () => {
-        // Lógica de logout
         console.log("Cerrando sesión...");
         navigate('/login');
     };
@@ -13,6 +12,7 @@ const AdminHome = () => {
     return (
         <div className="sophisticated-wrapper">
             
+            {/* LUCES AMBIENTALES (Ahora se mueven y son visibles) */}
             <div className="ambient-light light-1"></div>
             <div className="ambient-light light-2"></div>
 
@@ -34,12 +34,12 @@ const AdminHome = () => {
                 {/* GRUPO 2 */}
                 <div className="menu-group">
                     <p className="menu-label">Administración</p>
-                    <a href="#" className="menu-item">Usuarios</a>
+                    <a href="/historial" className="menu-item">Usuarios</a>
                     <a href="#" className="menu-item">Configuración</a>
                     <a href="#" className="menu-item warning">Edición Directa</a>
                 </div>
 
-                {/* BOTÓN DE LOGOUT (VISIBLE EN MOVIL TAMBIÉN) */}
+                {/* BOTÓN DE LOGOUT */}
                 <div className="menu-group session-group">
                     <p className="menu-label">Sesión</p>
                     <button className="btn-logout" onClick={handleLogout}>
@@ -68,7 +68,6 @@ const AdminHome = () => {
                     </div>
                     <div className="header-actions">
                         <span className="system-status">Estado: <strong>Óptimo</strong></span>
-                        {/* BOTÓN BLANCO RESPLANDECIENTE */}
                         <button className="btn-glow">Exportar Datos</button>
                     </div>
                 </header>
@@ -76,12 +75,12 @@ const AdminHome = () => {
                 <div className="sophisticated-grid">
                     
                     {/* Tarjeta Usuarios */}
-                    <div className="glass-card wide-card users-module">
+                    <div className="glass-card wide-card users-module" onClick={() => navigate('/usuarios')}>
                         <div className="card-content">
                             <div className="icon-box blue">👥</div>
                             <div className="text-content">
                                 <h3>Gestión de Usuarios</h3>
-                                <p>Administración total de roles y accesos del personal.</p>
+                                <p>Administración total de roles y accesos.</p>
                             </div>
                             <button className="action-arrow">→</button>
                         </div>
@@ -94,7 +93,7 @@ const AdminHome = () => {
                             <button className="dots">•••</button>
                         </div>
                         <h3>Configuración</h3>
-                        <p>Parámetros y reglas del sistema.</p>
+                        <p>Parámetros y reglas.</p>
                     </div>
 
                     {/* Tarjeta Reportes */}
@@ -122,7 +121,6 @@ const AdminHome = () => {
                     <div className="glass-card log-module">
                         <div className="module-header">
                             <h3>Log de Auditoría</h3>
-                            {/* AQUÍ ESTÁ EL INDICADOR ROJO (TEXTO + PUNTO) */}
                             <div className="live-status">En vivo</div>
                         </div>
                         <ul className="log-list">

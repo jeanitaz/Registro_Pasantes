@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Search, FileCheck, Upload,
     Users, AlertTriangle, Clock, Ban,
-    LogOut, // Icono salir
-    LayoutGrid, Settings, Bell,
+    LogOut,
+    LayoutGrid, Bell,
     CheckCircle2, ChevronRight, FileText
 } from 'lucide-react';
 import '../styles/RRHHHome.css';
@@ -34,32 +34,50 @@ const RRHHModern = () => {
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedPasante, setSelectedPasante] = useState<Pasante | null>(null);
+    const [pasantes, setPasantes] = useState<Pasante[]>([]); // Initial state is empty
 
-    // --- DATOS MOCK ---
-    const [pasantes, setPasantes] = useState<Pasante[]>([
-        {
-            id: 1, nombre: "Juan Pérez", cedula: "1712345678", carrera: "Desarrollo de Software",
-            estado: "Pendiente Doc.", progresoHoras: 20, faltas: 2, atrasos: 3, llamadosAtencion: 1,
-            fechasFaltas: ["2024-01-10", "2024-01-15"],
-            documentos: [
-                { id: 'd1', nombre: 'Hoja de Vida', validado: true },
-                { id: 'd2', nombre: 'Carta de Solicitud', validado: true },
-                { id: 'd3', nombre: 'Acuerdo de Confidencialidad', validado: false },
-                { id: 'd4', nombre: 'Copia de Cédula', validado: true },
-            ], informeFinalSubido: false
-        },
-        {
-            id: 2, nombre: "Maria Garcia", cedula: "1798765432", carrera: "Diseño Gráfico",
-            estado: "Habilitado", progresoHoras: 80, faltas: 0, atrasos: 0, llamadosAtencion: 0,
-            fechasFaltas: [],
-            documentos: [
-                { id: 'd1', nombre: 'Hoja de Vida', validado: true },
-                { id: 'd2', nombre: 'Carta de Solicitud', validado: true },
-                { id: 'd3', nombre: 'Acuerdo de Confidencialidad', validado: true },
-                { id: 'd4', nombre: 'Copia de Cédula', validado: true },
-            ], informeFinalSubido: true
-        }
-    ]);
+    // --- FETCH DATA FROM JSON SERVER ---
+    useEffect(() => {
+        const fetchPasantes = async () => {
+            try {
+                const response = await fetch('http://localhost:3001/pasantes');
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Map the raw data to match the Pasante interface structure
+                    // This handles cases where new records might miss some dashboard-specific fields
+                    const pasantesAdaptados = data.map((p: any) => ({
+                        id: p.id || Math.random(), // Ensure an ID exists
+                        // Combine names if 'nombre' property is missing (from creation form)
+                        nombre: p.nombre || `${p.nombres} ${p.apellidos}`, 
+                        cedula: p.cedula,
+                        carrera: p.carrera,
+                        estado: p.estado || "Pendiente Doc.",
+                        // Default values for dashboard metrics
+                        progresoHoras: p.progresoHoras || 0,
+                        faltas: p.faltas || 0,
+                        atrasos: p.atrasos || 0,
+                        llamadosAtencion: p.llamadosAtencion || 0,
+                        fechasFaltas: p.fechasFaltas || [],
+                        // Default documents checklist
+                        documentos: p.documentos || [
+                            { id: 'd1', nombre: 'Hoja de Vida', validado: false },
+                            { id: 'd2', nombre: 'Carta de Solicitud', validado: false },
+                            { id: 'd3', nombre: 'Acuerdo de Confidencialidad', validado: false },
+                            { id: 'd4', nombre: 'Copia de Cédula', validado: false },
+                        ],
+                        informeFinalSubido: p.informeFinalSubido || false
+                    }));
+
+                    setPasantes(pasantesAdaptados);
+                }
+            } catch (error) {
+                console.error("Error loading interns:", error);
+            }
+        };
+
+        fetchPasantes();
+    }, []);
 
     const filteredPasantes = pasantes.filter(p =>
         p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -115,9 +133,9 @@ const RRHHModern = () => {
                         <div className="nav-icon"><Bell size={20}/></div>
                         <span>Alertas</span>
                     </button>
-                    <button className="nav-item">
-                        <div className="nav-icon"><Settings size={20}/></div>
-                        <span>Ajustes</span>
+                    <button className="nav-item" onClick={() => navigate('/creacion-pasante')}>
+                        <div className="nav-icon"><Users size={20}/></div>
+                        <span>Creacion Pasante</span>
                     </button>
 
                     {/* SEPARADOR VISUAL */}
