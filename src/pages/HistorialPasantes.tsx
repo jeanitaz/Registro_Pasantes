@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+// 1. IMPORTAMOS LA LIBRERÍA XLSX
+import * as XLSX from 'xlsx'; 
 import { 
     Search, GraduationCap, Building, 
     MapPin, Edit2, 
-    Trash2, Save, X, Key, User
+    Trash2, Save, X, Key, User,
+    FileSpreadsheet // Nuevo icono para Excel
 } from 'lucide-react';
 import '../styles/HistorialPasantes.css';
 
@@ -18,9 +21,10 @@ interface Pasante {
     horasRequeridas: number;
     horasCompletadas?: number;
     estado: string;
-    // Agregamos credenciales a la interfaz
     usuario: string;
     password?: string;
+    // 2. AGREGAMOS EL CAMPO DE FECHA
+    fechaRegistro?: string; 
 }
 
 const HistorialPasantes = () => {
@@ -29,11 +33,9 @@ const HistorialPasantes = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
 
-    // Estado del Modal
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingPasante, setEditingPasante] = useState<Pasante | null>(null);
 
-    // --- CARGAR DATOS ---
     useEffect(() => {
         const fetchPasantes = async () => {
             try {
@@ -55,8 +57,70 @@ const HistorialPasantes = () => {
         p.nombres.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.apellidos.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.cedula.includes(searchTerm) ||
-        p.usuario?.toLowerCase().includes(searchTerm.toLowerCase()) // Ahora busca también por usuario
+        p.usuario?.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    // --- 3. FUNCIÓN PARA EXPORTAR A EXCEL ---
+    const handleExportExcel = () => {
+        // A. Formateamos los datos para que se vean bonitos en el Excel
+        const datosParaExcel = filteredPasantes.map(p => {
+            // Lógica para formatear la fecha correctamente a Hora Ecuador
+            let fechaFormateada = 'No registrado';
+            
+            if (p.fechaRegistro) {
+                const fechaObj = new Date(p.fechaRegistro);
+                // Forzamos la zona horaria a Guayaquil/Ecuador
+                fechaFormateada = fechaObj.toLocaleString('es-EC', {
+                    timeZone: 'America/Guayaquil', 
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false // Formato 24 horas
+                });
+            }
+
+            return {
+                "Cédula": p.cedula,
+                "Nombres": p.nombres,
+                "Apellidos": p.apellidos,
+                "Usuario": p.usuario,
+                "Institución": p.institucion,
+                "Carrera": p.carrera,
+                "Dependencia": p.dependencia,
+                "Estado": p.estado,
+                "Avance Horas": `${p.horasCompletadas || 0} / ${p.horasRequeridas}`,
+                "Fecha de Creación": fechaFormateada
+            };
+        });
+
+        // B. Crear una hoja de trabajo (Worksheet)
+        const hoja = XLSX.utils.json_to_sheet(datosParaExcel);
+
+        // C. Ajustar ancho de columnas automáticamente
+        const wscols = [
+            {wch: 15}, // Cédula
+            {wch: 20}, // Nombres
+            {wch: 20}, // Apellidos
+            {wch: 15}, // Usuario
+            {wch: 25}, // Institución
+            {wch: 20}, // Carrera
+            {wch: 25}, // Dependencia
+            {wch: 12}, // Estado
+            {wch: 15}, // Horas
+            {wch: 22}  // Fecha
+        ];
+        hoja['!cols'] = wscols;
+
+        // D. Crear un libro de trabajo (Workbook)
+        const libro = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(libro, hoja, "Historial Pasantes");
+
+        // E. Descargar el archivo
+        const fechaHoy = new Date().toISOString().split('T')[0];
+        XLSX.writeFile(libro, `Reporte_Pasantes_${fechaHoy}.xlsx`);
+    };
 
     const handleDelete = async (id: string) => {
         if (window.confirm("¿Estás seguro de eliminar este pasante y todo su registro?")) {
@@ -73,7 +137,7 @@ const HistorialPasantes = () => {
         setEditingPasante({
             ...pasante,
             horasCompletadas: pasante.horasCompletadas || 0,
-            password: pasante.password || '' // Asegurar que no sea undefined
+            password: pasante.password || ''
         });
         setIsModalOpen(true);
     };
@@ -125,6 +189,25 @@ const HistorialPasantes = () => {
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
+                        
+                        {/* 4. BOTÓN DE EXCEL INTEGRADO */}
+                        <button 
+                            className="btn-glow small" 
+                            style={{ 
+                                backgroundColor: '#10b981', 
+                                borderColor: '#059669', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '8px',
+                                color: 'white' 
+                            }} 
+                            onClick={handleExportExcel}
+                            title="Descargar reporte en Excel"
+                        >
+                            <FileSpreadsheet size={18} />
+                            <span>Excel</span>
+                        </button>
+
                         <button className="btn-glow small" onClick={() => navigate('/creacion-pasante')}>
                             + Nuevo Ingreso
                         </button>
@@ -176,7 +259,6 @@ const HistorialPasantes = () => {
                                             <MapPin size={14} className="icon-subtle"/>
                                             <span>{pasante.dependencia}</span>
                                         </div>
-                                        {/* Mostramos usuario en la tarjeta también */}
                                         <div className="detail-item">
                                             <User size={14} className="icon-subtle"/>
                                             <span className="mono-text">{pasante.usuario}</span>
@@ -202,7 +284,7 @@ const HistorialPasantes = () => {
                 </div>
             </main>
 
-            {/* --- MODAL DE EDICIÓN CON CREDENCIALES --- */}
+            {/* MODAL DE EDICIÓN */}
             {isModalOpen && editingPasante && (
                 <div className="modal-overlay">
                     <div className="modal-glass">
@@ -216,14 +298,13 @@ const HistorialPasantes = () => {
                         <div className="modal-body">
                             <p className="student-name-modal">{editingPasante.nombres} {editingPasante.apellidos}</p>
                             
-                            {/* SECCIÓN DE CREDENCIALES */}
                             <div className="credentials-box-modal">
                                 <div className="input-group">
                                     <label><User size={14}/> Usuario</label>
                                     <input 
                                         type="text" 
                                         value={editingPasante.usuario}
-                                        readOnly // Usuario no editable para no romper consistencia
+                                        readOnly 
                                         className="input-readonly"
                                     />
                                 </div>

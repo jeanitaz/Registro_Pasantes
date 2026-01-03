@@ -220,3 +220,94 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* TIMELINE STYLES */
+.timeline-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding-left: 10px;
+}
+
+.timeline-item {
+    display: flex;
+    gap: 15px;
+    padding-bottom: 25px;
+    position: relative;
+}
+
+/* Línea vertical conectora */
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: 19px; /* Ajustar según tamaño del icono */
+    top: 30px;
+    bottom: 0;
+    width: 2px;
+    background-color: #e5e7eb;
+}
+
+.timeline-item:last-child::before {
+    display: none;
+}
+
+.timeline-icon {
+    width: 40px;
+    height: 40px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1; /* Para estar sobre la línea */
+    flex-shrink: 0;
+}
+
+.timeline-content {
+    background: #f9fafb;
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 1px solid #f3f4f6;
+    flex: 1;
+}
+
+.timeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.t-accion {
+    font-weight: 600;
+    color: #111827;
+    font-size: 0.9rem;
+}
+
+.t-fecha {
+    font-size: 0.75rem;
+    color: #9ca3af;
+}
+
+.t-detalle {
+    font-size: 0.85rem;
+    color: #4b5563;
+    margin: 0 0 8px 0;
+    line-height: 1.4;
+}
+
+.t-autor {
+    font-size: 0.7rem;
+    color: #9ca3af;
+    display: block;
+    font-style: italic;
+}
+
+/* Colores de Iconos (Utilities) */
+.text-blue-500 { color: #3b82f6; background-color: #eff6ff; }
+.text-green-500 { color: #10b981; background-color: #ecfdf5; }
+.text-red-500 { color: #ef4444; background-color: #fef2f2; }
+.text-orange-500 { color: #f59e0b; background-color: #fffbeb; }
+.text-purple-500 { color: #8b5cf6; background-color: #f5f3ff; }
+.text-gray-500 { color: #6b7280; background-color: #f3f4f6; }

@@ -3,52 +3,52 @@ import { useNavigate } from 'react-router-dom';
 import {
     Search, FileCheck,
     Users,
-    LogOut, LayoutGrid, Bell,
-    CheckCircle2, ChevronRight, 
-    KeyRound, X // Nuevos iconos
+    LogOut, LayoutGrid,
+    CheckCircle2,
+    KeyRound, X, 
+    History,
+    AlertTriangle, Clock, FileText, Download, UploadCloud, CalendarX, Eye 
 } from 'lucide-react';
-import '../styles/RRHHHome.css';
+import '../styles/RRHHHome.css'; 
 
-interface Documento {
-    id: string;
-    nombre: string;
-    validado: boolean;
-}
+const DOCUMENTOS_REQUERIDOS = [ "Hoja de Vida", "Carta de Solicitud", "Acuerdo de Confidencialidad", "Copia de Cédula" ];
 
-interface Pasante {
-    id: number;
-    nombre: string;
-    cedula: string;
-    carrera: string;
-    estado: string;
-    progresoHoras: number;
-    faltas: number;
-    atrasos: number;
-    llamadosAtencion: number;
-    fechasFaltas: string[];
-    documentos: Documento[];
-    informeFinalSubido: boolean;
+interface Documento { id: string; nombre: string; validado: boolean; }
+interface Pasante { 
+    id: number; nombre: string; cedula: string; carrera: string; estado: string; 
+    progresoHoras: number; faltas: number; atrasos: number; llamadosAtencion: number; 
+    fechasFaltas: string[]; documentos: Documento[]; 
+    informeFinalSubido: boolean; 
+    informeUrl?: string; // Aquí vendrá el Base64 gigante
 }
+interface Alerta { id: number; usuario: string; fecha: string; tipo: string; leido: boolean; }
 
-// Nueva interfaz para Alertas
-interface Alerta {
-    id: number;
-    usuario: string;
-    fecha: string;
-    tipo: string;
-    leido: boolean;
-}
+const ToastItem = ({ alerta, onClose }: { alerta: Alerta; onClose: (id: number) => void }) => {
+    useEffect(() => {
+        const timer = setTimeout(() => onClose(alerta.id), 10000);
+        return () => clearTimeout(timer);
+    }, [alerta.id, onClose]);
+    return (
+        <div className="clean-toast">
+            <div className="clean-toast-icon"><KeyRound size={18} /></div>
+            <div className="clean-toast-content">
+                <h4>Recuperación de Clave</h4><p><strong>{alerta.usuario}</strong> solicitó acceso.</p><span>{alerta.fecha}</span>
+            </div>
+            <button onClick={() => onClose(alerta.id)}><X size={16} /></button>
+        </div>
+    );
+};
 
 const RRHHModern = () => {
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedPasante, setSelectedPasante] = useState<Pasante | null>(null);
     const [pasantes, setPasantes] = useState<Pasante[]>([]);
-    
-    // --- ESTADO DE ALERTAS ---
     const [alertas, setAlertas] = useState<Alerta[]>([]);
+    const [dismissedIds, setDismissedIds] = useState<number[]>([]);
+    
+    const [showPdfModal, setShowPdfModal] = useState(false);
 
-    // 1. CARGA DE PASANTES (Tu lógica existente)
     useEffect(() => {
         const fetchPasantes = async () => {
             try {
@@ -60,7 +60,7 @@ const RRHHModern = () => {
                         nombre: p.nombre || `${p.nombres} ${p.apellidos}`, 
                         cedula: p.cedula,
                         carrera: p.carrera,
-                        estado: p.estado || "Pendiente Doc.",
+                        estado: p.estado || "No habilitado", 
                         progresoHoras: p.progresoHoras || 0,
                         faltas: p.faltas || 0,
                         atrasos: p.atrasos || 0,
@@ -72,61 +72,61 @@ const RRHHModern = () => {
                             { id: 'd3', nombre: 'Acuerdo de Confidencialidad', validado: false },
                             { id: 'd4', nombre: 'Copia de Cédula', validado: false },
                         ],
-                        informeFinalSubido: p.informeFinalSubido || false
+                        informeFinalSubido: p.informeFinalSubido || false,
+                        informeUrl: p.informeUrl // Aquí recuperamos el Base64 real
                     }));
                     setPasantes(pasantesAdaptados);
                 }
-            } catch (error) {
-                console.error("Error loading interns:", error);
-            }
+            } catch (error) { console.error("Error loading interns:", error); }
         };
         fetchPasantes();
     }, []);
 
-    // 2. SISTEMA DE MONITORIZACIÓN DE ALERTAS (POLLING)
     useEffect(() => {
         const revisarBuzon = () => {
             const buzón = localStorage.getItem('alertasRRHH');
             if (buzón) {
                 const listaAlertas: Alerta[] = JSON.parse(buzón);
-                // Solo mostramos las que existen. Si quieres persistencia, no las borres del state
-                setAlertas(listaAlertas);
+                setAlertas(prev => (JSON.stringify(prev) !== JSON.stringify(listaAlertas)) ? listaAlertas : prev);
             }
         };
-
-        // Revisar inmediatamente y luego cada 2 segundos
         revisarBuzon();
         const intervalo = setInterval(revisarBuzon, 2000);
-
         return () => clearInterval(intervalo);
     }, []);
 
-    // 3. DESCARTAR ALERTA
-    const cerrarAlerta = (id: number) => {
-        const nuevasAlertas = alertas.filter(a => a.id !== id);
-        setAlertas(nuevasAlertas);
-        // Actualizamos el localStorage para que no vuelva a aparecer
-        localStorage.setItem('alertasRRHH', JSON.stringify(nuevasAlertas));
-    };
+    const ocultarToast = (id: number) => setDismissedIds(prev => [...prev, id]);
 
     const filteredPasantes = pasantes.filter(p =>
         p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.cedula.includes(searchTerm)
     );
 
-    const toggleDocumento = (docId: string) => {
-        // ... (Tu lógica existente)
+    const toggleDocumento = async (docId: string) => {
         if (!selectedPasante) return;
-        const updatedPasante = {
-            ...selectedPasante,
-            documentos: selectedPasante.documentos.map(doc =>
-                doc.id === docId ? { ...doc, validado: !doc.validado } : doc
-            )
-        };
-        const todosValidados = updatedPasante.documentos.every(doc => doc.validado);
-        updatedPasante.estado = todosValidados ? "Habilitado" : "Pendiente Doc.";
-        setSelectedPasante(updatedPasante);
-        setPasantes(pasantes.map(p => p.id === updatedPasante.id ? updatedPasante : p));
+        const nuevosDocumentos = selectedPasante.documentos.map(doc =>
+            doc.id === docId ? { ...doc, validado: !doc.validado } : doc
+        );
+        const faltanRequisitos = DOCUMENTOS_REQUERIDOS.some(reqName => {
+            const doc = nuevosDocumentos.find(d => d.nombre === reqName);
+            return !doc || !doc.validado;
+        });
+        const nuevoEstado = !faltanRequisitos ? "Activo" : "No habilitado";
+        const pasanteActualizado = { ...selectedPasante, documentos: nuevosDocumentos, estado: nuevoEstado };
+
+        setSelectedPasante(pasanteActualizado);
+        setPasantes(prev => prev.map(p => p.id === pasanteActualizado.id ? pasanteActualizado : p));
+
+        try {
+            await fetch(`http://localhost:3001/pasantes/${selectedPasante.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ documentos: nuevosDocumentos, estado: nuevoEstado })
+            });
+            if (nuevoEstado === "Activo" && selectedPasante.estado !== "Activo") {
+                alert(`✅ Documentación completa. La cuenta de ${selectedPasante.nombre} está ahora ACTIVA.`);
+            }
+        } catch (error) { console.error("Error al guardar en BD:", error); }
     };
 
     const calcularProgresoDocs = () => {
@@ -142,42 +142,51 @@ const RRHHModern = () => {
         }
     };
 
+    const handleJustificarFalta = () => alert("Lógica para justificar falta...");
+    const handleGenerarReporteRetiro = () => alert("Lógica para reporte de retiro...");
+    
+    // --- LÓGICA DE DESCARGA PARA BASE64 ---
+    const handleDescargarInforme = () => {
+        if (selectedPasante?.informeUrl) {
+            const link = document.createElement('a');
+            link.href = selectedPasante.informeUrl; // Base64
+            link.download = `Informe_${selectedPasante.nombre.replace(/\s+/g, '_')}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } else {
+            alert("No hay URL de informe disponible.");
+        }
+    };
+
+    const handleVerInforme = () => {
+        if (selectedPasante?.informeUrl) {
+            setShowPdfModal(true);
+        }
+    };
+
     return (
         <div className="layout-wrapper">
-            
-            {/* SIDEBAR */}
             <aside className="modern-sidebar">
                 <div className="sidebar-header">
                     <div className="logo-box"><Users size={24} /></div>
                     <span className="logo-text">HR Portal</span>
                 </div>
-
                 <div className="nav-links">
                     <button className="nav-item active">
                         <div className="nav-icon"><LayoutGrid size={20}/></div>
                         <span>Dashboard</span>
                     </button>
-                    
-                    {/* Botón Alertas con indicador rojo si hay pendientes */}
-                    <button className="nav-item" onClick={() => navigate('/historialAlertas')}>
-                        <div className="nav-icon" style={{position: 'relative'}}>
-                            <Bell size={20}/>
-                            {alertas.length > 0 && <span className="notification-dot"></span>}
-                        </div>
-                        <span>Alertas</span>
-                    </button>
-
+                    {/* ... Resto de botones de navegación ... */}
                     <button className="nav-item" onClick={() => navigate('/Registro')}>
                         <div className="nav-icon"><Users size={20}/></div>
                         <span>Creacion Pasante</span>
                     </button>
                     <button className="nav-item" onClick={() => navigate('/historialP')}>
-                        <div className="nav-icon"><Users size={20}/></div>
+                        <div className="nav-icon"><History size={20}/></div>
                         <span>Historial Pasante</span>
                     </button>
-
                     <div className="nav-separator"></div>
-
                     <button onClick={handleLogout} className="nav-item logout-item">
                         <div className="nav-icon"><LogOut size={20}/></div>
                         <span>Cerrar Sesión</span>
@@ -185,101 +194,157 @@ const RRHHModern = () => {
                 </div>
             </aside>
 
-            {/* LISTA (Tu código existente) */}
-            <section className={`list-panel ${selectedPasante ? 'hidden-mobile' : ''}`}>
-                <div className="list-header">
-                    <h2>Estudiantes</h2>
-                    <span className="badge-count">{filteredPasantes.length} Activos</span>
+            <section className={`clean-list-panel ${selectedPasante ? 'mobile-hidden' : ''}`}>
+                <div className="clean-search-area">
+                    <div className="search-input-wrapper">
+                        <Search size={16} className="text-gray-400" />
+                        <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                    </div>
                 </div>
-                <div className="search-wrapper">
-                    <Search size={16} className="search-icon" />
-                    <input type="text" placeholder="Buscar por nombre..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                </div>
-                <div className="student-list">
-                    {filteredPasantes.map(pasante => (
-                        <div key={pasante.id} onClick={() => setSelectedPasante(pasante)} className={`student-item ${selectedPasante?.id === pasante.id ? 'active' : ''}`}>
-                            <div className="avatar-small">{pasante.nombre.charAt(0)}</div>
-                            <div className="student-info">
-                                <span className="s-name">{pasante.nombre}</span>
-                                <span className="s-career">{pasante.carrera}</span>
+                <div className="clean-list-content">
+                    <h3 className="list-title">Estudiantes ({filteredPasantes.length})</h3>
+                    <div className="list-scroll">
+                        {filteredPasantes.map(pasante => (
+                            <div key={pasante.id} onClick={() => setSelectedPasante(pasante)} className={`clean-list-item ${selectedPasante?.id === pasante.id ? 'selected' : ''}`}>
+                                <div className="item-avatar">{pasante.nombre.charAt(0)}</div>
+                                <div className="item-info">
+                                    <span className="item-name">{pasante.nombre}</span>
+                                    <span className="item-cedula">{pasante.cedula}</span>
+                                </div>
+                                <div className={`item-dot ${pasante.estado === 'Activo' ? 'bg-emerald' : 'bg-amber'}`}></div>
                             </div>
-                            <ChevronRight size={14} className="chevron" />
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
             </section>
 
-            {/* DETALLE PRINCIPAL */}
-            <main className={`main-area ${!selectedPasante ? 'hidden-mobile' : ''}`}>
-                
-                {/* --- CONTENEDOR DE ALERTAS FLOTANTES (TOASTS) --- */}
-                <div className="toast-container">
-                    {alertas.map(alerta => (
-                        <div key={alerta.id} className="toast-alert">
-                            <div className="toast-icon">
-                                <KeyRound size={20} />
-                            </div>
-                            <div className="toast-content">
-                                <h4>Solicitud de Acceso</h4>
-                                <p><strong>{alerta.usuario}</strong> solicitó recuperar contraseña.</p>
-                                <span className="toast-time">{alerta.fecha}</span>
-                            </div>
-                            <button className="toast-close" onClick={() => cerrarAlerta(alerta.id)}>
-                                <X size={16} />
-                            </button>
-                        </div>
+            <main className={`clean-main-area ${!selectedPasante ? 'mobile-hidden' : ''}`}>
+                <div className="toast-wrapper">
+                    {alertas.filter(a => !a.leido && !dismissedIds.includes(a.id)).map(alerta => (
+                        <ToastItem key={alerta.id} alerta={alerta} onClose={ocultarToast} />
                     ))}
                 </div>
 
                 {selectedPasante ? (
-                    /* Tu contenido de detalle existente */
-                    <div className="fade-in">
-                        <button className="mobile-back-btn" onClick={() => setSelectedPasante(null)}>← Volver a la lista</button>
-                        <header className="top-header">
-                            <div>
+                    <div className="clean-content-fade">
+                        <header className="clean-header">
+                            <button className="back-btn-mobile" onClick={() => setSelectedPasante(null)}>←</button>
+                            <div className="header-profile">
                                 <h1>{selectedPasante.nombre}</h1>
-                                <p className="subtitle">Expediente Digital • C.I. {selectedPasante.cedula}</p>
-                            </div>
-                            <div className="profile-pill">
-                                <div className={`status-dot ${selectedPasante.estado === 'Habilitado' ? 'dot-green' : 'dot-orange'}`}></div>
-                                <span>{selectedPasante.estado}</span>
+                                <div className="header-badges">
+                                    <span className="badge-pill">{selectedPasante.carrera}</span>
+                                    <span className={`badge-pill ${selectedPasante.estado === 'Activo' ? 'pill-success' : 'pill-warning'}`}>
+                                        {selectedPasante.estado}
+                                    </span>
+                                </div>
                             </div>
                         </header>
-                        <div className="dashboard-grid">
-                            <div className="kpi-column">
-                                <div className="card kpi-card">
-                                    <div className="kpi-icon-bg bg-blue"><FileCheck size={20} /></div>
-                                    <div><span className="kpi-label">Documentación</span><div className="kpi-value-row"><span className="kpi-number">{calcularProgresoDocs().toFixed(0)}%</span></div></div>
+
+                        <div className="clean-dashboard-grid">
+                            <div className="grid-left">
+                                {/* ... Tarjetas Documentación, Asistencia, Disciplina igual ... */}
+                                <div className="clean-card">
+                                    <div className="card-top"><span className="card-label">Documentación</span><FileCheck size={18} className="text-blue-500"/></div>
+                                    <div className="progress-circular">
+                                        <div className="progress-text">{calcularProgresoDocs().toFixed(0)}%</div>
+                                        <svg viewBox="0 0 36 36" className="circular-chart">
+                                            <path className="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                            <path className="circle" strokeDasharray={`${calcularProgresoDocs()}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                        </svg>
+                                    </div>
+                                    <div className="checklist-mini">
+                                        {selectedPasante.documentos.map(doc => (
+                                            <div key={doc.id} className="check-row" onClick={() => toggleDocumento(doc.id)}>
+                                                <div className={`check-box ${doc.validado ? 'checked' : ''}`}>{doc.validado && <CheckCircle2 size={12} color="white"/>}</div>
+                                                <span className={doc.validado ? 'text-strike' : ''}>{doc.nombre}</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                                {/* Resto de tus KPIs... */}
+                                <div className="clean-card">
+                                    <div className="card-top"><span className="card-label">Asistencia</span><Clock size={18} className="text-orange-500"/></div>
+                                    <div className="stats-row">
+                                        <div className="stat-item"><span className="stat-num text-red-500">{selectedPasante.faltas}</span><span className="stat-desc">Faltas</span></div>
+                                        <div className="stat-separator"></div>
+                                        <div className="stat-item"><span className="stat-num text-orange-500">{selectedPasante.atrasos}</span><span className="stat-desc">Atrasos</span></div>
+                                    </div>
+                                    {selectedPasante.faltas > 0 && <button className="btn-clean btn-outline" onClick={handleJustificarFalta}><CalendarX size={14}/> Justificar Falta</button>}
+                                </div>
+                                <div className="clean-card">
+                                    <div className="card-top"><span className="card-label">Disciplina</span><AlertTriangle size={18} className="text-red-500"/></div>
+                                    <div className="discipline-display"><div className="discipline-count">{selectedPasante.llamadosAtencion}</div><span>Llamados de Atención</span></div>
+                                    {selectedPasante.llamadosAtencion > 0 && <button className="btn-clean btn-danger" onClick={handleGenerarReporteRetiro}>Generar Informe Retiro</button>}
+                                </div>
                             </div>
-                            <div className="card list-card">
-                                {/* Checklist... */}
-                                <div className="card-header-row"><h3>Checklist Documental</h3></div>
-                                <div className="activity-list">
-                                    {selectedPasante.documentos.map(doc => (
-                                        <div key={doc.id} className="activity-item hover-trigger">
-                                            <div className="check-trigger" onClick={() => toggleDocumento(doc.id)}>
-                                                {doc.validado ? <CheckCircle2 size={20} className="text-green" /> : <div className="circle-empty" />}
-                                            </div>
-                                            <div className="activity-info">
-                                                <span className={`act-type ${doc.validado ? 'text-strikethrough' : ''}`}>{doc.nombre}</span>
-                                                <span className="act-detail">{doc.validado ? 'Verificado' : 'Pendiente de validación'}</span>
-                                            </div>
-                                        </div>
-                                    ))}
+
+                            <div className="grid-right">
+                                <div className="clean-card card-full-height">
+                                    <div className="card-top"><span className="card-label">Cierre de Pasantías</span></div>
+                                    <div className="informe-status-area">
+                                        {selectedPasante.informeFinalSubido ? (
+                                            <>
+                                                <div className="pdf-preview-container" onClick={handleVerInforme}>
+                                                    <div className="pdf-icon-overlay">
+                                                        <Eye size={32} className="text-white"/>
+                                                        <span>Ver Documento</span>
+                                                    </div>
+                                                    <div className="pdf-mockup">
+                                                        <FileText size={64} className="text-gray-300"/>
+                                                    </div>
+                                                </div>
+                                                <h3 className="mt-4">Informe Cargado</h3>
+                                                <p className="text-sm text-gray mb-4">Listo para revisión y cierre.</p>
+                                                <div className="flex gap-2 w-full">
+                                                    <button className="btn-clean btn-outline flex-1" onClick={handleVerInforme}><Eye size={16}/> Ver</button>
+                                                    <button className="btn-clean btn-primary flex-1" onClick={handleDescargarInforme}><Download size={16}/> Bajar</button>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div className="status-icon-large"><UploadCloud size={40} className="text-gray-300"/></div>
+                                                <h3>Informe Pendiente</h3>
+                                                <p>El estudiante debe cargar su informe final para proceder con el cierre.</p>
+                                            </>
+                                        )}
+                                    </div>
+                                    <div className="divider"></div>
+                                    <div className="info-notes">
+                                        <h4>Notas del sistema:</h4>
+                                        <ul><li>El estado cambiará automáticamente a "Finalizado" tras validar el informe.</li><li>Recuerde verificar las horas totales.</li></ul>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 ) : (
-                    <div className="empty-state-modern hidden-mobile">
-                        <Users size={40} className="empty-icon" />
-                        <h3>Selecciona un estudiante</h3>
-                        <p>Usa el directorio para ver detalles.</p>
+                    <div className="clean-empty-state">
+                        <div className="empty-circle"><Users size={48}/></div>
+                        <h3>Selecciona un perfil</h3>
+                        <p>Navega por la lista de la izquierda para ver los detalles del estudiante.</p>
                     </div>
                 )}
             </main>
+
+            {/* MODAL DE PDF */}
+            {showPdfModal && selectedPasante?.informeUrl && (
+                <div className="modal-overlay-pdf">
+                    <div className="modal-pdf-content">
+                        <div className="modal-pdf-header">
+                            <h3>Informe Final - {selectedPasante.nombre}</h3>
+                            <button onClick={() => setShowPdfModal(false)}><X size={24}/></button>
+                        </div>
+                        <div className="modal-pdf-body">
+                            <iframe 
+                                src={selectedPasante.informeUrl} 
+                                title="Visor PDF"
+                                width="100%" 
+                                height="100%" 
+                                style={{border: 'none'}}
+                            ></iframe>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
