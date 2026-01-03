@@ -3,24 +3,31 @@ import { useNavigate } from 'react-router-dom';
 import {
     Search, FileCheck,
     Users,
-    LogOut, LayoutGrid,
+    LogOut, LayoutGrid, Bell,
     CheckCircle2,
     KeyRound, X, 
     History,
-    AlertTriangle, Clock, FileText, Download, UploadCloud, CalendarX, Eye 
+    AlertTriangle, Clock, FileText, Download, UploadCloud, CalendarX, Eye, ExternalLink 
 } from 'lucide-react';
 import '../styles/RRHHHome.css'; 
 
-const DOCUMENTOS_REQUERIDOS = [ "Hoja de Vida", "Carta de Solicitud", "Acuerdo de Confidencialidad", "Copia de Cédula" ];
+const DOCUMENTOS_REQUERIDOS = [
+    "Hoja de Vida",
+    "Carta de Solicitud",
+    "Acuerdo de Confidencialidad",
+    "Copia de Cédula"
+];
 
 interface Documento { id: string; nombre: string; validado: boolean; }
+
 interface Pasante { 
     id: number; nombre: string; cedula: string; carrera: string; estado: string; 
     progresoHoras: number; faltas: number; atrasos: number; llamadosAtencion: number; 
     fechasFaltas: string[]; documentos: Documento[]; 
     informeFinalSubido: boolean; 
-    informeUrl?: string; // Aquí vendrá el Base64 gigante
+    informeUrl?: string;
 }
+
 interface Alerta { id: number; usuario: string; fecha: string; tipo: string; leido: boolean; }
 
 const ToastItem = ({ alerta, onClose }: { alerta: Alerta; onClose: (id: number) => void }) => {
@@ -32,7 +39,9 @@ const ToastItem = ({ alerta, onClose }: { alerta: Alerta; onClose: (id: number) 
         <div className="clean-toast">
             <div className="clean-toast-icon"><KeyRound size={18} /></div>
             <div className="clean-toast-content">
-                <h4>Recuperación de Clave</h4><p><strong>{alerta.usuario}</strong> solicitó acceso.</p><span>{alerta.fecha}</span>
+                <h4>Recuperación de Clave</h4>
+                <p><strong>{alerta.usuario}</strong> solicitó acceso.</p>
+                <span>{alerta.fecha}</span>
             </div>
             <button onClick={() => onClose(alerta.id)}><X size={16} /></button>
         </div>
@@ -56,7 +65,7 @@ const RRHHModern = () => {
                 if (response.ok) {
                     const data = await response.json();
                     const pasantesAdaptados = data.map((p: any) => ({
-                        id: p.id || Math.random(),
+                        id: p.id,
                         nombre: p.nombre || `${p.nombres} ${p.apellidos}`, 
                         cedula: p.cedula,
                         carrera: p.carrera,
@@ -73,7 +82,7 @@ const RRHHModern = () => {
                             { id: 'd4', nombre: 'Copia de Cédula', validado: false },
                         ],
                         informeFinalSubido: p.informeFinalSubido || false,
-                        informeUrl: p.informeUrl // Aquí recuperamos el Base64 real
+                        informeUrl: p.informeUrl 
                     }));
                     setPasantes(pasantesAdaptados);
                 }
@@ -104,13 +113,23 @@ const RRHHModern = () => {
 
     const toggleDocumento = async (docId: string) => {
         if (!selectedPasante) return;
+
+        // --- CAMBIO 1: BLOQUEO DE LÓGICA ---
+        // Si el estado es "Activo", impedimos modificar los checks
+        if (selectedPasante.estado === 'Activo') {
+            return; 
+        }
+        // ------------------------------------
+
         const nuevosDocumentos = selectedPasante.documentos.map(doc =>
             doc.id === docId ? { ...doc, validado: !doc.validado } : doc
         );
+        
         const faltanRequisitos = DOCUMENTOS_REQUERIDOS.some(reqName => {
             const doc = nuevosDocumentos.find(d => d.nombre === reqName);
             return !doc || !doc.validado;
         });
+        
         const nuevoEstado = !faltanRequisitos ? "Activo" : "No habilitado";
         const pasanteActualizado = { ...selectedPasante, documentos: nuevosDocumentos, estado: nuevoEstado };
 
@@ -123,9 +142,6 @@ const RRHHModern = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ documentos: nuevosDocumentos, estado: nuevoEstado })
             });
-            if (nuevoEstado === "Activo" && selectedPasante.estado !== "Activo") {
-                alert(`✅ Documentación completa. La cuenta de ${selectedPasante.nombre} está ahora ACTIVA.`);
-            }
         } catch (error) { console.error("Error al guardar en BD:", error); }
     };
 
@@ -145,17 +161,16 @@ const RRHHModern = () => {
     const handleJustificarFalta = () => alert("Lógica para justificar falta...");
     const handleGenerarReporteRetiro = () => alert("Lógica para reporte de retiro...");
     
-    // --- LÓGICA DE DESCARGA PARA BASE64 ---
     const handleDescargarInforme = () => {
         if (selectedPasante?.informeUrl) {
             const link = document.createElement('a');
-            link.href = selectedPasante.informeUrl; // Base64
+            link.href = selectedPasante.informeUrl;
             link.download = `Informe_${selectedPasante.nombre.replace(/\s+/g, '_')}.pdf`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
         } else {
-            alert("No hay URL de informe disponible.");
+            alert("No hay documento disponible.");
         }
     };
 
@@ -164,6 +179,9 @@ const RRHHModern = () => {
             setShowPdfModal(true);
         }
     };
+
+    // Helper para saber si está bloqueado
+    const isLocked = selectedPasante?.estado === 'Activo';
 
     return (
         <div className="layout-wrapper">
@@ -177,7 +195,13 @@ const RRHHModern = () => {
                         <div className="nav-icon"><LayoutGrid size={20}/></div>
                         <span>Dashboard</span>
                     </button>
-                    {/* ... Resto de botones de navegación ... */}
+                    <button className="nav-item" onClick={() => navigate('/historialAlertas')}>
+                        <div className="nav-icon" style={{position: 'relative'}}>
+                            <Bell size={20}/>
+                            {alertas.some(a => !a.leido) && <span className="notification-dot"></span>}
+                        </div>
+                        <span>Alertas</span>
+                    </button>
                     <button className="nav-item" onClick={() => navigate('/Registro')}>
                         <div className="nav-icon"><Users size={20}/></div>
                         <span>Creacion Pasante</span>
@@ -242,9 +266,20 @@ const RRHHModern = () => {
 
                         <div className="clean-dashboard-grid">
                             <div className="grid-left">
-                                {/* ... Tarjetas Documentación, Asistencia, Disciplina igual ... */}
                                 <div className="clean-card">
-                                    <div className="card-top"><span className="card-label">Documentación</span><FileCheck size={18} className="text-blue-500"/></div>
+                                    <div 
+                                        className="card-top interactive-header" 
+                                        onClick={() => navigate(`/documentacion/${selectedPasante.id}`)}
+                                        style={{ cursor: 'pointer' }}
+                                        title="Ir al gestor de documentación"
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span className="card-label" style={{ color: '#2563eb' }}>Documentación</span>
+                                            <ExternalLink size={14} className="text-blue-500" />
+                                        </div>
+                                        <FileCheck size={18} className="text-blue-500"/>
+                                    </div>
+                                    
                                     <div className="progress-circular">
                                         <div className="progress-text">{calcularProgresoDocs().toFixed(0)}%</div>
                                         <svg viewBox="0 0 36 36" className="circular-chart">
@@ -254,13 +289,25 @@ const RRHHModern = () => {
                                     </div>
                                     <div className="checklist-mini">
                                         {selectedPasante.documentos.map(doc => (
-                                            <div key={doc.id} className="check-row" onClick={() => toggleDocumento(doc.id)}>
+                                            <div 
+                                                key={doc.id} 
+                                                className="check-row" 
+                                                onClick={() => toggleDocumento(doc.id)}
+                                                // --- CAMBIO 2: ESTILO VISUAL DE BLOQUEO ---
+                                                style={{
+                                                    cursor: isLocked ? 'not-allowed' : 'pointer',
+                                                    opacity: isLocked ? 0.6 : 1
+                                                }}
+                                                title={isLocked ? "Documentación completa y bloqueada" : "Clic para validar/invalidar"}
+                                                // ------------------------------------------
+                                            >
                                                 <div className={`check-box ${doc.validado ? 'checked' : ''}`}>{doc.validado && <CheckCircle2 size={12} color="white"/>}</div>
                                                 <span className={doc.validado ? 'text-strike' : ''}>{doc.nombre}</span>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
+                                
                                 <div className="clean-card">
                                     <div className="card-top"><span className="card-label">Asistencia</span><Clock size={18} className="text-orange-500"/></div>
                                     <div className="stats-row">
@@ -270,6 +317,7 @@ const RRHHModern = () => {
                                     </div>
                                     {selectedPasante.faltas > 0 && <button className="btn-clean btn-outline" onClick={handleJustificarFalta}><CalendarX size={14}/> Justificar Falta</button>}
                                 </div>
+                                
                                 <div className="clean-card">
                                     <div className="card-top"><span className="card-label">Disciplina</span><AlertTriangle size={18} className="text-red-500"/></div>
                                     <div className="discipline-display"><div className="discipline-count">{selectedPasante.llamadosAtencion}</div><span>Llamados de Atención</span></div>

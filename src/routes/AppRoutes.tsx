@@ -9,6 +9,7 @@ import CreacionUsuarios from "../pages/CreacionUsuarios";
 import HistorialUsuarios from "../pages/HistorialUsuarios";
 import HistorialPasantes from "../pages/HistorialPasantes";
 import HistorialAlertas from "../pages/HistorialAlertas";
+import Documentacion from "../pages/Documentacion";
 const AppRoutes = () => {
     return (
         <Routes>
@@ -24,6 +25,7 @@ const AppRoutes = () => {
             <Route path="/admin" element={<AdminHome />} />
             <Route path="/rrhh" element={<RRHHHome />} />
             <Route path="/pasante" element={<PasanteHome />} />
+            <Route path="/documentacion/:idPasante" element={<Documentacion />} />
         </Routes>
     )
 }

@@ -208,7 +208,7 @@ const HistorialPasantes = () => {
                             <span>Excel</span>
                         </button>
 
-                        <button className="btn-glow small" onClick={() => navigate('/creacion-pasante')}>
+                        <button className="btn-glow small" onClick={() => navigate('/registro')}>
                             + Nuevo Ingreso
                         </button>
                     </div>
