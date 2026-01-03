@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-// 1. IMPORTAMOS LA LIBRERÍA XLSX
 import * as XLSX from 'xlsx'; 
 import { 
     Search, GraduationCap, Building, 
     MapPin, Edit2, 
     Trash2, Save, X, Key, User,
-    FileSpreadsheet // Nuevo icono para Excel
+    FileSpreadsheet 
 } from 'lucide-react';
 import '../styles/HistorialPasantes.css';
 
@@ -23,8 +22,9 @@ interface Pasante {
     estado: string;
     usuario: string;
     password?: string;
-    // 2. AGREGAMOS EL CAMPO DE FECHA
-    fechaRegistro?: string; 
+    fechaRegistro?: string;
+    // 1. NUEVO CAMPO PARA LA FOTO
+    fotoUrl?: string; 
 }
 
 const HistorialPasantes = () => {
@@ -60,24 +60,15 @@ const HistorialPasantes = () => {
         p.usuario?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // --- 3. FUNCIÓN PARA EXPORTAR A EXCEL ---
     const handleExportExcel = () => {
-        // A. Formateamos los datos para que se vean bonitos en el Excel
         const datosParaExcel = filteredPasantes.map(p => {
-            // Lógica para formatear la fecha correctamente a Hora Ecuador
             let fechaFormateada = 'No registrado';
-            
             if (p.fechaRegistro) {
                 const fechaObj = new Date(p.fechaRegistro);
-                // Forzamos la zona horaria a Guayaquil/Ecuador
                 fechaFormateada = fechaObj.toLocaleString('es-EC', {
                     timeZone: 'America/Guayaquil', 
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: false // Formato 24 horas
+                    year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit', hour12: false
                 });
             }
 
@@ -95,29 +86,16 @@ const HistorialPasantes = () => {
             };
         });
 
-        // B. Crear una hoja de trabajo (Worksheet)
         const hoja = XLSX.utils.json_to_sheet(datosParaExcel);
-
-        // C. Ajustar ancho de columnas automáticamente
         const wscols = [
-            {wch: 15}, // Cédula
-            {wch: 20}, // Nombres
-            {wch: 20}, // Apellidos
-            {wch: 15}, // Usuario
-            {wch: 25}, // Institución
-            {wch: 20}, // Carrera
-            {wch: 25}, // Dependencia
-            {wch: 12}, // Estado
-            {wch: 15}, // Horas
-            {wch: 22}  // Fecha
+            {wch: 15}, {wch: 20}, {wch: 20}, {wch: 15}, {wch: 25}, 
+            {wch: 20}, {wch: 25}, {wch: 12}, {wch: 15}, {wch: 22}
         ];
         hoja['!cols'] = wscols;
 
-        // D. Crear un libro de trabajo (Workbook)
         const libro = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(libro, hoja, "Historial Pasantes");
 
-        // E. Descargar el archivo
         const fechaHoy = new Date().toISOString().split('T')[0];
         XLSX.writeFile(libro, `Reporte_Pasantes_${fechaHoy}.xlsx`);
     };
@@ -190,17 +168,9 @@ const HistorialPasantes = () => {
                             />
                         </div>
                         
-                        {/* 4. BOTÓN DE EXCEL INTEGRADO */}
                         <button 
                             className="btn-glow small" 
-                            style={{ 
-                                backgroundColor: '#10b981', 
-                                borderColor: '#059669', 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                gap: '8px',
-                                color: 'white' 
-                            }} 
+                            style={{ backgroundColor: '#10b981', borderColor: '#059669', display: 'flex', alignItems: 'center', gap: '8px', color: 'white' }} 
                             onClick={handleExportExcel}
                             title="Descargar reporte en Excel"
                         >
@@ -226,6 +196,9 @@ const HistorialPasantes = () => {
                         filteredPasantes.map((pasante) => {
                             const progress = getProgress(pasante.horasCompletadas, pasante.horasRequeridas);
                             
+                            // Verificar si tiene foto válida (Base64)
+                            const tieneFoto = pasante.fotoUrl && pasante.fotoUrl.startsWith('data:image');
+
                             return (
                                 <div key={pasante.id} className="student-card">
                                     <div className="card-header-flex">
@@ -243,9 +216,19 @@ const HistorialPasantes = () => {
                                     </div>
 
                                     <div className="student-profile">
-                                        <div className="avatar-student">
-                                            {pasante.nombres.charAt(0)}{pasante.apellidos.charAt(0)}
+                                        {/* 2. AQUÍ MOSTRAMOS LA FOTO O LAS INICIALES */}
+                                        <div className="avatar-student" style={{ overflow: 'hidden', padding: tieneFoto ? 0 : '' }}>
+                                            {tieneFoto ? (
+                                                <img 
+                                                    src={pasante.fotoUrl} 
+                                                    alt={pasante.nombres} 
+                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                />
+                                            ) : (
+                                                <span>{pasante.nombres.charAt(0)}{pasante.apellidos.charAt(0)}</span>
+                                            )}
                                         </div>
+
                                         <h3>{pasante.nombres} {pasante.apellidos.split(' ')[0]}</h3>
                                         <p className="career-text"><GraduationCap size={14}/> {pasante.carrera}</p>
                                     </div>
@@ -296,7 +279,17 @@ const HistorialPasantes = () => {
                         </div>
                         
                         <div className="modal-body">
-                            <p className="student-name-modal">{editingPasante.nombres} {editingPasante.apellidos}</p>
+                            <div style={{display:'flex', alignItems:'center', gap:'15px', marginBottom:'20px'}}>
+                                {/* Miniatura de foto en el modal */}
+                                <div className="avatar-student" style={{width:'50px', height:'50px', fontSize:'1rem', overflow:'hidden', padding:0}}>
+                                     {editingPasante.fotoUrl && editingPasante.fotoUrl.startsWith('data:image') ? (
+                                        <img src={editingPasante.fotoUrl} alt="Foto" style={{width:'100%', height:'100%', objectFit:'cover'}} />
+                                     ) : (
+                                        <span>{editingPasante.nombres.charAt(0)}</span>
+                                     )}
+                                </div>
+                                <p className="student-name-modal" style={{margin:0}}>{editingPasante.nombres} {editingPasante.apellidos}</p>
+                            </div>
                             
                             <div className="credentials-box-modal">
                                 <div className="input-group">

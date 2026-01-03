@@ -29,7 +29,9 @@ interface PasanteData {
   llamadosAtencion: number;
   historialReciente: HistorialItem[];
   informeSubido?: boolean;
-  informeUrl?: string; 
+  informeUrl?: string;
+  // 1. AGREGAMOS EL CAMPO DE FOTO
+  fotoUrl?: string; 
 }
 
 const PasanteHome = () => {
@@ -55,7 +57,9 @@ const PasanteHome = () => {
         historialReciente: userData.historialReciente || [
           { fecha: '2024-01-20', tipo: 'Sistema', detalle: 'Cuenta creada exitosamente', estado: 'ok' }
         ],
-        informeSubido: !!userData.informeUrl || userData.informeFinalSubido || false 
+        informeSubido: !!userData.informeUrl || userData.informeFinalSubido || false,
+        // Nos aseguramos de leer la foto
+        fotoUrl: userData.fotoUrl || userData.fotoNombre 
       });
     } else {
       navigate('/login');
@@ -75,7 +79,6 @@ const PasanteHome = () => {
     fileInputRef.current?.click();
   };
 
-  // --- FUNCIÓN AUXILIAR: Convertir a Base64 ---
   const convertToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -89,12 +92,10 @@ const PasanteHome = () => {
     const file = e.target.files?.[0];
 
     if (file && pasante) {
-      // Validaciones
       if (file.type !== 'application/pdf') {
         alert("❌ Error: Solo se permiten archivos PDF.");
         return;
       }
-      // Limite de 2MB para no saturar el json-server/navegador con strings gigantes
       if (file.size > 2 * 1024 * 1024) {
         alert("❌ El archivo es muy pesado (Máx 2MB para esta demo).");
         return;
@@ -103,30 +104,26 @@ const PasanteHome = () => {
       setIsUploading(true);
 
       try {
-        // 1. Convertimos el archivo real a Base64
         const base64Pdf = await convertToBase64(file);
 
-        // 2. Guardamos en Base de Datos
         const response = await fetch(`http://localhost:3001/pasantes/${pasante.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 informeFinalSubido: true,
-                informeUrl: base64Pdf // Guardamos el contenido real del archivo
+                informeUrl: base64Pdf 
             })
         });
 
         if (response.ok) {
             alert(`✅ Archivo "${file.name}" subido correctamente.`);
             
-            // 3. Actualizar estado local
             setPasante(prev => prev ? ({ 
                 ...prev, 
                 informeSubido: true,
                 informeUrl: base64Pdf 
             }) : null);
             
-            // 4. Actualizar localStorage
             const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
             localStorage.setItem('user', JSON.stringify({
                 ...currentUser,
@@ -158,6 +155,9 @@ const PasanteHome = () => {
   const limiteLlamados = 3;
   const esCritico = pasante.llamadosAtencion >= limiteLlamados;
 
+  // Verificamos si hay una imagen válida (Base64)
+  const tieneFoto = pasante.fotoUrl && pasante.fotoUrl.startsWith('data:image');
+
   return (
     <div className="layout-wrapper">
       <aside className="modern-sidebar">
@@ -172,7 +172,6 @@ const PasanteHome = () => {
             <div className="nav-icon"><Activity size={20} /></div>
             <span>Dashboard</span>
           </button>
-          {/* ... resto de items ... */}
           <button onClick={handleLogout} className="nav-item logout-item">
             <div className="nav-icon"><LogOut size={20} /></div>
             <span>Cerrar Sesión</span>
@@ -189,12 +188,23 @@ const PasanteHome = () => {
           <div className="profile-pill">
             <div className={`status-dot ${esCritico ? 'dot-red' : 'dot-green'}`}></div>
             <span>{pasante.estado || "Activo"}</span>
-            <div className="avatar-circle">{pasante.nombre.charAt(0)}</div>
+            
+            {/* 2. AQUÍ MODIFICAMOS EL AVATAR PARA MOSTRAR LA FOTO */}
+            <div className="avatar-circle" style={{ overflow: 'hidden', padding: tieneFoto ? 0 : '' }}>
+                {tieneFoto ? (
+                    <img 
+                        src={pasante.fotoUrl} 
+                        alt="Perfil" 
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                    />
+                ) : (
+                    pasante.nombre.charAt(0)
+                )}
+            </div>
           </div>
         </header>
 
         <div className="dashboard-grid">
-          {/* ... Tarjeta Progreso y KPIs se mantienen igual ... */}
           <div className="card hero-card">
             <div className="hero-content">
               <h3>Progreso General</h3>
@@ -223,16 +233,17 @@ const PasanteHome = () => {
           </div>
 
           <div className="kpi-column">
-             {/* ... KPIs igual ... */}
              <div className="card kpi-card">
                <div className="kpi-icon-bg bg-blue"><Clock size={20} /></div>
                <div><span className="kpi-label">Atrasos</span><div className="kpi-value-row"><span className="kpi-number">{pasante.atrasos}</span></div></div>
              </div>
-             {/* ... */}
+             <div className="card kpi-card">
+               <div className="kpi-icon-bg bg-red"><Clock size={20} /></div>
+               <div><span className="kpi-label">Faltas</span><div className="kpi-value-row"><span className="kpi-number">{pasante.faltas}</span></div></div>
+             </div>
           </div>
 
           <div className="card list-card">
-             {/* ... Lista actividad igual ... */}
              <div className="card-header-row"><h3>Actividad Reciente</h3></div>
              <div className="activity-list">
                {pasante.historialReciente.map((item, idx) => (
@@ -244,7 +255,6 @@ const PasanteHome = () => {
              </div>
           </div>
 
-          {/* 4. ACCIONES */}
           <div className="card actions-card-modern">
             <div className="card-header-row">
               <h3>Gestión de Cierre</h3>

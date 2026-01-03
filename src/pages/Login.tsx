@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent, type MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, X, GraduationCap, Send } from 'lucide-react'; 
+import { AlertCircle, X, GraduationCap, Send} from 'lucide-react'; 
 import '../styles/Login.css';
 
 const Login = () => {
@@ -26,7 +26,6 @@ const Login = () => {
     ];
 
     useEffect(() => {
-        // Limpieza preventiva al cargar el login por si quedó basura
         try {
             const savedEmail = localStorage.getItem('savedEmail');
             if (savedEmail) {
@@ -34,33 +33,17 @@ const Login = () => {
                 setRememberMe(true);
             }
         } catch (e) {
-            console.error("Error leyendo localStorage", e);
-            localStorage.clear(); // Si está corrupto, limpiamos todo
+            localStorage.clear();
         }
     }, []);
 
     const handleRecovery = (e: MouseEvent<HTMLAnchorElement>) => {
         e.preventDefault();
         if (!email.trim()) {
-            alert("⚠️ Escribe tu usuario o correo en el campo de texto para saber a quién recuperar.");
+            alert("⚠️ Escribe tu usuario o correo para recuperar.");
             return;
         }
-        const nuevaSolicitud = {
-            id: Date.now(),
-            usuario: email,
-            fecha: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            tipo: 'Recuperación de Contraseña',
-            leido: false
-        };
-        
-        try {
-            const solicitudesPrevias = JSON.parse(localStorage.getItem('alertasRRHH') || '[]');
-            solicitudesPrevias.push(nuevaSolicitud);
-            localStorage.setItem('alertasRRHH', JSON.stringify(solicitudesPrevias));
-            setShowRecoveryModal(true);
-        } catch (e) {
-            alert("Memoria llena. No se pudo guardar la alerta.");
-        }
+        setShowRecoveryModal(true);
     };
 
     const handleConfirmAttended = async () => {
@@ -75,23 +58,18 @@ const Login = () => {
             saveSessionData(tempUser);
             setShowAttendedModal(false);
             
-            // Redirección forzada para asegurar limpieza
-            if (activeRole === 'pasante') window.location.href = '/pasante';
-            else if (activeRole === 'human_resources') window.location.href = '/rrhh';
-            else if (activeRole === 'security') window.location.href = '/seguridad';
+            if (activeRole === 'pasante') navigate('/pasante');
             else navigate('/dashboard');
 
         } catch (error) {
-            console.error("Error al actualizar estado:", error);
-            alert("Hubo un error al procesar tu ingreso. Intenta de nuevo.");
+            console.error(error);
         }
     };
 
     const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        console.log(`🔵 Intentando login como rol: ${activeRole}`);
 
-        // 1. Lógica especial para Super Admin
+        // 1. Super Admin
         if (activeRole === 'admin') {
             if (email === 'admin@inamhi.gob.ec' && password === 'admin123') {
                 saveSessionData({ nombre: 'Super Admin', rol: 'admin' });
@@ -120,14 +98,15 @@ const Login = () => {
                     const dbCedula = (user.cedula || '').trim();
 
                     const userMatch = (dbUser === inputUser || dbEmail === inputUser);
+                    // Login flexible
                     const passMatch = (dbPass === inputPass) || (dbCedula === inputPass) || (inputPass === '12345'); 
 
                     return userMatch && passMatch;
                 });
 
                 if (usuarioEncontrado) {
-                    console.log("✅ Usuario encontrado:", usuarioEncontrado.nombres);
-
+                    
+                    // Validación de Rol
                     if (activeRole !== 'pasante') {
                         const rolMap: Record<string, string> = {
                             'human_resources': 'Talento Humano',
@@ -137,7 +116,7 @@ const Login = () => {
                         const rolRequerido = (rolMap[activeRole] || '').toLowerCase();
                         
                         if (!rolBD.includes(rolRequerido) && rolBD !== rolRequerido) {
-                            alert(`Error de Permisos: Tu usuario es "${usuarioEncontrado.rol}" pero intentas entrar como "${rolMap[activeRole]}".`);
+                            alert(`Error: Rol incorrecto.`);
                             return;
                         }
                     }
@@ -155,69 +134,75 @@ const Login = () => {
                         setShowFinishedModal(true);
                         return;
                     }
+
+                    // BLOQUEO DE SEGURIDAD PARA PASANTES NO ACTIVOS
+                    // Si el pasante no está activo, NO dejamos pasar al dashboard, mostramos el modal.
+                    // El pasante debe ir a RRHH para que suban sus papeles.
+                    if (activeRole === 'pasante' && estadoRaw !== 'activo') {
+                        setShowStatusModal(true); 
+                        return; 
+                    }
                     
-                    if (estadoRaw === 'inactivo' || estadoRaw === 'bloqueado') {
-                         alert(`Tu cuenta está desactivada. Contacta a RRHH.`);
+                    if (activeRole !== 'pasante' && (estadoRaw === 'inactivo' || estadoRaw === 'bloqueado')) {
+                         alert(`Cuenta desactivada.`);
                          return;
                     }
 
                     // --- LOGIN EXITOSO ---
-                    try {
-                        saveSessionData(usuarioEncontrado);
-                        console.log("🚀 Redirigiendo...");
-                        
-                        switch (activeRole) {
-                            case 'human_resources': navigate('/rrhh'); break;
-                            case 'security': navigate('/seguridad'); break;
-                            case 'pasante': navigate('/pasante'); break;
-                            default: navigate('/dashboard');
-                        }
-                    } catch (storageError) {
-                        console.error("Error guardando sesión:", storageError);
-                        alert("Error de memoria en el navegador. Intenta borrar el caché.");
-                    }
+                    saveSessionData(usuarioEncontrado);
+
+                    if (activeRole === 'pasante') navigate('/pasante');
+                    else if (activeRole === 'human_resources') navigate('/rrhh');
+                    else if (activeRole === 'security') navigate('/seguridad');
+                    else navigate('/dashboard');
 
                 } else {
-                    alert("Usuario o contraseña incorrectos.");
+                    alert("Credenciales incorrectas.");
                 }
             } else {
                 alert("Error de conexión.");
             }
         } catch (error) {
-            console.error("Error crítico:", error);
-            alert("Error de conexión con el servidor.");
+            console.error(error);
+            alert("No se pudo conectar con el servidor.");
         }
     };
 
-    // --- AQUÍ ESTÁ LA MAGIA PARA SOLUCIONAR EL ERROR DE QUOTA ---
+    // --- FUNCIÓN CLAVE PARA GUARDAR LA FOTO ---
     const saveSessionData = (userData: any) => {
-        // Desestructuramos el objeto para separar los archivos pesados del resto
+        // Desestructuramos para ELIMINAR los PDFs pesados (que causarían error de quota)
+        // pero DEJAMOS 'fotoUrl' intacto para que pase al userSafe.
         const { 
             docHojaVida, 
             docCartaSolicitud, 
             docAcuerdoConfidencialidad, 
             docCopiaCedula, 
-            informeUrl, // Si este también es base64
-            ...userSafe // Aquí queda todo lo demás (id, nombre, etc) que SÍ entra en localStorage
+            informeUrl, // El informe PDF final también lo quitamos por peso
+            ...userSafe // Aquí dentro SÍ viaja 'fotoUrl' o 'fotoBase64'
         } = userData;
 
-        console.log("Guardando sesión ligera (sin PDFs)...");
+        console.log("Guardando sesión con foto..."); // Debug
 
         try {
             localStorage.setItem('user', JSON.stringify(userSafe));
             localStorage.setItem('role', activeRole);
             
-            if (rememberMe) {
-                localStorage.setItem('savedEmail', email);
-            } else {
-                localStorage.removeItem('savedEmail');
-            }
+            if (rememberMe) localStorage.setItem('savedEmail', email);
+            else localStorage.removeItem('savedEmail');
         } catch (e) {
-            // Si aun así falla, intentamos limpiar todo antes de guardar
-            console.warn("LocalStorage lleno, limpiando...");
+            console.warn("LocalStorage lleno. Intentando limpiar...");
             localStorage.clear();
-            localStorage.setItem('user', JSON.stringify(userSafe));
-            localStorage.setItem('role', activeRole);
+            // Reintentamos guardar (si la foto es < 5MB debería funcionar)
+            try {
+                localStorage.setItem('user', JSON.stringify(userSafe));
+                localStorage.setItem('role', activeRole);
+            } catch (err) {
+                alert("Tu foto de perfil es demasiado pesada para guardarse en la sesión. Se omitirá.");
+                // Fallback extremo: guardar sin foto
+                const { fotoUrl, fotoBase64, ...userNoPhoto } = userSafe;
+                localStorage.setItem('user', JSON.stringify(userNoPhoto));
+                localStorage.setItem('role', activeRole);
+            }
         }
     };
 
@@ -293,14 +278,18 @@ const Login = () => {
                 </div>
             </div>
 
-            {/* --- MODALES (Sin cambios en lógica visual) --- */}
+            {/* MODALES */}
             {showStatusModal && (
                 <div className="modal-overlay">
                     <div className="modal-content-warning">
                         <button className="close-modal-btn" onClick={() => setShowStatusModal(false)}><X size={20} /></button>
                         <div className="modal-icon-wrapper"><AlertCircle size={48} className="icon-warning" /></div>
-                        <h3>Cuenta Inactiva</h3>
-                        <p className="modal-message">Tu cuenta está marcada como Inactiva o Bloqueada.</p>
+                        <h3>Acceso Restringido</h3>
+                        <p className="modal-message">
+                            Tu cuenta aún <strong>no ha sido activada</strong>.
+                            <br/><br/>
+                            Debes esperar a que Talento Humano valide y suba tu documentación habilitante para poder ingresar al sistema.
+                        </p>
                         <button className="btn-modal-action" onClick={() => setShowStatusModal(false)}>Entendido</button>
                     </div>
                 </div>
@@ -312,6 +301,7 @@ const Login = () => {
                         <button className="close-modal-btn" onClick={() => setShowFinishedModal(false)}><X size={20} /></button>
                         <div className="modal-icon-finished"><GraduationCap size={48} className="icon-info" /></div>
                         <h3>Pasantía Finalizada</h3>
+                        <p className="modal-message">Tu periodo de pasantías ha concluido.<br/><br/>¡Gracias por tu colaboración en el <strong>INAMHI</strong>!</p>
                         <button className="btn-modal-action-blue" onClick={() => setShowFinishedModal(false)}>Cerrar</button>
                     </div>
                 </div>

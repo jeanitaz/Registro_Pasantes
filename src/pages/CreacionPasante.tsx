@@ -20,7 +20,8 @@ const CreacionPasante = () => {
         telefono: '',
         usuario: '', 
         password: '',
-        foto: null as File | null // Nota: JSON Server no guarda archivos reales, solo guardaremos el nombre
+        foto: null as File | null,
+        fotoBase64: '' // <--- NUEVO CAMPO PARA GUARDAR LA IMAGEN REAL
     });
 
     const dependencias = [
@@ -30,6 +31,16 @@ const CreacionPasante = () => {
         "Tecnologías de la Información",
         "Administrativo Financiero"
     ];
+
+    // --- FUNCIÓN HELPER: Convertir archivo a texto (Base64) ---
+    const convertToBase64 = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = error => reject(error);
+        });
+    };
 
     // --- LÓGICA DE GENERACIÓN DE USUARIO ---
     useEffect(() => {
@@ -60,9 +71,27 @@ const CreacionPasante = () => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    // --- MANEJO DE IMAGEN ACTUALIZADO ---
+    const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            setFormData(prev => ({ ...prev, foto: e.target.files![0] }));
+            const file = e.target.files[0];
+
+            // Validación de tamaño (Máx 2MB para no saturar JSON Server)
+            if (file.size > 2 * 1024 * 1024) {
+                alert("⚠️ La imagen es muy pesada (Máx 2MB). Por favor elige una más pequeña.");
+                return;
+            }
+
+            try {
+                const base64 = await convertToBase64(file);
+                setFormData(prev => ({ 
+                    ...prev, 
+                    foto: file,
+                    fotoBase64: base64 // Guardamos la cadena base64
+                }));
+            } catch (error) {
+                console.error("Error al procesar imagen", error);
+            }
         }
     };
 
@@ -70,7 +99,6 @@ const CreacionPasante = () => {
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         
-        // Preparamos el objeto para guardar (sin el archivo binario, solo nombre)
         const nuevoPasante = {
             nombres: formData.nombres,
             apellidos: formData.apellidos,
@@ -84,14 +112,14 @@ const CreacionPasante = () => {
             email: formData.email,
             telefono: formData.telefono,
             usuario: formData.usuario,
-            password: formData.password, // En prod esto debe ir hasheado
-            fotoNombre: formData.foto ? formData.foto.name : "default.jpg", 
+            password: formData.password,
+            // Aquí guardamos la imagen real codificada
+            fotoUrl: formData.fotoBase64 || "", 
             estado: "No habilitado",
             fechaRegistro: new Date().toISOString()
         };
 
         try {
-            // Petición POST a tu servidor local
             const response = await fetch('http://localhost:3001/pasantes', {
                 method: 'POST',
                 headers: {
@@ -101,8 +129,8 @@ const CreacionPasante = () => {
             });
 
             if (response.ok) {
-                alert(`¡Éxito! Pasante ${formData.usuario} registrado correctamente.`);
-                navigate('/rrhh'); // Regresar al panel admin
+                alert(`¡Éxito! Pasante ${formData.usuario} registrado con foto correctamente.`);
+                navigate('/rrhh');
             } else {
                 alert("Error al guardar en la base de datos.");
             }
@@ -177,9 +205,27 @@ const CreacionPasante = () => {
 
                             <div className="input-group">
                                 <label>Fotografía Carnet</label>
-                                <div className="file-upload-wrapper">
+                                <div className="file-upload-wrapper" style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
                                     <input type="file" accept="image/*" onChange={handleFileChange} />
                                     <span className="file-hint">Formato JPG o PNG. Máx 2MB.</span>
+                                    
+                                    {/* VISTA PREVIA DE LA IMAGEN */}
+                                    {formData.fotoBase64 && (
+                                        <div style={{marginTop: '5px', textAlign: 'center'}}>
+                                            <img 
+                                                src={formData.fotoBase64} 
+                                                alt="Vista previa" 
+                                                style={{
+                                                    width: '100px', 
+                                                    height: '100px', 
+                                                    objectFit: 'cover', 
+                                                    borderRadius: '50%',
+                                                    border: '2px solid #2563eb',
+                                                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                                                }}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
