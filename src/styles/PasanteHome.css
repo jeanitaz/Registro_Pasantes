@@ -324,3 +324,7 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(
   .hero-card { min-height: auto; }
   .circular-chart-wrapper { max-width: 180px; margin-top: 20px; }
 }
+
+.circle {
+  transition: stroke-dasharray 1s ease-out; /* Animación suave de la barra */
+}

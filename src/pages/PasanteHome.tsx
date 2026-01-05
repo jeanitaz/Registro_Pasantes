@@ -1,10 +1,16 @@
 import { useState, useEffect, useRef, type ChangeEvent } from 'react'; 
 import { useNavigate } from 'react-router-dom';
+
+// 1. IMPORTAMOS LA LIBRERÍA CON SOPORTE DE ESTILOS
+import * as XLSX from 'xlsx-js-style'; 
+
 import {
   Clock, LogOut,
   Briefcase, FileText,
   Upload, CheckCircle,
-  Activity, Lock, Download, Loader2 
+  Activity, Lock, Download, Loader2,
+  ClipboardList,
+  FileSpreadsheet
 } from 'lucide-react';
 import '../styles/PasanteHome.css';
 
@@ -30,7 +36,6 @@ interface PasanteData {
   historialReciente: HistorialItem[];
   informeSubido?: boolean;
   informeUrl?: string;
-  // 1. AGREGAMOS EL CAMPO DE FOTO
   fotoUrl?: string; 
 }
 
@@ -58,7 +63,6 @@ const PasanteHome = () => {
           { fecha: '2024-01-20', tipo: 'Sistema', detalle: 'Cuenta creada exitosamente', estado: 'ok' }
         ],
         informeSubido: !!userData.informeUrl || userData.informeFinalSubido || false,
-        // Nos aseguramos de leer la foto
         fotoUrl: userData.fotoUrl || userData.fotoNombre 
       });
     } else {
@@ -75,9 +79,133 @@ const PasanteHome = () => {
     }
   };
 
+  const handleRegistroHoras = () => {
+    navigate('/horas'); 
+  };
+
   const handleUploadClick = () => {
     fileInputRef.current?.click();
   };
+
+  // --- FUNCIÓN MEJORADA: DESCARGAR EXCEL CON ESTILOS ---
+  const handleDownloadExcel = () => {
+    if (!pasante) return;
+
+    // A. DEFINICIÓN DE ESTILOS
+    const tituloStyle = {
+        font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } },
+        fill: { fgColor: { rgb: "2563EB" } }, // Azul Intenso
+        alignment: { horizontal: "center", vertical: "center" }
+    };
+
+    const labelStyle = {
+        font: { bold: true, color: { rgb: "334155" } }
+    };
+
+    const headerTablaStyle = {
+        font: { bold: true, color: { rgb: "FFFFFF" } },
+        fill: { fgColor: { rgb: "3B82F6" } }, // Azul Medio
+        alignment: { horizontal: "center", vertical: "center" },
+        border: { 
+            top: { style: "thin", color: { rgb: "FFFFFF" } }, 
+            bottom: { style: "thin", color: { rgb: "FFFFFF" } },
+            right: { style: "thin", color: { rgb: "FFFFFF" } } 
+        }
+    };
+
+    const celdaStyle = {
+        alignment: { horizontal: "left", vertical: "center" },
+        border: { bottom: { style: "thin", color: { rgb: "E2E8F0" } } }
+    };
+    
+    const celdaCentradaStyle = {
+        alignment: { horizontal: "center", vertical: "center" },
+        border: { bottom: { style: "thin", color: { rgb: "E2E8F0" } } }
+    };
+
+    const resumenHeaderStyle = {
+        font: { bold: true, sz: 12, color: { rgb: "1E293B" } },
+        fill: { fgColor: { rgb: "F1F5F9" } },
+        border: { bottom: { style: "thin", color: { rgb: "CBD5E1" } } }
+    };
+
+    // B. CONSTRUCCIÓN DE LA DATA (Filas)
+    const wsData: any[] = [];
+
+    // 1. Título Principal
+    wsData.push([
+        { v: "REPORTE DE ACTIVIDADES - PASANTÍAS", s: tituloStyle },
+        { v: "", s: tituloStyle }, { v: "", s: tituloStyle }, { v: "", s: tituloStyle }
+    ]);
+    wsData.push([]); // Espacio
+
+    // 2. Información del Estudiante
+    wsData.push([{ v: "Estudiante:", s: labelStyle }, { v: pasante.nombre }]);
+    wsData.push([{ v: "Carrera:", s: labelStyle }, { v: pasante.carrera }]);
+    wsData.push([{ v: "Estado:", s: labelStyle }, { v: pasante.estado }]);
+    wsData.push([{ v: "Fecha de Reporte:", s: labelStyle }, { v: new Date().toLocaleDateString() }]);
+    wsData.push([]); // Espacio
+
+    // 3. Encabezados de la Tabla
+    wsData.push([
+        { v: "FECHA", s: headerTablaStyle },
+        { v: "TIPO", s: headerTablaStyle },
+        { v: "DETALLE DE ACTIVIDAD", s: headerTablaStyle },
+        { v: "ESTADO", s: headerTablaStyle }
+    ]);
+
+    // 4. Filas del Historial
+    if (pasante.historialReciente.length > 0) {
+        pasante.historialReciente.forEach((item) => {
+            wsData.push([
+                { v: item.fecha, s: celdaCentradaStyle },
+                { v: item.tipo, s: celdaCentradaStyle },
+                { v: item.detalle, s: celdaStyle },
+                { v: item.estado, s: celdaCentradaStyle }
+            ]);
+        });
+    } else {
+        wsData.push([{ v: "No hay registros disponibles", s: celdaStyle }]);
+    }
+
+    wsData.push([]); // Espacio
+
+    // 5. Sección de Resumen
+    // Guardamos el índice actual para hacer el merge luego
+    const rowIndexResumen = wsData.length; 
+    
+    wsData.push([
+        { v: "RESUMEN FINAL DE HORAS", s: resumenHeaderStyle }, 
+        { v: "", s: resumenHeaderStyle }
+    ]);
+    wsData.push([{ v: "Meta Requerida:", s: labelStyle }, { v: `${pasante.horasRequeridas} hrs` }]);
+    wsData.push([{ v: "Horas Completadas:", s: labelStyle }, { v: `${pasante.horasCompletadas} hrs` }]);
+    wsData.push([{ v: "Porcentaje:", s: labelStyle }, { v: `${((pasante.horasCompletadas / pasante.horasRequeridas) * 100).toFixed(1)}%` }]);
+    wsData.push([{ v: "Total Atrasos:", s: labelStyle }, { v: pasante.atrasos }]);
+    
+    // C. CREACIÓN DE LA HOJA
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // D. CONFIGURACIÓN DE COLUMNAS (Ancho)
+    ws['!cols'] = [
+        { wch: 15 }, // Fecha
+        { wch: 20 }, // Tipo
+        { wch: 50 }, // Detalle (Ancho grande para texto)
+        { wch: 15 }  // Estado
+    ];
+
+    // E. MERGES (Combinar Celdas)
+    ws['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }, // Título principal (A1:D1)
+        { s: { r: rowIndexResumen, c: 0 }, e: { r: rowIndexResumen, c: 1 } } // Título Resumen (A_resumen:B_resumen)
+    ];
+
+    // F. GUARDAR ARCHIVO
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+    XLSX.writeFile(wb, `Reporte_InternApp_${pasante.nombre.replace(/\s+/g, '_')}.xlsx`);
+  };
+  // ---------------------------------------------
 
   const convertToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -155,7 +283,6 @@ const PasanteHome = () => {
   const limiteLlamados = 3;
   const esCritico = pasante.llamadosAtencion >= limiteLlamados;
 
-  // Verificamos si hay una imagen válida (Base64)
   const tieneFoto = pasante.fotoUrl && pasante.fotoUrl.startsWith('data:image');
 
   return (
@@ -167,11 +294,18 @@ const PasanteHome = () => {
           </div>
           <span className="logo-text">InternApp</span>
         </div>
+        
         <div className="nav-links">
           <button className="nav-item active">
             <div className="nav-icon"><Activity size={20} /></div>
             <span>Dashboard</span>
           </button>
+
+          <button onClick={handleRegistroHoras} className="nav-item">
+            <div className="nav-icon"><ClipboardList size={20} /></div>
+            <span>Registro de Horas</span>
+          </button>
+
           <button onClick={handleLogout} className="nav-item logout-item">
             <div className="nav-icon"><LogOut size={20} /></div>
             <span>Cerrar Sesión</span>
@@ -189,7 +323,6 @@ const PasanteHome = () => {
             <div className={`status-dot ${esCritico ? 'dot-red' : 'dot-green'}`}></div>
             <span>{pasante.estado || "Activo"}</span>
             
-            {/* 2. AQUÍ MODIFICAMOS EL AVATAR PARA MOSTRAR LA FOTO */}
             <div className="avatar-circle" style={{ overflow: 'hidden', padding: tieneFoto ? 0 : '' }}>
                 {tieneFoto ? (
                     <img 
@@ -260,6 +393,25 @@ const PasanteHome = () => {
               <h3>Gestión de Cierre</h3>
             </div>
             <div className="modern-actions-container">
+              
+              {/* BOTÓN DESCARGAR EXCEL CON ESTILOS */}
+              <div 
+                className="action-panel" 
+                onClick={handleDownloadExcel}
+                style={{ cursor: 'pointer', border: '1px solid #22c55e', backgroundColor: '#f0fdf4' }}
+              >
+                <div className="panel-icon">
+                  <FileSpreadsheet size={24} className="text-green-600" style={{ color: '#16a34a' }} />
+                </div>
+                <div className="panel-content">
+                  <h4 style={{ color: '#15803d' }}>Reporte de Horas</h4>
+                  <p>Descargar Excel detallado.</p>
+                </div>
+                <button className="panel-btn-icon">
+                  <Download size={20} style={{ color: '#16a34a' }} />
+                </button>
+              </div>
+
               <div className="action-panel secondary-panel">
                 <div className="panel-icon"><FileText size={24} className="text-blue-500" /></div>
                 <div className="panel-content">

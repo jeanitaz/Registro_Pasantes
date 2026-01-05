@@ -21,7 +21,6 @@ const Login = () => {
     const roles = [
         { id: 'admin', label: 'Administrador' },
         { id: 'human_resources', label: 'RR.HH.' },
-        { id: 'security', label: 'Seguridad' },
         { id: 'pasante', label: 'Pasante' }
     ];
 
@@ -37,14 +36,35 @@ const Login = () => {
         }
     }, []);
 
+    // --- AQUÍ ESTÁ LA IMPLEMENTACIÓN CLAVE ---
     const handleRecovery = (e: MouseEvent<HTMLAnchorElement>) => {
         e.preventDefault();
+        
+        // 1. Validar que haya escrito algo
         if (!email.trim()) {
             alert("⚠️ Escribe tu usuario o correo para recuperar.");
             return;
         }
+
+        // 2. Obtener las alertas actuales del localStorage (Buzón de RRHH)
+        const alertasGuardadas = JSON.parse(localStorage.getItem('alertasRRHH') || "[]");
+
+        // 3. Crear la nueva alerta
+        const nuevaAlerta = {
+            id: Date.now(), // ID único basado en el tiempo
+            usuario: email, // El correo que escribió el usuario
+            fecha: new Date().toLocaleString(), // Fecha y hora actual
+            tipo: 'Recuperación de Clave',
+            leido: false // Importante para que salga como "Nueva"
+        };
+
+        // 4. Guardar en el localStorage para que RRHH lo vea
+        localStorage.setItem('alertasRRHH', JSON.stringify([...alertasGuardadas, nuevaAlerta]));
+
+        // 5. Mostrar el modal de éxito visual
         setShowRecoveryModal(true);
     };
+    // -----------------------------------------
 
     const handleConfirmAttended = async () => {
         if (!tempUser) return;
@@ -109,8 +129,7 @@ const Login = () => {
                     // Validación de Rol
                     if (activeRole !== 'pasante') {
                         const rolMap: Record<string, string> = {
-                            'human_resources': 'Talento Humano',
-                            'security': 'Seguridad'
+                            'human_resources': 'Talento Humano'
                         };
                         const rolBD = (usuarioEncontrado.rol || '').toLowerCase();
                         const rolRequerido = (rolMap[activeRole] || '').toLowerCase();
@@ -136,8 +155,6 @@ const Login = () => {
                     }
 
                     // BLOQUEO DE SEGURIDAD PARA PASANTES NO ACTIVOS
-                    // Si el pasante no está activo, NO dejamos pasar al dashboard, mostramos el modal.
-                    // El pasante debe ir a RRHH para que suban sus papeles.
                     if (activeRole === 'pasante' && estadoRaw !== 'activo') {
                         setShowStatusModal(true); 
                         return; 
@@ -153,7 +170,6 @@ const Login = () => {
 
                     if (activeRole === 'pasante') navigate('/pasante');
                     else if (activeRole === 'human_resources') navigate('/rrhh');
-                    else if (activeRole === 'security') navigate('/seguridad');
                     else navigate('/dashboard');
 
                 } else {
@@ -170,15 +186,13 @@ const Login = () => {
 
     // --- FUNCIÓN CLAVE PARA GUARDAR LA FOTO ---
     const saveSessionData = (userData: any) => {
-        // Desestructuramos para ELIMINAR los PDFs pesados (que causarían error de quota)
-        // pero DEJAMOS 'fotoUrl' intacto para que pase al userSafe.
         const { 
             docHojaVida, 
             docCartaSolicitud, 
             docAcuerdoConfidencialidad, 
             docCopiaCedula, 
-            informeUrl, // El informe PDF final también lo quitamos por peso
-            ...userSafe // Aquí dentro SÍ viaja 'fotoUrl' o 'fotoBase64'
+            informeUrl, 
+            ...userSafe 
         } = userData;
 
         console.log("Guardando sesión con foto..."); // Debug
@@ -192,13 +206,11 @@ const Login = () => {
         } catch (e) {
             console.warn("LocalStorage lleno. Intentando limpiar...");
             localStorage.clear();
-            // Reintentamos guardar (si la foto es < 5MB debería funcionar)
             try {
                 localStorage.setItem('user', JSON.stringify(userSafe));
                 localStorage.setItem('role', activeRole);
             } catch (err) {
                 alert("Tu foto de perfil es demasiado pesada para guardarse en la sesión. Se omitirá.");
-                // Fallback extremo: guardar sin foto
                 const { fotoUrl, fotoBase64, ...userNoPhoto } = userSafe;
                 localStorage.setItem('user', JSON.stringify(userNoPhoto));
                 localStorage.setItem('role', activeRole);
@@ -313,6 +325,9 @@ const Login = () => {
                         <button className="close-modal-btn" onClick={() => setShowRecoveryModal(false)}><X size={20} /></button>
                         <div className="modal-icon-success"><Send size={40} className="icon-success" /></div>
                         <h3>Solicitud Enviada</h3>
+                        <p style={{fontSize: '0.9rem', color: '#666', marginTop: '10px'}}>
+                            El administrador de RR.HH ha recibido tu solicitud de recuperación para: <strong>{email}</strong>
+                        </p>
                         <button className="btn-modal-action-green" onClick={() => setShowRecoveryModal(false)}>Listo</button>
                     </div>
                 </div>

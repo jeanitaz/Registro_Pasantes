@@ -18,8 +18,7 @@ const CreacionUsuarios = () => {
     });
 
     const rolesDisponibles = [
-        "Talento Humano",
-        "Seguridad"
+        "Talento Humano"
     ];
 
     // --- LÓGICA DE GENERACIÓN DE USUARIO (Mismo patrón que pasantes) ---
