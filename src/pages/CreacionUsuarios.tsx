@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, UserCog, Save, X } from 'lucide-react'; // Iconos para darle identidad
+import { Shield, UserCog, Save, X } from 'lucide-react';
 import '../styles/CreacionUsuarios.css';
 
 const CreacionUsuarios = () => {
@@ -21,7 +21,7 @@ const CreacionUsuarios = () => {
         "Talento Humano"
     ];
 
-    // --- LÓGICA DE GENERACIÓN DE USUARIO (Mismo patrón que pasantes) ---
+    // --- LÓGICA DE GENERACIÓN DE USUARIO ---
     useEffect(() => {
         const generarUsuario = () => {
             const nombreLimpio = formData.nombres.trim().toLowerCase();
@@ -58,13 +58,11 @@ const CreacionUsuarios = () => {
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         
-        const nuevoUsuario = {
-            ...formData,
-            fechaCreacion: new Date().toISOString()
-        };
+        // NO enviamos fechaCreacion desde aquí, dejamos que MySQL use DEFAULT CURRENT_TIMESTAMP
+        const nuevoUsuario = { ...formData };
 
         try {
-            // Guardar en JSON Server (Colección 'usuarios')
+            // Nota: Este endpoint espera JSON, no FormData, porque no hay imágenes
             const response = await fetch('http://localhost:3001/usuarios', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -75,7 +73,9 @@ const CreacionUsuarios = () => {
                 alert(`Usuario ${formData.usuario} creado exitosamente.`);
                 navigate(-1); // Volver
             } else {
-                alert("Error al guardar el usuario.");
+                const errorData = await response.json();
+                console.error("Error del servidor:", errorData);
+                alert("Error al guardar el usuario en la base de datos.");
             }
         } catch (error) {
             console.error(error);
@@ -85,7 +85,6 @@ const CreacionUsuarios = () => {
 
     return (
         <div className="sophisticated-wrapper">
-            {/* Luces de fondo sutiles */}
             <div className="ambient-light light-1"></div>
             <div className="ambient-light light-2"></div>
 
@@ -96,7 +95,6 @@ const CreacionUsuarios = () => {
                         <h1>Gestión de Usuarios</h1>
                         <p>Alta de personal administrativo y seguridad.</p>
                     </div>
-                    {/* Icono decorativo según el rol seleccionado */}
                     <div className="role-icon-preview">
                         {formData.rol === 'Seguridad' ? <Shield size={32} className="text-blue"/> : <UserCog size={32} className="text-purple"/>}
                     </div>

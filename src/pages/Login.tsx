@@ -1,20 +1,20 @@
 import { useState, useEffect, type FormEvent, type MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, X, GraduationCap, Send} from 'lucide-react'; 
+import { AlertCircle, X, GraduationCap, Send } from 'lucide-react';
 import '../styles/Login.css';
 
 const Login = () => {
     const [activeRole, setActiveRole] = useState('pasante');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [rememberMe, setRememberMe] = useState(false); 
+    const [rememberMe, setRememberMe] = useState(false);
 
     const [showStatusModal, setShowStatusModal] = useState(false);
     const [showFinishedModal, setShowFinishedModal] = useState(false);
     const [showRecoveryModal, setShowRecoveryModal] = useState(false);
     const [showAttendedModal, setShowAttendedModal] = useState(false);
-    
-    const [tempUser, setTempUser] = useState<any>(null); 
+
+    const [tempUser, setTempUser] = useState<any>(null);
 
     const navigate = useNavigate();
 
@@ -36,35 +36,27 @@ const Login = () => {
         }
     }, []);
 
-    // --- AQUÍ ESTÁ LA IMPLEMENTACIÓN CLAVE ---
     const handleRecovery = (e: MouseEvent<HTMLAnchorElement>) => {
         e.preventDefault();
-        
-        // 1. Validar que haya escrito algo
+
         if (!email.trim()) {
             alert("⚠️ Escribe tu usuario o correo para recuperar.");
             return;
         }
 
-        // 2. Obtener las alertas actuales del localStorage (Buzón de RRHH)
         const alertasGuardadas = JSON.parse(localStorage.getItem('alertasRRHH') || "[]");
 
-        // 3. Crear la nueva alerta
         const nuevaAlerta = {
-            id: Date.now(), // ID único basado en el tiempo
-            usuario: email, // El correo que escribió el usuario
-            fecha: new Date().toLocaleString(), // Fecha y hora actual
+            id: Date.now(),
+            usuario: email,
+            fecha: new Date().toLocaleString(),
             tipo: 'Recuperación de Clave',
-            leido: false // Importante para que salga como "Nueva"
+            leido: false
         };
 
-        // 4. Guardar en el localStorage para que RRHH lo vea
         localStorage.setItem('alertasRRHH', JSON.stringify([...alertasGuardadas, nuevaAlerta]));
-
-        // 5. Mostrar el modal de éxito visual
         setShowRecoveryModal(true);
     };
-    // -----------------------------------------
 
     const handleConfirmAttended = async () => {
         if (!tempUser) return;
@@ -73,11 +65,11 @@ const Login = () => {
             await fetch(`http://localhost:3001/${endpoint}/${tempUser.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ estadoRecuperacion: 'Completado' }) 
+                body: JSON.stringify({ estadoRecuperacion: 'Completado' })
             });
             saveSessionData(tempUser);
             setShowAttendedModal(false);
-            
+
             if (activeRole === 'pasante') navigate('/pasante');
             else navigate('/dashboard');
 
@@ -89,7 +81,7 @@ const Login = () => {
     const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
-        // 1. Super Admin
+        // 1. Super Admin (Hardcoded - Esto se mantiene igual por seguridad básica)
         if (activeRole === 'admin') {
             if (email === 'admin@inamhi.gob.ec' && password === 'admin123') {
                 saveSessionData({ nombre: 'Super Admin', rol: 'admin' });
@@ -100,69 +92,60 @@ const Login = () => {
             return;
         }
 
+        // Determinar endpoint según el rol seleccionado
         const endpoint = activeRole === 'pasante' ? 'pasantes' : 'usuarios';
 
         try {
-            const response = await fetch(`http://localhost:3001/${endpoint}`);
-            
+            // --- CAMBIO CLAVE PARA MYSQL ---
+            // Enviamos las credenciales como query params para que el backend filtre
+            const queryParams = new URLSearchParams({
+                usuario: email.trim(), // Enviamos lo que escribió el usuario (puede ser user o email)
+                password: password.trim()
+            });
+
+            const response = await fetch(`http://localhost:3001/${endpoint}?${queryParams}`);
+
             if (response.ok) {
                 const data = await response.json();
-                
-                const usuarioEncontrado = data.find((user: any) => {
-                    const inputUser = email.trim().toLowerCase();
-                    const inputPass = password.trim();
-                    
-                    const dbUser = (user.usuario || '').trim().toLowerCase();
-                    const dbEmail = (user.email || '').trim().toLowerCase();
-                    const dbPass = (user.password || '').trim();
-                    const dbCedula = (user.cedula || '').trim();
 
-                    const userMatch = (dbUser === inputUser || dbEmail === inputUser);
-                    // Login flexible
-                    const passMatch = (dbPass === inputPass) || (dbCedula === inputPass) || (inputPass === '12345'); 
+                // Si el array tiene datos, significa que encontró al usuario
+                if (data.length > 0) {
+                    const usuarioEncontrado = data[0]; // Tomamos el primero que coincida
 
-                    return userMatch && passMatch;
-                });
-
-                if (usuarioEncontrado) {
-                    
-                    // Validación de Rol
+                    // --- VALIDACIÓN DE ROL ---
                     if (activeRole !== 'pasante') {
                         const rolMap: Record<string, string> = {
-                            'human_resources': 'Talento Humano'
+                            'human_resources': 'Talento Humano',
+                            'seguridad': 'Seguridad'
                         };
-                        const rolBD = (usuarioEncontrado.rol || '').toLowerCase();
-                        const rolRequerido = (rolMap[activeRole] || '').toLowerCase();
-                        
-                        if (!rolBD.includes(rolRequerido) && rolBD !== rolRequerido) {
-                            alert(`Error: Rol incorrecto.`);
+
+                        const rolEsperado = rolMap[activeRole];
+                        const rolReal = usuarioEncontrado.rol;
+
+                        if (rolReal !== rolEsperado) {
+                            alert(`Error: Este usuario no tiene permisos de ${activeRole === 'human_resources' ? 'RR.HH.' : activeRole}.`);
                             return;
                         }
                     }
 
-                    // Validaciones de Estado
-                    if (usuarioEncontrado.estadoRecuperacion === 'Atendida') {
+                    // --- VALIDACIÓN DE ESTADO ---
+                    const estado = (usuarioEncontrado.estado || 'Activo').toLowerCase();
+
+                    if (estado !== 'activo') {
+                        if (activeRole === 'pasante') {
+                            if (estado === 'finalizado') setShowFinishedModal(true);
+                            else setShowStatusModal(true);
+                        } else {
+                            alert("Acceso denegado: Su cuenta está inactiva.");
+                        }
+                        return;
+                    }
+
+                    // --- VERIFICAR RECUPERACIÓN ---
+                    if (usuarioEncontrado.estadoRecuperacion === 'Atendido') {
                         setTempUser(usuarioEncontrado);
                         setShowAttendedModal(true);
                         return;
-                    }
-
-                    const estadoRaw = (usuarioEncontrado.estado || '').trim().toLowerCase();
-
-                    if (estadoRaw === 'finalizado') {
-                        setShowFinishedModal(true);
-                        return;
-                    }
-
-                    // BLOQUEO DE SEGURIDAD PARA PASANTES NO ACTIVOS
-                    if (activeRole === 'pasante' && estadoRaw !== 'activo') {
-                        setShowStatusModal(true); 
-                        return; 
-                    }
-                    
-                    if (activeRole !== 'pasante' && (estadoRaw === 'inactivo' || estadoRaw === 'bloqueado')) {
-                         alert(`Cuenta desactivada.`);
-                         return;
                     }
 
                     // --- LOGIN EXITOSO ---
@@ -173,34 +156,34 @@ const Login = () => {
                     else navigate('/dashboard');
 
                 } else {
-                    alert("Credenciales incorrectas.");
+                    // Si el array está vacío, no encontró coincidencias
+                    alert("Usuario o contraseña incorrectos.");
                 }
             } else {
-                alert("Error de conexión.");
+                alert("Error al conectar con la base de datos.");
             }
         } catch (error) {
             console.error(error);
-            alert("No se pudo conectar con el servidor.");
+            alert("El servidor no responde. Asegúrate de correr 'npm run dev:all'.");
         }
     };
 
-    // --- FUNCIÓN CLAVE PARA GUARDAR LA FOTO ---
     const saveSessionData = (userData: any) => {
-        const { 
-            docHojaVida, 
-            docCartaSolicitud, 
-            docAcuerdoConfidencialidad, 
-            docCopiaCedula, 
-            informeUrl, 
-            ...userSafe 
+        const {
+            docHojaVida,
+            docCartaSolicitud,
+            docAcuerdoConfidencialidad,
+            docCopiaCedula,
+            informeUrl,
+            ...userSafe
         } = userData;
 
-        console.log("Guardando sesión con foto..."); // Debug
+        console.log("Guardando sesión...");
 
         try {
             localStorage.setItem('user', JSON.stringify(userSafe));
             localStorage.setItem('role', activeRole);
-            
+
             if (rememberMe) localStorage.setItem('savedEmail', email);
             else localStorage.removeItem('savedEmail');
         } catch (e) {
@@ -211,7 +194,7 @@ const Login = () => {
                 localStorage.setItem('role', activeRole);
             } catch (err) {
                 alert("Tu foto de perfil es demasiado pesada para guardarse en la sesión. Se omitirá.");
-                const { fotoUrl, fotoBase64, ...userNoPhoto } = userSafe;
+                const { fotoUrl, ...userNoPhoto } = userSafe;
                 localStorage.setItem('user', JSON.stringify(userNoPhoto));
                 localStorage.setItem('role', activeRole);
             }
@@ -221,13 +204,13 @@ const Login = () => {
     return (
         <div className="split-screen-container">
             <div className="brand-section">
-                <div className="radar-blip"></div> 
+                <div className="radar-blip"></div>
                 <div className="brand-logo-large">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" style={{ width: '50px', height: '50px', color: '#67e8f9' }}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
                     </svg>
                 </div>
-                <h1>SYSTEM<br/>ACCESS</h1>
+                <h1>SYSTEM<br />ACCESS</h1>
                 <div className="brand-tagline">INAMHI Monitoring System<br />v.4.0.2 Stable Release</div>
             </div>
 
@@ -261,7 +244,7 @@ const Login = () => {
                                 className="input-field"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                required 
+                                required
                             />
                         </div>
                         <div className="input-block">
@@ -279,7 +262,7 @@ const Login = () => {
                         </div>
                         <div className="form-actions">
                             <label className="checkbox-simple">
-                                <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} /> 
+                                <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />
                                 Recordar usuario
                             </label>
                             <a href="#" className="link-recover" onClick={handleRecovery}>Recuperar acceso</a>
@@ -299,21 +282,21 @@ const Login = () => {
                         <h3>Acceso Restringido</h3>
                         <p className="modal-message">
                             Tu cuenta aún <strong>no ha sido activada</strong>.
-                            <br/><br/>
+                            <br /><br />
                             Debes esperar a que Talento Humano valide y suba tu documentación habilitante para poder ingresar al sistema.
                         </p>
                         <button className="btn-modal-action" onClick={() => setShowStatusModal(false)}>Entendido</button>
                     </div>
                 </div>
             )}
-            
+
             {showFinishedModal && (
                 <div className="modal-overlay">
                     <div className="modal-content-finished">
                         <button className="close-modal-btn" onClick={() => setShowFinishedModal(false)}><X size={20} /></button>
                         <div className="modal-icon-finished"><GraduationCap size={48} className="icon-info" /></div>
                         <h3>Pasantía Finalizada</h3>
-                        <p className="modal-message">Tu periodo de pasantías ha concluido.<br/><br/>¡Gracias por tu colaboración en el <strong>INAMHI</strong>!</p>
+                        <p className="modal-message">Tu periodo de pasantías ha concluido.<br /><br />¡Gracias por tu colaboración en el <strong>INAMHI</strong>!</p>
                         <button className="btn-modal-action-blue" onClick={() => setShowFinishedModal(false)}>Cerrar</button>
                     </div>
                 </div>
@@ -325,7 +308,7 @@ const Login = () => {
                         <button className="close-modal-btn" onClick={() => setShowRecoveryModal(false)}><X size={20} /></button>
                         <div className="modal-icon-success"><Send size={40} className="icon-success" /></div>
                         <h3>Solicitud Enviada</h3>
-                        <p style={{fontSize: '0.9rem', color: '#666', marginTop: '10px'}}>
+                        <p style={{ fontSize: '0.9rem', color: '#666', marginTop: '10px' }}>
                             El administrador de RR.HH ha recibido tu solicitud de recuperación para: <strong>{email}</strong>
                         </p>
                         <button className="btn-modal-action-green" onClick={() => setShowRecoveryModal(false)}>Listo</button>
@@ -335,7 +318,7 @@ const Login = () => {
 
             {showAttendedModal && (
                 <div className="modal-overlay">
-                    <div className="modal-content-success"> 
+                    <div className="modal-content-success">
                         <button className="close-modal-btn" onClick={() => setShowAttendedModal(false)}><X size={20} /></button>
                         <h3>Recuperación Atendida</h3>
                         <button className="btn-modal-action-green" onClick={handleConfirmAttended}>Ingresar</button>

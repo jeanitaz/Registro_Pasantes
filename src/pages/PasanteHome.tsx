@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef, type ChangeEvent } from 'react'; 
 import { useNavigate } from 'react-router-dom';
-
-// 1. IMPORTAMOS LA LIBRERÍA CON SOPORTE DE ESTILOS
 import * as XLSX from 'xlsx-js-style'; 
 
 import {
@@ -50,6 +48,7 @@ const PasanteHome = () => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       const userData = JSON.parse(storedUser);
+      // Aseguramos que informeUrl venga completo si existe
       setPasante({
         ...userData,
         id: userData.id, 
@@ -62,8 +61,10 @@ const PasanteHome = () => {
         historialReciente: userData.historialReciente || [
           { fecha: '2024-01-20', tipo: 'Sistema', detalle: 'Cuenta creada exitosamente', estado: 'ok' }
         ],
-        informeSubido: !!userData.informeUrl || userData.informeFinalSubido || false,
-        fotoUrl: userData.fotoUrl || userData.fotoNombre 
+        // Verificamos si tiene URL de informe
+        informeSubido: !!userData.informeUrl,
+        informeUrl: userData.informeUrl,
+        fotoUrl: userData.fotoUrl
       });
     } else {
       navigate('/login');
@@ -87,125 +88,49 @@ const PasanteHome = () => {
     fileInputRef.current?.click();
   };
 
-  // --- FUNCIÓN MEJORADA: DESCARGAR EXCEL CON ESTILOS ---
   const handleDownloadExcel = () => {
     if (!pasante) return;
 
-    // A. DEFINICIÓN DE ESTILOS
-    const tituloStyle = {
-        font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } },
-        fill: { fgColor: { rgb: "2563EB" } }, // Azul Intenso
-        alignment: { horizontal: "center", vertical: "center" }
-    };
+    const tituloStyle = { font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "2563EB" } }, alignment: { horizontal: "center", vertical: "center" } };
+    const labelStyle = { font: { bold: true, color: { rgb: "334155" } } };
+    const headerTablaStyle = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "3B82F6" } }, alignment: { horizontal: "center", vertical: "center" }, border: { top: { style: "thin", color: { rgb: "FFFFFF" } }, bottom: { style: "thin", color: { rgb: "FFFFFF" } }, right: { style: "thin", color: { rgb: "FFFFFF" } } } };
+    const celdaStyle = { alignment: { horizontal: "left", vertical: "center" }, border: { bottom: { style: "thin", color: { rgb: "E2E8F0" } } } };
+    const celdaCentradaStyle = { alignment: { horizontal: "center", vertical: "center" }, border: { bottom: { style: "thin", color: { rgb: "E2E8F0" } } } };
+    const resumenHeaderStyle = { font: { bold: true, sz: 12, color: { rgb: "1E293B" } }, fill: { fgColor: { rgb: "F1F5F9" } }, border: { bottom: { style: "thin", color: { rgb: "CBD5E1" } } } };
 
-    const labelStyle = {
-        font: { bold: true, color: { rgb: "334155" } }
-    };
-
-    const headerTablaStyle = {
-        font: { bold: true, color: { rgb: "FFFFFF" } },
-        fill: { fgColor: { rgb: "3B82F6" } }, // Azul Medio
-        alignment: { horizontal: "center", vertical: "center" },
-        border: { 
-            top: { style: "thin", color: { rgb: "FFFFFF" } }, 
-            bottom: { style: "thin", color: { rgb: "FFFFFF" } },
-            right: { style: "thin", color: { rgb: "FFFFFF" } } 
-        }
-    };
-
-    const celdaStyle = {
-        alignment: { horizontal: "left", vertical: "center" },
-        border: { bottom: { style: "thin", color: { rgb: "E2E8F0" } } }
-    };
-    
-    const celdaCentradaStyle = {
-        alignment: { horizontal: "center", vertical: "center" },
-        border: { bottom: { style: "thin", color: { rgb: "E2E8F0" } } }
-    };
-
-    const resumenHeaderStyle = {
-        font: { bold: true, sz: 12, color: { rgb: "1E293B" } },
-        fill: { fgColor: { rgb: "F1F5F9" } },
-        border: { bottom: { style: "thin", color: { rgb: "CBD5E1" } } }
-    };
-
-    // B. CONSTRUCCIÓN DE LA DATA (Filas)
     const wsData: any[] = [];
-
-    // 1. Título Principal
-    wsData.push([
-        { v: "REPORTE DE ACTIVIDADES - PASANTÍAS", s: tituloStyle },
-        { v: "", s: tituloStyle }, { v: "", s: tituloStyle }, { v: "", s: tituloStyle }
-    ]);
-    wsData.push([]); // Espacio
-
-    // 2. Información del Estudiante
+    wsData.push([{ v: "REPORTE DE ACTIVIDADES - PASANTÍAS", s: tituloStyle }, { v: "", s: tituloStyle }, { v: "", s: tituloStyle }, { v: "", s: tituloStyle }]);
+    wsData.push([]);
     wsData.push([{ v: "Estudiante:", s: labelStyle }, { v: pasante.nombre }]);
     wsData.push([{ v: "Carrera:", s: labelStyle }, { v: pasante.carrera }]);
     wsData.push([{ v: "Estado:", s: labelStyle }, { v: pasante.estado }]);
     wsData.push([{ v: "Fecha de Reporte:", s: labelStyle }, { v: new Date().toLocaleDateString() }]);
-    wsData.push([]); // Espacio
+    wsData.push([]);
+    wsData.push([{ v: "FECHA", s: headerTablaStyle }, { v: "TIPO", s: headerTablaStyle }, { v: "DETALLE DE ACTIVIDAD", s: headerTablaStyle }, { v: "ESTADO", s: headerTablaStyle }]);
 
-    // 3. Encabezados de la Tabla
-    wsData.push([
-        { v: "FECHA", s: headerTablaStyle },
-        { v: "TIPO", s: headerTablaStyle },
-        { v: "DETALLE DE ACTIVIDAD", s: headerTablaStyle },
-        { v: "ESTADO", s: headerTablaStyle }
-    ]);
-
-    // 4. Filas del Historial
     if (pasante.historialReciente.length > 0) {
         pasante.historialReciente.forEach((item) => {
-            wsData.push([
-                { v: item.fecha, s: celdaCentradaStyle },
-                { v: item.tipo, s: celdaCentradaStyle },
-                { v: item.detalle, s: celdaStyle },
-                { v: item.estado, s: celdaCentradaStyle }
-            ]);
+            wsData.push([{ v: item.fecha, s: celdaCentradaStyle }, { v: item.tipo, s: celdaCentradaStyle }, { v: item.detalle, s: celdaStyle }, { v: item.estado, s: celdaCentradaStyle }]);
         });
     } else {
         wsData.push([{ v: "No hay registros disponibles", s: celdaStyle }]);
     }
 
-    wsData.push([]); // Espacio
-
-    // 5. Sección de Resumen
-    // Guardamos el índice actual para hacer el merge luego
+    wsData.push([]);
     const rowIndexResumen = wsData.length; 
-    
-    wsData.push([
-        { v: "RESUMEN FINAL DE HORAS", s: resumenHeaderStyle }, 
-        { v: "", s: resumenHeaderStyle }
-    ]);
+    wsData.push([{ v: "RESUMEN FINAL DE HORAS", s: resumenHeaderStyle }, { v: "", s: resumenHeaderStyle }]);
     wsData.push([{ v: "Meta Requerida:", s: labelStyle }, { v: `${pasante.horasRequeridas} hrs` }]);
     wsData.push([{ v: "Horas Completadas:", s: labelStyle }, { v: `${pasante.horasCompletadas} hrs` }]);
     wsData.push([{ v: "Porcentaje:", s: labelStyle }, { v: `${((pasante.horasCompletadas / pasante.horasRequeridas) * 100).toFixed(1)}%` }]);
     wsData.push([{ v: "Total Atrasos:", s: labelStyle }, { v: pasante.atrasos }]);
     
-    // C. CREACIÓN DE LA HOJA
     const ws = XLSX.utils.aoa_to_sheet(wsData);
-
-    // D. CONFIGURACIÓN DE COLUMNAS (Ancho)
-    ws['!cols'] = [
-        { wch: 15 }, // Fecha
-        { wch: 20 }, // Tipo
-        { wch: 50 }, // Detalle (Ancho grande para texto)
-        { wch: 15 }  // Estado
-    ];
-
-    // E. MERGES (Combinar Celdas)
-    ws['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }, // Título principal (A1:D1)
-        { s: { r: rowIndexResumen, c: 0 }, e: { r: rowIndexResumen, c: 1 } } // Título Resumen (A_resumen:B_resumen)
-    ];
-
-    // F. GUARDAR ARCHIVO
+    ws['!cols'] = [{ wch: 15 }, { wch: 20 }, { wch: 50 }, { wch: 15 }];
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }, { s: { r: rowIndexResumen, c: 0 }, e: { r: rowIndexResumen, c: 1 } }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Reporte");
     XLSX.writeFile(wb, `Reporte_InternApp_${pasante.nombre.replace(/\s+/g, '_')}.xlsx`);
   };
-  // ---------------------------------------------
 
   const convertToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -234,30 +159,38 @@ const PasanteHome = () => {
       try {
         const base64Pdf = await convertToBase64(file);
 
+        // Enviamos el PDF al servidor
         const response = await fetch(`http://localhost:3001/pasantes/${pasante.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                informeFinalSubido: true,
-                informeUrl: base64Pdf 
+                informeFinalSubido: true, // Bandera para frontend (opcional)
+                informeUrl: base64Pdf     // El contenido real
             })
         });
 
         if (response.ok) {
             alert(`✅ Archivo "${file.name}" subido correctamente.`);
             
-            setPasante(prev => prev ? ({ 
-                ...prev, 
-                informeSubido: true,
-                informeUrl: base64Pdf 
-            }) : null);
-            
-            const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-            localStorage.setItem('user', JSON.stringify({
-                ...currentUser,
-                informeFinalSubido: true,
-                informeUrl: base64Pdf
-            }));
+            // Recargar datos desde el servidor para obtener la URL correcta
+            // (El servidor guardó el archivo y nos devolverá la URL http://... no el base64)
+            const refreshResponse = await fetch(`http://localhost:3001/pasantes/${pasante.id}`);
+            if (refreshResponse.ok) {
+                const freshData = await refreshResponse.json();
+                
+                setPasante(prev => prev ? ({ 
+                    ...prev, 
+                    informeSubido: true,
+                    informeUrl: freshData.informeUrl 
+                }) : null);
+                
+                // Actualizar localStorage para persistencia
+                const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+                localStorage.setItem('user', JSON.stringify({
+                    ...currentUser,
+                    informeUrl: freshData.informeUrl
+                }));
+            }
 
         } else {
             throw new Error("No se pudo guardar en la base de datos.");
@@ -282,30 +215,24 @@ const PasanteHome = () => {
   const esCompletado = porcentaje >= 100;
   const limiteLlamados = 3;
   const esCritico = pasante.llamadosAtencion >= limiteLlamados;
-
-  const tieneFoto = pasante.fotoUrl && pasante.fotoUrl.startsWith('data:image');
+  const tieneFoto = pasante.fotoUrl && pasante.fotoUrl.startsWith('http');
 
   return (
     <div className="layout-wrapper">
       <aside className="modern-sidebar">
         <div className="sidebar-header">
-          <div className="logo-box">
-            <Briefcase size={24} />
-          </div>
+          <div className="logo-box"><Briefcase size={24} /></div>
           <span className="logo-text">InternApp</span>
         </div>
-        
         <div className="nav-links">
           <button className="nav-item active">
             <div className="nav-icon"><Activity size={20} /></div>
             <span>Dashboard</span>
           </button>
-
           <button onClick={handleRegistroHoras} className="nav-item">
             <div className="nav-icon"><ClipboardList size={20} /></div>
             <span>Registro de Horas</span>
           </button>
-
           <button onClick={handleLogout} className="nav-item logout-item">
             <div className="nav-icon"><LogOut size={20} /></div>
             <span>Cerrar Sesión</span>
@@ -322,14 +249,9 @@ const PasanteHome = () => {
           <div className="profile-pill">
             <div className={`status-dot ${esCritico ? 'dot-red' : 'dot-green'}`}></div>
             <span>{pasante.estado || "Activo"}</span>
-            
             <div className="avatar-circle" style={{ overflow: 'hidden', padding: tieneFoto ? 0 : '' }}>
                 {tieneFoto ? (
-                    <img 
-                        src={pasante.fotoUrl} 
-                        alt="Perfil" 
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                    />
+                    <img src={pasante.fotoUrl} alt="Perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                     pasante.nombre.charAt(0)
                 )}
@@ -343,15 +265,9 @@ const PasanteHome = () => {
               <h3>Progreso General</h3>
               <p>Has completado el <strong>{porcentaje.toFixed(1)}%</strong> de tus horas.</p>
               <div className="stats-row">
-                <div className="stat-item">
-                  <span className="label">Completadas</span>
-                  <span className="value">{pasante.horasCompletadas}h</span>
-                </div>
+                <div className="stat-item"><span className="label">Completadas</span><span className="value">{pasante.horasCompletadas}h</span></div>
                 <div className="stat-separator">/</div>
-                <div className="stat-item">
-                  <span className="label">Meta</span>
-                  <span className="value">{pasante.horasRequeridas}h</span>
-                </div>
+                <div className="stat-item"><span className="label">Meta</span><span className="value">{pasante.horasRequeridas}h</span></div>
               </div>
             </div>
             <div className="circular-chart-wrapper">
@@ -389,49 +305,24 @@ const PasanteHome = () => {
           </div>
 
           <div className="card actions-card-modern">
-            <div className="card-header-row">
-              <h3>Gestión de Cierre</h3>
-            </div>
+            <div className="card-header-row"><h3>Gestión de Cierre</h3></div>
             <div className="modern-actions-container">
-              
-              {/* BOTÓN DESCARGAR EXCEL CON ESTILOS */}
-              <div 
-                className="action-panel" 
-                onClick={handleDownloadExcel}
-                style={{ cursor: 'pointer', border: '1px solid #22c55e', backgroundColor: '#f0fdf4' }}
-              >
-                <div className="panel-icon">
-                  <FileSpreadsheet size={24} className="text-green-600" style={{ color: '#16a34a' }} />
-                </div>
-                <div className="panel-content">
-                  <h4 style={{ color: '#15803d' }}>Reporte de Horas</h4>
-                  <p>Descargar Excel detallado.</p>
-                </div>
-                <button className="panel-btn-icon">
-                  <Download size={20} style={{ color: '#16a34a' }} />
-                </button>
+              <div className="action-panel" onClick={handleDownloadExcel} style={{ cursor: 'pointer', border: '1px solid #22c55e', backgroundColor: '#f0fdf4' }}>
+                <div className="panel-icon"><FileSpreadsheet size={24} className="text-green-600" style={{ color: '#16a34a' }} /></div>
+                <div className="panel-content"><h4 style={{ color: '#15803d' }}>Reporte de Horas</h4><p>Descargar Excel detallado.</p></div>
+                <button className="panel-btn-icon"><Download size={20} style={{ color: '#16a34a' }} /></button>
               </div>
 
               <div className="action-panel secondary-panel">
                 <div className="panel-icon"><FileText size={24} className="text-blue-500" /></div>
-                <div className="panel-content">
-                  <h4>Plantilla de Informe</h4>
-                  <p>Descarga el formato oficial.</p>
-                </div>
+                <div className="panel-content"><h4>Plantilla de Informe</h4><p>Descarga el formato oficial.</p></div>
                 <button className="panel-btn-icon"><Download size={20} /></button>
               </div>
 
               <div className={`action-panel ${esCompletado ? 'primary-panel' : 'locked-panel'}`}>
-                <div className="panel-icon">
-                  {esCompletado ? <Upload size={24} className="text-green-500" /> : <Lock size={24} className="text-gray-400" />}
-                </div>
-                <div className="panel-content">
-                  <h4>Subir Informe Final</h4>
-                  <p>{pasante.informeSubido ? "¡Informe enviado!" : esCompletado ? "Sube tu informe." : "Completa tus horas."}</p>
-                </div>
-
+                <div className="panel-icon">{esCompletado ? <Upload size={24} className="text-green-500" /> : <Lock size={24} className="text-gray-400" />}</div>
+                <div className="panel-content"><h4>Subir Informe Final</h4><p>{pasante.informeSubido ? "¡Informe enviado!" : esCompletado ? "Sube tu informe." : "Completa tus horas."}</p></div>
                 <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".pdf" onChange={handleFileChange} />
-
                 {esCompletado && !pasante.informeSubido ? (
                   <button className="panel-btn-text" onClick={handleUploadClick} disabled={isUploading}>
                     {isUploading ? <><Loader2 size={16} className="animate-spin" style={{ marginRight: 8 }} /> Subiendo...</> : "Subir PDF"}
