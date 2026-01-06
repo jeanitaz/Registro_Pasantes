@@ -81,7 +81,7 @@ const CreacionPasante = () => {
             if (soloNumeros.length <= 10) {
                 setFormData(prev => ({ ...prev, [name]: soloNumeros }));
                 
-                // Limpiar error si ya cumple la longitud
+                // Limpiar error visual si el usuario corrige y llega a 10
                 if (soloNumeros.length === 10) {
                     setErrors(prev => ({ ...prev, [name]: '' }));
                 }
@@ -143,7 +143,7 @@ const CreacionPasante = () => {
             esValido = false;
         }
 
-        // 3. Validar Correo (Regex simple)
+        // 3. Validar Correo (Regex simple para formato email)
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(formData.email)) {
             nuevosErrores.email = 'Formato de correo inválido.';
@@ -163,9 +163,9 @@ const CreacionPasante = () => {
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         
-        // Ejecutar validaciones
+        // Ejecutar validaciones antes de cualquier cosa
         if (!validarFormulario()) {
-            alert("⚠️ Por favor corrige los errores antes de continuar.");
+            alert("⚠️ Por favor corrige los errores resaltados antes de continuar.");
             return;
         }
 
@@ -174,17 +174,24 @@ const CreacionPasante = () => {
             return;
         }
 
+        // Verificar si hay imagen seleccionada pero no procesada
         if (formData.foto && !formData.fotoBase64) {
             alert("⚠️ La imagen aún se está cargando. Intenta de nuevo en 2 segundos.");
             return;
         }
+
+        // --- OBTENER USUARIO ACTUAL DE RRHH ---
+        const rrhhUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const nombreCreador = rrhhUser.usuario || 'RRHH Desconocido';
+        // -------------------------------------
 
         const nuevoPasante = {
             ...formData,
             horasRequeridas: Number(formData.horasRequeridas),
             fotoUrl: formData.fotoBase64 || "",
             estado: "No habilitado",
-            fechaRegistro: new Date().toISOString()
+            fechaRegistro: new Date().toISOString(),
+            creadoPor: nombreCreador 
         };
 
         // Eliminar campos que no van a la BD (como el file object crudo)
@@ -242,7 +249,7 @@ const CreacionPasante = () => {
                                 <input type="text" name="apellidos" placeholder="Ej: Pérez Loor" value={formData.apellidos} onChange={handleChange} required />
                             </div>
                             
-                            {/* CÉDULA CON ERROR */}
+                            {/* CÉDULA CON VALIDACIÓN VISUAL */}
                             <div className="input-group">
                                 <label>Cédula de Identidad</label>
                                 <input 
@@ -254,6 +261,7 @@ const CreacionPasante = () => {
                                     onChange={handleChange} 
                                     required 
                                     className={errors.cedula ? 'input-error' : ''}
+                                    style={errors.cedula ? {borderColor: '#ef4444'} : {}}
                                 />
                                 {errors.cedula && <span className="error-msg" style={{color: '#ef4444', fontSize: '0.8rem', marginTop:'4px'}}>{errors.cedula}</span>}
                             </div>
@@ -263,7 +271,7 @@ const CreacionPasante = () => {
                                 <input type="date" name="fechaNacimiento" value={formData.fechaNacimiento} onChange={handleChange} required />
                             </div>
 
-                            {/* EMAIL CON ERROR */}
+                            {/* EMAIL CON VALIDACIÓN VISUAL */}
                             <div className="input-group">
                                 <label>Correo Electrónico</label>
                                 <input 
@@ -274,11 +282,12 @@ const CreacionPasante = () => {
                                     onChange={handleChange} 
                                     required 
                                     className={errors.email ? 'input-error' : ''}
+                                    style={errors.email ? {borderColor: '#ef4444'} : {}}
                                 />
                                 {errors.email && <span className="error-msg" style={{color: '#ef4444', fontSize: '0.8rem', marginTop:'4px'}}>{errors.email}</span>}
                             </div>
 
-                            {/* CELULAR CON ERROR */}
+                            {/* TELÉFONO CON VALIDACIÓN VISUAL */}
                             <div className="input-group">
                                 <label>Teléfono / Celular</label>
                                 <input 
@@ -290,6 +299,7 @@ const CreacionPasante = () => {
                                     onChange={handleChange} 
                                     required 
                                     className={errors.telefono ? 'input-error' : ''}
+                                    style={errors.telefono ? {borderColor: '#ef4444'} : {}}
                                 />
                                 {errors.telefono && <span className="error-msg" style={{color: '#ef4444', fontSize: '0.8rem', marginTop:'4px'}}>{errors.telefono}</span>}
                             </div>
@@ -374,7 +384,7 @@ const CreacionPasante = () => {
                                 </small>
                             </div>
                             
-                            {/* CONTRASEÑA CON ERROR */}
+                            {/* CONTRASEÑA CON VALIDACIÓN VISUAL */}
                             <div className="input-group">
                                 <label>Contraseña Temporal</label>
                                 <input 
@@ -385,6 +395,7 @@ const CreacionPasante = () => {
                                     onChange={handleChange} 
                                     required 
                                     className={errors.password ? 'input-error' : ''}
+                                    style={errors.password ? {borderColor: '#ef4444'} : {}}
                                 />
                                 {errors.password ? (
                                     <span className="error-msg" style={{color: '#ef4444', fontSize: '0.8rem', marginTop:'4px'}}>{errors.password}</span>
@@ -396,6 +407,7 @@ const CreacionPasante = () => {
 
                         <div className="form-actions-footer">
                             <button type="button" className="btn-cancel" onClick={() => navigate(-1)}>Cancelar</button>
+                            
                             <button 
                                 type="submit" 
                                 className="btn-save" 

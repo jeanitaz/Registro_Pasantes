@@ -7,7 +7,6 @@ const fs = require('fs');
 
 const app = express();
 
-// AUMENTAR EL LÍMITE DEL BODY PARSER
 app.use(express.json({ limit: '50mb' })); 
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -56,7 +55,6 @@ const saveBase64ToFile = (base64String, prefix) => {
 
 // --- RUTAS DE PASANTES ---
 
-// 1. OBTENER TODOS LOS PASANTES (CORREGIDO: AHORA ENVÍA DATOS DE DISCIPLINA)
 app.get('/pasantes', (req, res) => {
     const { usuario, password } = req.query;
     let sql = 'SELECT * FROM pasantes';
@@ -84,13 +82,9 @@ app.get('/pasantes', (req, res) => {
             password: p.password,
             estado: p.estado,
             fechaRegistro: p.fecha_registro,
-            
-            // --- AQUÍ ESTABA EL ERROR: FALTABAN ESTOS CAMPOS ---
             faltas: p.faltas || 0,
             atrasos: p.atrasos || 0,
-            llamadosAtencion: p.llamados_atencion || 0, // Mapeamos snake_case a camelCase
-            // ---------------------------------------------------
-
+            llamadosAtencion: p.llamados_atencion || 0,
             fotoUrl: p.foto_url ? `http://localhost:3001/uploads/${p.foto_url}` : null,
             docHojaVida: p.doc_hoja_vida ? `http://localhost:3001/uploads/${p.doc_hoja_vida}` : null,
             docCartaSolicitud: p.doc_carta_solicitud ? `http://localhost:3001/uploads/${p.doc_carta_solicitud}` : null,
@@ -125,13 +119,30 @@ app.get('/pasantes/:id', (req, res) => {
     });
 });
 
+// 3. CREAR PASANTE (AHORA GUARDA QUIÉN LO CREÓ)
 app.post('/pasantes', upload.single('foto'), (req, res) => {
-    const { nombres, apellidos, cedula, fechaNacimiento, institucion, carrera, dependencia, horasRequeridas, discapacidad, email, telefono, usuario, password } = req.body;
+    const { 
+        nombres, apellidos, cedula, fechaNacimiento, institucion, 
+        carrera, dependencia, horasRequeridas, discapacidad, 
+        email, telefono, usuario, password,
+        creadoPor // <--- RECIBIMOS EL USUARIO DE RRHH
+    } = req.body;
+    
     const filename = req.file ? req.file.filename : null;
-    const fechaRegistro = new Date(); // Generamos fecha actual
+    const fechaRegistro = new Date();
 
-    const sql = `INSERT INTO pasantes (nombres, apellidos, cedula, fecha_nacimiento, institucion, carrera, dependencia, horas_requeridas, discapacidad, email, telefono, usuario, password, foto_url, fecha_registro) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-    const values = [nombres, apellidos, cedula, fechaNacimiento, institucion, carrera, dependencia, horasRequeridas, discapacidad, email, telefono, usuario, password, filename, fechaRegistro];
+    const sql = `INSERT INTO pasantes (
+        nombres, apellidos, cedula, fecha_nacimiento, institucion, 
+        carrera, dependencia, horas_requeridas, discapacidad, 
+        email, telefono, usuario, password, foto_url, fecha_registro, creado_por
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+    const values = [
+        nombres, apellidos, cedula, fechaNacimiento, institucion, 
+        carrera, dependencia, horasRequeridas, discapacidad, 
+        email, telefono, usuario, password, filename, fechaRegistro, 
+        creadoPor || 'Sistema' // Guardamos el usuario de RRHH
+    ];
     
     db.query(sql, values, (err, result) => {
         if (err) return res.status(500).json({ error: 'Error al crear pasante', details: err });
@@ -139,14 +150,10 @@ app.post('/pasantes', upload.single('foto'), (req, res) => {
     });
 });
 
-// 4. ACTUALIZAR PASANTE (PATCH)
 app.patch('/pasantes/:id', (req, res) => {
     const { id } = req.params;
     const body = req.body;
 
-    console.log(`[PATCH] Actualizando ID ${id}, Datos:`, Object.keys(body));
-
-    // CASO A: Actualización de Documentación
     if (body.documentacionCompleta) {
         try {
             const doc1 = saveBase64ToFile(body.docHojaVida, 'hv');
@@ -173,7 +180,6 @@ app.patch('/pasantes/:id', (req, res) => {
         return; 
     }
 
-    // CASO B: Subida de INFORME FINAL
     else if (body.informeUrl && typeof body.informeUrl === 'string' && body.informeUrl.startsWith('data:')) {
         try {
             const filename = saveBase64ToFile(body.informeUrl, 'informe_final');
@@ -190,13 +196,12 @@ app.patch('/pasantes/:id', (req, res) => {
         return;
     }
 
-    // CASO C: Actualización General
     const dbMap = {
         horasCompletadas: 'horas_completadas',
         horasRequeridas: 'horas_requeridas',
         fechaNacimiento: 'fecha_nacimiento', 
         fotoUrl: 'foto_url',
-        llamadosAtencion: 'llamados_atencion' // MAPEO CRÍTICO
+        llamadosAtencion: 'llamados_atencion'
     };
 
     const camposIgnorados = [
@@ -209,7 +214,6 @@ app.patch('/pasantes/:id', (req, res) => {
 
     Object.keys(body).forEach(key => {
         if (camposIgnorados.includes(key) || body[key] === undefined) return;
-        
         if (key === 'informeUrl') {
             if (!body[key] || typeof body[key] !== 'string' || !body[key].startsWith('data:')) return;
         }
@@ -221,25 +225,19 @@ app.patch('/pasantes/:id', (req, res) => {
         }
 
         const dbCol = dbMap[key] || key;
-        
         if (typeof value !== 'object' && value !== null) {
             updates.push(`${dbCol} = ?`);
             values.push(value);
         }
     });
 
-    if (updates.length === 0) {
-        return res.status(400).json({ message: 'Nada que actualizar' });
-    }
+    if (updates.length === 0) return res.status(400).json({ message: 'Nada que actualizar' });
 
     const sql = `UPDATE pasantes SET ${updates.join(', ')} WHERE id = ?`;
     values.push(id);
 
     db.query(sql, values, (err, result) => {
-        if (err) {
-            console.error("Error SQL Update:", err);
-            return res.status(500).json(err);
-        }
+        if (err) return res.status(500).json(err);
         res.json({ message: 'Datos actualizados correctamente' });
     });
 });
@@ -253,21 +251,29 @@ app.delete('/pasantes/:id', (req, res) => {
     });
 });
 
-// --- RUTA DE AUDITORÍA (Logs combinados) ---
+// --- RUTA DE AUDITORÍA MEJORADA ---
+// Ahora mostramos "Pasante (Creado por: ...)"
 app.get('/auditoria', (req, res) => {
     const sql = `
-        (SELECT id, CONCAT(nombres, ' ', apellidos) as nombre, 'Pasante' as rol, fecha_registro as fecha FROM pasantes)
+        (SELECT 
+            id, 
+            CONCAT(nombres, ' ', apellidos) as nombre, 
+            CONCAT('Pasante (Creado por: ', COALESCE(creado_por, 'Sistema'), ')') as rol, 
+            fecha_registro as fecha 
+        FROM pasantes)
         UNION
-        (SELECT id, CONCAT(nombres, ' ', apellidos) as nombre, rol, fecha_registro as fecha FROM usuarios_admin)
+        (SELECT 
+            id, 
+            CONCAT(nombres, ' ', apellidos) as nombre, 
+            rol, 
+            fecha_registro as fecha 
+        FROM usuarios_admin)
         ORDER BY fecha DESC
         LIMIT 5
     `;
 
     db.query(sql, (err, results) => {
-        if (err) {
-            console.error("Error en auditoría:", err);
-            return res.status(500).json({ error: 'Error obteniendo logs' });
-        }
+        if (err) return res.status(500).json({ error: 'Error obteniendo logs' });
         res.json(results);
     });
 });
