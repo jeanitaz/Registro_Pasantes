@@ -7,8 +7,10 @@ const fs = require('fs');
 
 const app = express();
 
+// AUMENTAR EL LÍMITE DEL BODY PARSER
 app.use(express.json({ limit: '50mb' })); 
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
 app.use(cors());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -52,12 +54,22 @@ const saveBase64ToFile = (base64String, prefix) => {
     }
 };
 
-// --- RUTAS ---
+// --- RUTAS DE PASANTES ---
 
+// 1. OBTENER TODOS LOS PASANTES (CORREGIDO: AHORA ENVÍA DATOS DE DISCIPLINA)
 app.get('/pasantes', (req, res) => {
-    const sql = 'SELECT * FROM pasantes';
-    db.query(sql, (err, results) => {
+    const { usuario, password } = req.query;
+    let sql = 'SELECT * FROM pasantes';
+    let params = [];
+
+    if (usuario && password) {
+        sql += ' WHERE (usuario = ? OR email = ?) AND password = ?';
+        params = [usuario, usuario, password];
+    }
+
+    db.query(sql, params, (err, results) => {
         if (err) return res.status(500).json(err);
+        
         const pasantesFormateados = results.map(p => ({
             id: p.id,
             nombres: p.nombres,
@@ -72,6 +84,13 @@ app.get('/pasantes', (req, res) => {
             password: p.password,
             estado: p.estado,
             fechaRegistro: p.fecha_registro,
+            
+            // --- AQUÍ ESTABA EL ERROR: FALTABAN ESTOS CAMPOS ---
+            faltas: p.faltas || 0,
+            atrasos: p.atrasos || 0,
+            llamadosAtencion: p.llamados_atencion || 0, // Mapeamos snake_case a camelCase
+            // ---------------------------------------------------
+
             fotoUrl: p.foto_url ? `http://localhost:3001/uploads/${p.foto_url}` : null,
             docHojaVida: p.doc_hoja_vida ? `http://localhost:3001/uploads/${p.doc_hoja_vida}` : null,
             docCartaSolicitud: p.doc_carta_solicitud ? `http://localhost:3001/uploads/${p.doc_carta_solicitud}` : null,
@@ -80,6 +99,7 @@ app.get('/pasantes', (req, res) => {
             informeUrl: p.informe_url ? `http://localhost:3001/uploads/${p.informe_url}` : null,
             informeFinalSubido: !!p.informe_url
         }));
+        
         res.json(pasantesFormateados);
     });
 });
@@ -93,6 +113,7 @@ app.get('/pasantes/:id', (req, res) => {
         const p = results[0];
         const pasante = {
             ...p,
+            llamadosAtencion: p.llamados_atencion || 0,
             docHojaVida: p.doc_hoja_vida ? `http://localhost:3001/uploads/${p.doc_hoja_vida}` : null,
             docCartaSolicitud: p.doc_carta_solicitud ? `http://localhost:3001/uploads/${p.doc_carta_solicitud}` : null,
             docAcuerdoConfidencialidad: p.doc_acuerdo_confidencialidad ? `http://localhost:3001/uploads/${p.doc_acuerdo_confidencialidad}` : null,
@@ -107,22 +128,25 @@ app.get('/pasantes/:id', (req, res) => {
 app.post('/pasantes', upload.single('foto'), (req, res) => {
     const { nombres, apellidos, cedula, fechaNacimiento, institucion, carrera, dependencia, horasRequeridas, discapacidad, email, telefono, usuario, password } = req.body;
     const filename = req.file ? req.file.filename : null;
-    const sql = `INSERT INTO pasantes (nombres, apellidos, cedula, fecha_nacimiento, institucion, carrera, dependencia, horas_requeridas, discapacidad, email, telefono, usuario, password, foto_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-    const values = [nombres, apellidos, cedula, fechaNacimiento, institucion, carrera, dependencia, horasRequeridas, discapacidad, email, telefono, usuario, password, filename];
+    const fechaRegistro = new Date(); // Generamos fecha actual
+
+    const sql = `INSERT INTO pasantes (nombres, apellidos, cedula, fecha_nacimiento, institucion, carrera, dependencia, horas_requeridas, discapacidad, email, telefono, usuario, password, foto_url, fecha_registro) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    const values = [nombres, apellidos, cedula, fechaNacimiento, institucion, carrera, dependencia, horasRequeridas, discapacidad, email, telefono, usuario, password, filename, fechaRegistro];
+    
     db.query(sql, values, (err, result) => {
         if (err) return res.status(500).json({ error: 'Error al crear pasante', details: err });
         res.json({ message: 'Pasante creado', id: result.insertId });
     });
 });
 
-// 4. ACTUALIZAR PASANTE (PATCH) - CORREGIDO
+// 4. ACTUALIZAR PASANTE (PATCH)
 app.patch('/pasantes/:id', (req, res) => {
     const { id } = req.params;
     const body = req.body;
 
-    console.log(`[PATCH] Actualizando ID ${id}`);
+    console.log(`[PATCH] Actualizando ID ${id}, Datos:`, Object.keys(body));
 
-    // CASO A: Actualización de Documentos Iniciales
+    // CASO A: Actualización de Documentación
     if (body.documentacionCompleta) {
         try {
             const doc1 = saveBase64ToFile(body.docHojaVida, 'hv');
@@ -149,8 +173,7 @@ app.patch('/pasantes/:id', (req, res) => {
         return; 
     }
 
-    // CASO B: Subida de INFORME FINAL (Solo si es un archivo nuevo Base64)
-    // CORRECCIÓN: Si informeUrl no es string o no es base64, PASAMOS AL CASO C
+    // CASO B: Subida de INFORME FINAL
     else if (body.informeUrl && typeof body.informeUrl === 'string' && body.informeUrl.startsWith('data:')) {
         try {
             const filename = saveBase64ToFile(body.informeUrl, 'informe_final');
@@ -167,15 +190,15 @@ app.patch('/pasantes/:id', (req, res) => {
         return;
     }
 
-    // CASO C: Actualización General (Horas, Password, Estado, etc.)
+    // CASO C: Actualización General
     const dbMap = {
         horasCompletadas: 'horas_completadas',
         horasRequeridas: 'horas_requeridas',
         fechaNacimiento: 'fecha_nacimiento', 
-        fotoUrl: 'foto_url'
+        fotoUrl: 'foto_url',
+        llamadosAtencion: 'llamados_atencion' // MAPEO CRÍTICO
     };
 
-    // Campos que debemos ignorar porque son archivos o metadatos
     const camposIgnorados = [
         'id', 'fechaRegistro', 'informeFinalSubido', 
         'docHojaVida', 'docCartaSolicitud', 'docAcuerdoConfidencialidad', 'docCopiaCedula'
@@ -185,27 +208,20 @@ app.patch('/pasantes/:id', (req, res) => {
     const values = [];
 
     Object.keys(body).forEach(key => {
-        // 1. Ignorar campos prohibidos
         if (camposIgnorados.includes(key) || body[key] === undefined) return;
         
-        // 2. CORRECCIÓN VITAL: Si es informeUrl y no es base64, lo ignoramos
         if (key === 'informeUrl') {
             if (!body[key] || typeof body[key] !== 'string' || !body[key].startsWith('data:')) return;
         }
-
-        // 3. Ignorar fotoUrl si es un link viejo
-        if (key === 'fotoUrl' && (!body[key] || !body[key].startsWith('data:'))) return;
+        if (key === 'fotoUrl' && (!body[key] || typeof body[key] !== 'string' || !body[key].startsWith('data:'))) return;
 
         let value = body[key];
-        
-        // 4. Formatear fechas
         if (typeof value === 'string' && value.includes('T') && value.includes('Z')) {
             value = value.slice(0, 19).replace('T', ' ');
         }
 
         const dbCol = dbMap[key] || key;
         
-        // 5. Agregar a la query si es un valor simple
         if (typeof value !== 'object' && value !== null) {
             updates.push(`${dbCol} = ?`);
             values.push(value);
@@ -213,14 +229,11 @@ app.patch('/pasantes/:id', (req, res) => {
     });
 
     if (updates.length === 0) {
-        console.log("No hay campos válidos para actualizar");
         return res.status(400).json({ message: 'Nada que actualizar' });
     }
 
     const sql = `UPDATE pasantes SET ${updates.join(', ')} WHERE id = ?`;
     values.push(id);
-
-    console.log("SQL Generado:", sql); // Para debug
 
     db.query(sql, values, (err, result) => {
         if (err) {
@@ -240,7 +253,26 @@ app.delete('/pasantes/:id', (req, res) => {
     });
 });
 
-// Admin Users
+// --- RUTA DE AUDITORÍA (Logs combinados) ---
+app.get('/auditoria', (req, res) => {
+    const sql = `
+        (SELECT id, CONCAT(nombres, ' ', apellidos) as nombre, 'Pasante' as rol, fecha_registro as fecha FROM pasantes)
+        UNION
+        (SELECT id, CONCAT(nombres, ' ', apellidos) as nombre, rol, fecha_registro as fecha FROM usuarios_admin)
+        ORDER BY fecha DESC
+        LIMIT 5
+    `;
+
+    db.query(sql, (err, results) => {
+        if (err) {
+            console.error("Error en auditoría:", err);
+            return res.status(500).json({ error: 'Error obteniendo logs' });
+        }
+        res.json(results);
+    });
+});
+
+// Rutas Usuarios Admin
 app.get('/usuarios', (req, res) => {
     const { usuario, password } = req.query;
     if (usuario && password) {
@@ -259,10 +291,40 @@ app.get('/usuarios', (req, res) => {
 
 app.post('/usuarios', (req, res) => {
     const { nombres, apellidos, cedula, rol, usuario, password, estado } = req.body;
-    const sql = `INSERT INTO usuarios_admin (nombres, apellidos, cedula, rol, usuario, password, estado) VALUES (?, ?, ?, ?, ?, ?, ?)`;
-    db.query(sql, [nombres, apellidos, cedula, rol, usuario, password, estado], (err, result) => {
+    const fechaRegistro = new Date();
+    const sql = `INSERT INTO usuarios_admin (nombres, apellidos, cedula, rol, usuario, password, estado, fecha_registro) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+    db.query(sql, [nombres, apellidos, cedula, rol, usuario, password, estado, fechaRegistro], (err, result) => {
         if (err) return res.status(500).json(err);
         res.json({ message: 'Usuario creado', id: result.insertId });
+    });
+});
+
+app.patch('/usuarios/:id', (req, res) => {
+    const { id } = req.params;
+    const body = req.body;
+    const updates = [];
+    const values = [];
+
+    if (body.password) { updates.push("password = ?"); values.push(body.password); }
+    if (body.estado) { updates.push("estado = ?"); values.push(body.estado); }
+
+    if (updates.length === 0) return res.status(400).json({ message: 'Nada que actualizar' });
+
+    const sql = `UPDATE usuarios_admin SET ${updates.join(', ')} WHERE id = ?`;
+    values.push(id);
+
+    db.query(sql, values, (err, result) => {
+        if (err) return res.status(500).json(err);
+        res.json({ message: 'Usuario actualizado correctamente' });
+    });
+});
+
+app.delete('/usuarios/:id', (req, res) => {
+    const { id } = req.params;
+    const sql = 'DELETE FROM usuarios_admin WHERE id = ?';
+    db.query(sql, [id], (err, result) => {
+        if (err) return res.status(500).json(err);
+        res.json({ message: 'Usuario eliminado' });
     });
 });
 

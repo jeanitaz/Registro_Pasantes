@@ -19,8 +19,16 @@ const CreacionPasante = () => {
         telefono: '',
         usuario: '', 
         password: '',
-        foto: null as File | null, // Archivo crudo
-        fotoBase64: ''             // Cadena procesada
+        foto: null as File | null,
+        fotoBase64: ''            
+    });
+
+    // Estado para manejar los errores de validación
+    const [errors, setErrors] = useState({
+        cedula: '',
+        email: '',
+        telefono: '',
+        password: ''
     });
 
     const [isConverting, setIsConverting] = useState(false);
@@ -60,9 +68,34 @@ const CreacionPasante = () => {
         return () => clearTimeout(timer);
     }, [formData.nombres, formData.apellidos]);
 
+    // --- MODIFICADO: HANDLER CON RESTRICCIONES DE ENTRADA ---
     const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
+
+        // Validación en tiempo real para Cédula y Teléfono (Solo números y máx 10)
+        if (name === 'cedula' || name === 'telefono') {
+            // Elimina cualquier caracter que no sea número
+            const soloNumeros = value.replace(/\D/g, '');
+            
+            // Limita a 10 dígitos
+            if (soloNumeros.length <= 10) {
+                setFormData(prev => ({ ...prev, [name]: soloNumeros }));
+                
+                // Limpiar error si ya cumple la longitud
+                if (soloNumeros.length === 10) {
+                    setErrors(prev => ({ ...prev, [name]: '' }));
+                }
+            }
+            return; // Detiene la ejecución estándar para estos campos
+        }
+
+        // Para el resto de campos
         setFormData(prev => ({ ...prev, [name]: value }));
+        
+        // Limpiar errores simples al escribir
+        if (name === 'email' || name === 'password') {
+            setErrors(prev => ({ ...prev, [name]: '' }));
+        }
     };
 
     const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -73,66 +106,90 @@ const CreacionPasante = () => {
             if (file.size > LIMITE_PESO) {
                 alert(`⚠️ La imagen es muy pesada (${(file.size / 1024).toFixed(0)} KB). Máximo 200 KB.`);
                 e.target.value = ''; 
-                // Limpiamos el estado si la imagen fue rechazada
                 setFormData(prev => ({ ...prev, foto: null, fotoBase64: '' }));
                 return;
             }
 
-            setIsConverting(true); // Bloqueo visual
+            setIsConverting(true); 
 
             try {
-                // Guardamos el archivo crudo inmediatamente para saber que "hay algo"
                 setFormData(prev => ({ ...prev, foto: file }));
-                
                 const base64 = await convertToBase64(file);
-                
-                // Guardamos la cadena base64 final
                 setFormData(prev => ({ ...prev, fotoBase64: base64 }));
             } catch (error) {
                 console.error("Error al procesar imagen", error);
                 alert("Hubo un error al leer la imagen.");
                 setFormData(prev => ({ ...prev, foto: null, fotoBase64: '' }));
             } finally {
-                setIsConverting(false); // Desbloqueo
+                setIsConverting(false); 
             }
         }
+    };
+
+    // --- NUEVO: FUNCIÓN DE VALIDACIÓN ANTES DE ENVIAR ---
+    const validarFormulario = () => {
+        let esValido = true;
+        const nuevosErrores = { cedula: '', email: '', telefono: '', password: '' };
+
+        // 1. Validar Cédula (Exactamente 10 dígitos)
+        if (formData.cedula.length !== 10) {
+            nuevosErrores.cedula = 'La cédula debe tener 10 dígitos.';
+            esValido = false;
+        }
+
+        // 2. Validar Teléfono (Exactamente 10 dígitos y empezar con 09 generalmente)
+        if (formData.telefono.length !== 10) {
+            nuevosErrores.telefono = 'El celular debe tener 10 dígitos.';
+            esValido = false;
+        }
+
+        // 3. Validar Correo (Regex simple)
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(formData.email)) {
+            nuevosErrores.email = 'Formato de correo inválido.';
+            esValido = false;
+        }
+
+        // 4. Validar Contraseña (Mínimo 6 caracteres)
+        if (formData.password.length < 6) {
+            nuevosErrores.password = 'La contraseña debe tener al menos 6 caracteres.';
+            esValido = false;
+        }
+
+        setErrors(nuevosErrores);
+        return esValido;
     };
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         
-        // 1. Validación de estado de carga
+        // Ejecutar validaciones
+        if (!validarFormulario()) {
+            alert("⚠️ Por favor corrige los errores antes de continuar.");
+            return;
+        }
+
         if (isConverting) {
             alert("⏳ Procesando imagen, por favor espera un segundo...");
             return;
         }
 
-        // 2. VALIDACIÓN DE SEGURIDAD (SOLUCIÓN A TU PROBLEMA)
-        // Si hay un archivo seleccionado (foto no es null) PERO la cadena base64 está vacía,
-        // significa que el usuario hizo click muy rápido y la conversión no terminó.
         if (formData.foto && !formData.fotoBase64) {
-            alert("⚠️ La imagen aún se está cargando en memoria. Intenta darle a 'Registrar' de nuevo en 2 segundos.");
+            alert("⚠️ La imagen aún se está cargando. Intenta de nuevo en 2 segundos.");
             return;
         }
 
         const nuevoPasante = {
-            nombres: formData.nombres,
-            apellidos: formData.apellidos,
-            cedula: formData.cedula,
-            fechaNacimiento: formData.fechaNacimiento,
-            institucion: formData.institucion,
-            carrera: formData.carrera,
-            dependencia: formData.dependencia,
+            ...formData,
             horasRequeridas: Number(formData.horasRequeridas),
-            discapacidad: formData.discapacidad,
-            email: formData.email,
-            telefono: formData.telefono,
-            usuario: formData.usuario,
-            password: formData.password,
-            fotoUrl: formData.fotoBase64 || "", // Ahora estamos seguros que lleva datos si hay foto
+            fotoUrl: formData.fotoBase64 || "",
             estado: "No habilitado",
             fechaRegistro: new Date().toISOString()
         };
+
+        // Eliminar campos que no van a la BD (como el file object crudo)
+        delete (nuevoPasante as any).foto;
+        delete (nuevoPasante as any).fotoBase64;
 
         try {
             const response = await fetch('http://localhost:3001/pasantes', {
@@ -170,7 +227,6 @@ const CreacionPasante = () => {
                 <div className="form-container">
                     <form className="glass-card form-content" onSubmit={handleSubmit}>
                         
-                        {/* SECCIÓN 1: DATOS PERSONALES */}
                         <div className="form-section-title">
                             <h3>Información Personal</h3>
                             <span className="divider"></span>
@@ -185,22 +241,59 @@ const CreacionPasante = () => {
                                 <label>Apellidos</label>
                                 <input type="text" name="apellidos" placeholder="Ej: Pérez Loor" value={formData.apellidos} onChange={handleChange} required />
                             </div>
+                            
+                            {/* CÉDULA CON ERROR */}
                             <div className="input-group">
                                 <label>Cédula de Identidad</label>
-                                <input type="text" name="cedula" placeholder="1700000000" maxLength={10} value={formData.cedula} onChange={handleChange} required />
+                                <input 
+                                    type="text" 
+                                    name="cedula" 
+                                    placeholder="1700000000" 
+                                    maxLength={10} 
+                                    value={formData.cedula} 
+                                    onChange={handleChange} 
+                                    required 
+                                    className={errors.cedula ? 'input-error' : ''}
+                                />
+                                {errors.cedula && <span className="error-msg" style={{color: '#ef4444', fontSize: '0.8rem', marginTop:'4px'}}>{errors.cedula}</span>}
                             </div>
+
                             <div className="input-group">
                                 <label>Fecha de Nacimiento</label>
                                 <input type="date" name="fechaNacimiento" value={formData.fechaNacimiento} onChange={handleChange} required />
                             </div>
+
+                            {/* EMAIL CON ERROR */}
                             <div className="input-group">
                                 <label>Correo Electrónico</label>
-                                <input type="email" name="email" placeholder="correo@ejemplo.com" value={formData.email} onChange={handleChange} required />
+                                <input 
+                                    type="email" 
+                                    name="email" 
+                                    placeholder="correo@ejemplo.com" 
+                                    value={formData.email} 
+                                    onChange={handleChange} 
+                                    required 
+                                    className={errors.email ? 'input-error' : ''}
+                                />
+                                {errors.email && <span className="error-msg" style={{color: '#ef4444', fontSize: '0.8rem', marginTop:'4px'}}>{errors.email}</span>}
                             </div>
+
+                            {/* CELULAR CON ERROR */}
                             <div className="input-group">
                                 <label>Teléfono / Celular</label>
-                                <input type="tel" name="telefono" placeholder="0999999999" value={formData.telefono} onChange={handleChange} required />
+                                <input 
+                                    type="tel" 
+                                    name="telefono" 
+                                    placeholder="0999999999" 
+                                    maxLength={10} 
+                                    value={formData.telefono} 
+                                    onChange={handleChange} 
+                                    required 
+                                    className={errors.telefono ? 'input-error' : ''}
+                                />
+                                {errors.telefono && <span className="error-msg" style={{color: '#ef4444', fontSize: '0.8rem', marginTop:'4px'}}>{errors.telefono}</span>}
                             </div>
+
                             <div className="input-group">
                                 <label>Discapacidad</label>
                                 <select name="discapacidad" value={formData.discapacidad} onChange={handleChange}>
@@ -218,7 +311,6 @@ const CreacionPasante = () => {
                                     <input type="file" accept="image/*" onChange={handleFileChange} />
                                     <span className="file-hint">Formato JPG o PNG. Máx 200KB.</span>
                                     
-                                    {/* VISTA PREVIA */}
                                     {formData.fotoBase64 && (
                                         <div style={{marginTop: '5px', textAlign: 'center'}}>
                                             <img 
@@ -239,7 +331,6 @@ const CreacionPasante = () => {
                             </div>
                         </div>
 
-                        {/* SECCIÓN 2: DATOS ACADÉMICOS */}
                         <div className="form-section-title">
                             <h3>Datos Académicos e Institucionales</h3>
                             <span className="divider"></span>
@@ -269,7 +360,6 @@ const CreacionPasante = () => {
                             </div>
                         </div>
 
-                        {/* SECCIÓN 3: CREDENCIALES */}
                         <div className="form-section-title">
                             <h3>Credenciales de Acceso</h3>
                             <span className="divider"></span>
@@ -283,17 +373,29 @@ const CreacionPasante = () => {
                                     Formato: {formData.usuario ? formData.usuario : "Primera letra nombre + Primer apellido"}
                                 </small>
                             </div>
+                            
+                            {/* CONTRASEÑA CON ERROR */}
                             <div className="input-group">
                                 <label>Contraseña Temporal</label>
-                                <input type="password" name="password" placeholder="Contraseña inicial" value={formData.password} onChange={handleChange} required />
-                                <small className="helper-text warning">* El usuario deberá cambiarla al primer acceso.</small>
+                                <input 
+                                    type="password" 
+                                    name="password" 
+                                    placeholder="Contraseña inicial" 
+                                    value={formData.password} 
+                                    onChange={handleChange} 
+                                    required 
+                                    className={errors.password ? 'input-error' : ''}
+                                />
+                                {errors.password ? (
+                                    <span className="error-msg" style={{color: '#ef4444', fontSize: '0.8rem', marginTop:'4px'}}>{errors.password}</span>
+                                ) : (
+                                    <small className="helper-text warning">* El usuario deberá cambiarla al primer acceso.</small>
+                                )}
                             </div>
                         </div>
 
                         <div className="form-actions-footer">
                             <button type="button" className="btn-cancel" onClick={() => navigate(-1)}>Cancelar</button>
-                            
-                            {/* Deshabilitar botón visualmente si está procesando */}
                             <button 
                                 type="submit" 
                                 className="btn-save" 

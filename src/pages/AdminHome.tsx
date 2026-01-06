@@ -1,18 +1,57 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/AdminHome.css';
 
+// Interfaz para los datos que vienen del backend
+interface LogItem {
+    id: number;
+    nombre: string;
+    rol: string;
+    fecha: string;
+}
+
 const AdminHome = () => {
     const navigate = useNavigate();
+    const [logs, setLogs] = useState<LogItem[]>([]);
+
+    // Cargar logs al inicio y cada 5 segundos
+    useEffect(() => {
+        const fetchLogs = async () => {
+            try {
+                const response = await fetch('http://localhost:3001/auditoria');
+                if (response.ok) {
+                    const data = await response.json();
+                    setLogs(data);
+                }
+            } catch (error) {
+                console.error("Error cargando auditoría:", error);
+            }
+        };
+
+        fetchLogs(); // Primera carga
+        
+        // Polling para efecto "En vivo"
+        const interval = setInterval(fetchLogs, 5000);
+        return () => clearInterval(interval);
+    }, []);
 
     const handleLogout = () => {
-        console.log("Cerrando sesión...");
-        navigate('/login');
+        if (window.confirm("¿Deseas cerrar tu sesión?")) {
+            navigate('/login');
+        }
+    };
+
+    // Formatear la hora (ej: 10:42)
+    const formatearHora = (fechaISO: string) => {
+        if (!fechaISO) return '--:--';
+        const fecha = new Date(fechaISO);
+        return fecha.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' });
     };
 
     return (
         <div className="sophisticated-wrapper">
             
-            {/* LUCES AMBIENTALES (Ahora se mueven y son visibles) */}
+            {/* LUCES AMBIENTALES */}
             <div className="ambient-light light-1"></div>
             <div className="ambient-light light-2"></div>
 
@@ -34,8 +73,8 @@ const AdminHome = () => {
                 {/* GRUPO 2 */}
                 <div className="menu-group">
                     <p className="menu-label">Administración</p>
-                    <a href="/historial" className="menu-item">Usuarios</a>
-                    <a href="/historialP" className="menu-item">Pasantes</a>
+                    <button onClick={() => navigate('/historial')} className="menu-item link-btn">Usuarios</button>
+                    <button onClick={() => navigate('/historialP')} className="menu-item link-btn">Pasantes</button>
                     <a href="#" className="menu-item warning">Edición Directa</a>
                 </div>
 
@@ -75,7 +114,7 @@ const AdminHome = () => {
                 <div className="sophisticated-grid">
                     
                     {/* Tarjeta Usuarios */}
-                    <div className="glass-card wide-card users-module" onClick={() => navigate('/usuarios')}>
+                    <div className="glass-card wide-card users-module" onClick={() => navigate('/historial')} style={{cursor: 'pointer'}}>
                         <div className="card-content">
                             <div className="icon-box blue">👥</div>
                             <div className="text-content">
@@ -117,16 +156,29 @@ const AdminHome = () => {
                         </div>
                     </div>
 
-                    {/* Tarjeta LOGS con INDICADOR EN VIVO */}
+                    {/* Tarjeta LOGS con DATOS REALES */}
                     <div className="glass-card log-module">
                         <div className="module-header">
                             <h3>Log de Auditoría</h3>
-                            <div className="live-status">En vivo</div>
+                            <div className="live-status">
+                                <span className="blink-dot">●</span> En vivo
+                            </div>
                         </div>
                         <ul className="log-list">
-                            <li><span className="time">10:42</span><span className="msg">Nuevo usuario registrado [ID: 849].</span></li>
-                            <li><span className="time">10:15</span><span className="msg">Actualización de reglas de firewall.</span></li>
-                            <li><span className="time">09:50</span><span className="msg">Exportación masiva iniciada por Admin.</span></li>
+                            {logs.length > 0 ? (
+                                logs.map((log, index) => (
+                                    <li key={`${log.id}-${index}`}>
+                                        <span className="time">{formatearHora(log.fecha)}</span>
+                                        <span className="msg">
+                                            Nuevo <strong>{log.rol}</strong>: {log.nombre}
+                                        </span>
+                                    </li>
+                                ))
+                            ) : (
+                                <li style={{padding: '10px', color: '#9ca3af', fontSize: '0.85rem'}}>
+                                    Esperando registros recientes...
+                                </li>
+                            )}
                         </ul>
                     </div>
                 </div>

@@ -8,9 +8,17 @@ import {
   Upload, CheckCircle,
   Activity, Lock, Download, Loader2,
   ClipboardList,
-  FileSpreadsheet
+  FileSpreadsheet,
+  AlertTriangle, XCircle, ShieldAlert
 } from 'lucide-react';
 import '../styles/PasanteHome.css';
+
+// LÍMITES DEFINIDOS POR REGLAMENTO
+const LIMITES = {
+    ATRASOS: 5,
+    FALTAS: 3,
+    LLAMADOS: 3
+};
 
 interface HistorialItem {
   fecha: string;
@@ -45,30 +53,67 @@ const PasanteHome = () => {
   const fileInputRef = useRef<HTMLInputElement>(null); 
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      const userData = JSON.parse(storedUser);
-      // Aseguramos que informeUrl venga completo si existe
-      setPasante({
-        ...userData,
-        id: userData.id, 
-        nombre: userData.nombre || `${userData.nombres} ${userData.apellidos}`,
-        horasCompletadas: userData.horasCompletadas || 0,
-        horasRequeridas: Number(userData.horasRequeridas) || 0,
-        faltas: userData.faltas || 0,
-        atrasos: userData.atrasos || 0,
-        llamadosAtencion: userData.llamadosAtencion || 0,
-        historialReciente: userData.historialReciente || [
-          { fecha: '2024-01-20', tipo: 'Sistema', detalle: 'Cuenta creada exitosamente', estado: 'ok' }
-        ],
-        // Verificamos si tiene URL de informe
-        informeSubido: !!userData.informeUrl,
-        informeUrl: userData.informeUrl,
-        fotoUrl: userData.fotoUrl
-      });
-    } else {
-      navigate('/login');
-    }
+    const cargarDatosEnTiempoReal = async () => {
+        const storedUser = localStorage.getItem('user');
+        
+        if (storedUser) {
+            const localUser = JSON.parse(storedUser);
+            
+            // 1. Primero mostramos lo que hay en caché para que sea rápido
+            setPasante({
+                ...localUser,
+                id: localUser.id, 
+                nombre: localUser.nombre || `${localUser.nombres} ${localUser.apellidos}`,
+                horasCompletadas: localUser.horasCompletadas || 0,
+                horasRequeridas: Number(localUser.horasRequeridas) || 0,
+                faltas: localUser.faltas || 0,
+                atrasos: localUser.atrasos || 0,
+                llamadosAtencion: localUser.llamadosAtencion || 0,
+                historialReciente: localUser.historialReciente || [],
+                informeSubido: !!localUser.informeUrl,
+                informeUrl: localUser.informeUrl,
+                fotoUrl: localUser.fotoUrl
+            });
+
+            // 2. CONSULTAR AL SERVIDOR PARA TRAER DATOS FRESCOS DE RRHH
+            try {
+                const response = await fetch(`http://localhost:3001/pasantes/${localUser.id}`);
+                if (response.ok) {
+                    const dataDB = await response.json();
+                    
+                    // Mezclamos los datos locales con los frescos de la BD
+                    // (La BD es la verdad absoluta para contadores y estado)
+                    const datosActualizados = {
+                        ...localUser,
+                        ...dataDB, // Esto sobreescribe faltas, atrasos, estado, etc.
+                        
+                        // Aseguramos nombres correctos si la BD devuelve snake_case
+                        llamadosAtencion: dataDB.llamadosAtencion ?? dataDB.llamados_atencion ?? 0,
+                        horasCompletadas: dataDB.horasCompletadas ?? dataDB.horas_completadas ?? 0,
+                        
+                        // Aseguramos nombre completo
+                        nombre: `${dataDB.nombres} ${dataDB.apellidos}`,
+                        
+                        // Documentos
+                        informeSubido: !!(dataDB.informeUrl || dataDB.informe_url),
+                        informeUrl: dataDB.informeUrl || dataDB.informe_url,
+                        fotoUrl: dataDB.fotoUrl || dataDB.foto_url
+                    };
+
+                    setPasante(datosActualizados);
+                    
+                    // Actualizamos localStorage para que la próxima carga sea más precisa
+                    localStorage.setItem('user', JSON.stringify(datosActualizados));
+                }
+            } catch (error) {
+                console.error("Error sincronizando datos con el servidor:", error);
+            }
+        } else {
+            navigate('/login');
+        }
+    };
+
+    cargarDatosEnTiempoReal();
   }, [navigate]);
 
   const handleLogout = () => {
@@ -108,7 +153,7 @@ const PasanteHome = () => {
     wsData.push([]);
     wsData.push([{ v: "FECHA", s: headerTablaStyle }, { v: "TIPO", s: headerTablaStyle }, { v: "DETALLE DE ACTIVIDAD", s: headerTablaStyle }, { v: "ESTADO", s: headerTablaStyle }]);
 
-    if (pasante.historialReciente.length > 0) {
+    if (pasante.historialReciente && pasante.historialReciente.length > 0) {
         pasante.historialReciente.forEach((item) => {
             wsData.push([{ v: item.fecha, s: celdaCentradaStyle }, { v: item.tipo, s: celdaCentradaStyle }, { v: item.detalle, s: celdaStyle }, { v: item.estado, s: celdaCentradaStyle }]);
         });
@@ -158,44 +203,29 @@ const PasanteHome = () => {
 
       try {
         const base64Pdf = await convertToBase64(file);
-
-        // Enviamos el PDF al servidor
         const response = await fetch(`http://localhost:3001/pasantes/${pasante.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                informeFinalSubido: true, // Bandera para frontend (opcional)
-                informeUrl: base64Pdf     // El contenido real
+                informeFinalSubido: true, 
+                informeUrl: base64Pdf     
             })
         });
 
         if (response.ok) {
             alert(`✅ Archivo "${file.name}" subido correctamente.`);
-            
-            // Recargar datos desde el servidor para obtener la URL correcta
-            // (El servidor guardó el archivo y nos devolverá la URL http://... no el base64)
             const refreshResponse = await fetch(`http://localhost:3001/pasantes/${pasante.id}`);
             if (refreshResponse.ok) {
                 const freshData = await refreshResponse.json();
-                
                 setPasante(prev => prev ? ({ 
                     ...prev, 
                     informeSubido: true,
                     informeUrl: freshData.informeUrl 
                 }) : null);
-                
-                // Actualizar localStorage para persistencia
-                const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-                localStorage.setItem('user', JSON.stringify({
-                    ...currentUser,
-                    informeUrl: freshData.informeUrl
-                }));
             }
-
         } else {
             throw new Error("No se pudo guardar en la base de datos.");
         }
-
       } catch (error) {
         console.error(error);
         alert("❌ Error al subir. Intenta de nuevo.");
@@ -213,9 +243,21 @@ const PasanteHome = () => {
     : 0;
 
   const esCompletado = porcentaje >= 100;
-  const limiteLlamados = 3;
-  const esCritico = pasante.llamadosAtencion >= limiteLlamados;
+  
   const tieneFoto = pasante.fotoUrl && pasante.fotoUrl.startsWith('http');
+  
+  const estaEnRiesgo = 
+      pasante.atrasos >= LIMITES.ATRASOS - 1 || 
+      pasante.faltas >= LIMITES.FALTAS - 1 || 
+      pasante.llamadosAtencion >= LIMITES.LLAMADOS - 1;
+
+  const estaFinalizadoMal = pasante.estado.includes("Finalizado por");
+
+  const getBarColor = (val: number, max: number) => {
+      if (val >= max) return 'bg-red-500'; 
+      if (val >= max - 1) return 'bg-yellow-500'; 
+      return 'bg-blue-500';
+  };
 
   return (
     <div className="layout-wrapper">
@@ -247,7 +289,7 @@ const PasanteHome = () => {
             <p className="subtitle">Resumen de tu pasantía en {pasante.carrera}</p>
           </div>
           <div className="profile-pill">
-            <div className={`status-dot ${esCritico ? 'dot-red' : 'dot-green'}`}></div>
+            <div className={`status-dot ${estaFinalizadoMal ? 'dot-red' : 'dot-green'}`}></div>
             <span>{pasante.estado || "Activo"}</span>
             <div className="avatar-circle" style={{ overflow: 'hidden', padding: tieneFoto ? 0 : '' }}>
                 {tieneFoto ? (
@@ -259,81 +301,135 @@ const PasanteHome = () => {
           </div>
         </header>
 
+        {/* --- ALERTA DE RIESGO --- */}
+        {(estaEnRiesgo || estaFinalizadoMal) && (
+            <div className={`risk-banner ${estaFinalizadoMal ? 'banner-critical' : 'banner-warning'}`}>
+                {estaFinalizadoMal ? <XCircle size={24} /> : <ShieldAlert size={24} />}
+                <div className="banner-content">
+                    <h4>{estaFinalizadoMal ? "Pasantía Interrumpida" : "Atención Requerida"}</h4>
+                    <p>
+                        {estaFinalizadoMal 
+                            ? `Estado: ${pasante.estado}. Comunícate con tu supervisor.` 
+                            : "Estás cerca de alcanzar el límite permitido de faltas o atrasos. Cuida tu asistencia."}
+                    </p>
+                </div>
+            </div>
+        )}
+
         <div className="dashboard-grid">
-          <div className="card hero-card">
-            <div className="hero-content">
-              <h3>Progreso General</h3>
-              <p>Has completado el <strong>{porcentaje.toFixed(1)}%</strong> de tus horas.</p>
-              <div className="stats-row">
-                <div className="stat-item"><span className="label">Completadas</span><span className="value">{pasante.horasCompletadas}h</span></div>
-                <div className="stat-separator">/</div>
-                <div className="stat-item"><span className="label">Meta</span><span className="value">{pasante.horasRequeridas}h</span></div>
+          <div className="left-column-stack">
+              <div className="card hero-card">
+                <div className="hero-content">
+                  <h3>Progreso General</h3>
+                  <p>Has completado el <strong>{porcentaje.toFixed(1)}%</strong> de tus horas.</p>
+                  <div className="stats-row">
+                    <div className="stat-item"><span className="label">Completadas</span><span className="value">{pasante.horasCompletadas}h</span></div>
+                    <div className="stat-separator">/</div>
+                    <div className="stat-item"><span className="label">Meta</span><span className="value">{pasante.horasRequeridas}h</span></div>
+                  </div>
+                </div>
+                <div className="circular-chart-wrapper">
+                  <svg viewBox="0 0 36 36" className="circular-chart">
+                    <path className="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    <path className="circle" strokeDasharray={`${porcentaje}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                  </svg>
+                  <div className="percentage-text">
+                    {esCompletado ? <CheckCircle size={32} color="#10b981" /> : <Clock size={32} color="#6366f1" />}
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="circular-chart-wrapper">
-              <svg viewBox="0 0 36 36" className="circular-chart">
-                <path className="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                <path className="circle" strokeDasharray={`${porcentaje}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-              </svg>
-              <div className="percentage-text">
-                {esCompletado ? <CheckCircle size={32} color="#10b981" /> : <Clock size={32} color="#6366f1" />}
+
+              {/* --- CONTROL DISCIPLINARIO (VISUALIZACIÓN) --- */}
+              <div className="card discipline-card">
+                  <div className="card-header-row">
+                      <h3>Estado Disciplinario</h3>
+                      <AlertTriangle size={18} className="text-gray-400"/>
+                  </div>
+                  
+                  <div className="discipline-bars">
+                      <div className="discipline-item">
+                          <div className="bar-header">
+                              <span>Atrasos</span>
+                              <span className={pasante.atrasos >= LIMITES.ATRASOS ? 'text-red-500' : ''}>
+                                  {pasante.atrasos} / {LIMITES.ATRASOS}
+                              </span>
+                          </div>
+                          <div className="bar-track">
+                              <div className={`bar-fill ${getBarColor(pasante.atrasos, LIMITES.ATRASOS)}`} style={{width: `${Math.min((pasante.atrasos / LIMITES.ATRASOS) * 100, 100)}%`}}></div>
+                          </div>
+                      </div>
+
+                      <div className="discipline-item">
+                          <div className="bar-header">
+                              <span>Faltas</span>
+                              <span className={pasante.faltas >= LIMITES.FALTAS ? 'text-red-500' : ''}>
+                                  {pasante.faltas} / {LIMITES.FALTAS}
+                              </span>
+                          </div>
+                          <div className="bar-track">
+                              <div className={`bar-fill ${getBarColor(pasante.faltas, LIMITES.FALTAS)}`} style={{width: `${Math.min((pasante.faltas / LIMITES.FALTAS) * 100, 100)}%`}}></div>
+                          </div>
+                      </div>
+
+                      <div className="discipline-item">
+                          <div className="bar-header">
+                              <span>Llamados de Atención</span>
+                              <span className={pasante.llamadosAtencion >= LIMITES.LLAMADOS ? 'text-red-500' : ''}>
+                                  {pasante.llamadosAtencion} / {LIMITES.LLAMADOS}
+                              </span>
+                          </div>
+                          <div className="bar-track">
+                              <div className={`bar-fill ${getBarColor(pasante.llamadosAtencion, LIMITES.LLAMADOS)}`} style={{width: `${Math.min((pasante.llamadosAtencion / LIMITES.LLAMADOS) * 100, 100)}%`}}></div>
+                          </div>
+                      </div>
+                  </div>
               </div>
-            </div>
           </div>
 
-          <div className="kpi-column">
-             <div className="card kpi-card">
-               <div className="kpi-icon-bg bg-blue"><Clock size={20} /></div>
-               <div><span className="kpi-label">Atrasos</span><div className="kpi-value-row"><span className="kpi-number">{pasante.atrasos}</span></div></div>
-             </div>
-             <div className="card kpi-card">
-               <div className="kpi-icon-bg bg-red"><Clock size={20} /></div>
-               <div><span className="kpi-label">Faltas</span><div className="kpi-value-row"><span className="kpi-number">{pasante.faltas}</span></div></div>
-             </div>
-          </div>
-
-          <div className="card list-card">
-             <div className="card-header-row"><h3>Actividad Reciente</h3></div>
-             <div className="activity-list">
-               {pasante.historialReciente.map((item, idx) => (
-                 <div key={idx} className="activity-item">
-                   <div className={`activity-dot ${item.estado}`}></div>
-                   <div className="activity-info"><span className="act-type">{item.tipo}</span><span className="act-detail">{item.detalle}</span></div>
+          <div className="right-column-stack">
+              <div className="card list-card">
+                 <div className="card-header-row"><h3>Actividad Reciente</h3></div>
+                 <div className="activity-list">
+                   {pasante.historialReciente && pasante.historialReciente.map((item, idx) => (
+                     <div key={idx} className="activity-item">
+                       <div className={`activity-dot ${item.estado}`}></div>
+                       <div className="activity-info"><span className="act-type">{item.tipo}</span><span className="act-detail">{item.detalle}</span></div>
+                     </div>
+                   ))}
                  </div>
-               ))}
-             </div>
-          </div>
-
-          <div className="card actions-card-modern">
-            <div className="card-header-row"><h3>Gestión de Cierre</h3></div>
-            <div className="modern-actions-container">
-              <div className="action-panel" onClick={handleDownloadExcel} style={{ cursor: 'pointer', border: '1px solid #22c55e', backgroundColor: '#f0fdf4' }}>
-                <div className="panel-icon"><FileSpreadsheet size={24} className="text-green-600" style={{ color: '#16a34a' }} /></div>
-                <div className="panel-content"><h4 style={{ color: '#15803d' }}>Reporte de Horas</h4><p>Descargar Excel detallado.</p></div>
-                <button className="panel-btn-icon"><Download size={20} style={{ color: '#16a34a' }} /></button>
               </div>
 
-              <div className="action-panel secondary-panel">
-                <div className="panel-icon"><FileText size={24} className="text-blue-500" /></div>
-                <div className="panel-content"><h4>Plantilla de Informe</h4><p>Descarga el formato oficial.</p></div>
-                <button className="panel-btn-icon"><Download size={20} /></button>
-              </div>
+              <div className="card actions-card-modern">
+                <div className="card-header-row"><h3>Gestión de Cierre</h3></div>
+                <div className="modern-actions-container">
+                  <div className="action-panel" onClick={handleDownloadExcel} style={{ cursor: 'pointer', border: '1px solid #22c55e', backgroundColor: '#f0fdf4' }}>
+                    <div className="panel-icon"><FileSpreadsheet size={24} className="text-green-600" style={{ color: '#16a34a' }} /></div>
+                    <div className="panel-content"><h4 style={{ color: '#15803d' }}>Reporte de Horas</h4><p>Descargar Excel detallado.</p></div>
+                    <button className="panel-btn-icon"><Download size={20} style={{ color: '#16a34a' }} /></button>
+                  </div>
 
-              <div className={`action-panel ${esCompletado ? 'primary-panel' : 'locked-panel'}`}>
-                <div className="panel-icon">{esCompletado ? <Upload size={24} className="text-green-500" /> : <Lock size={24} className="text-gray-400" />}</div>
-                <div className="panel-content"><h4>Subir Informe Final</h4><p>{pasante.informeSubido ? "¡Informe enviado!" : esCompletado ? "Sube tu informe." : "Completa tus horas."}</p></div>
-                <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".pdf" onChange={handleFileChange} />
-                {esCompletado && !pasante.informeSubido ? (
-                  <button className="panel-btn-text" onClick={handleUploadClick} disabled={isUploading}>
-                    {isUploading ? <><Loader2 size={16} className="animate-spin" style={{ marginRight: 8 }} /> Subiendo...</> : "Subir PDF"}
-                  </button>
-                ) : pasante.informeSubido ? (
-                  <div className="panel-status-badge" style={{ color: '#10b981', background: '#ecfdf5' }}>Enviado</div>
-                ) : (
-                  <div className="panel-status-badge">Bloqueado</div>
-                )}
+                  <div className="action-panel secondary-panel">
+                    <div className="panel-icon"><FileText size={24} className="text-blue-500" /></div>
+                    <div className="panel-content"><h4>Plantilla de Informe</h4><p>Descarga el formato oficial.</p></div>
+                    <button className="panel-btn-icon"><Download size={20} /></button>
+                  </div>
+
+                  <div className={`action-panel ${esCompletado ? 'primary-panel' : 'locked-panel'}`}>
+                    <div className="panel-icon">{esCompletado ? <Upload size={24} className="text-green-500" /> : <Lock size={24} className="text-gray-400" />}</div>
+                    <div className="panel-content"><h4>Subir Informe Final</h4><p>{pasante.informeSubido ? "¡Informe enviado!" : esCompletado ? "Sube tu informe." : "Completa tus horas."}</p></div>
+                    <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".pdf" onChange={handleFileChange} />
+                    {esCompletado && !pasante.informeSubido ? (
+                      <button className="panel-btn-text" onClick={handleUploadClick} disabled={isUploading}>
+                        {isUploading ? <><Loader2 size={16} className="animate-spin" style={{ marginRight: 8 }} /> Subiendo...</> : "Subir PDF"}
+                      </button>
+                    ) : pasante.informeSubido ? (
+                      <div className="panel-status-badge" style={{ color: '#10b981', background: '#ecfdf5' }}>Enviado</div>
+                    ) : (
+                      <div className="panel-status-badge">Bloqueado</div>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
           </div>
         </div>
       </main>

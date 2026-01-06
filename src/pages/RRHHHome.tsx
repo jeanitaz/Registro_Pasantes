@@ -6,18 +6,31 @@ import {
     LogOut, LayoutGrid, Bell,
     CheckCircle2,
     KeyRound, X,
-    History,
-    AlertTriangle, Clock, FileText, Download, UploadCloud, Eye, ExternalLink
+    History, FileText, Download, UploadCloud, Eye, ExternalLink,
+    Gavel, Ban
 } from 'lucide-react';
 import '../styles/RRHHHome.css';
 
+const DOCUMENTOS_REQUERIDOS = [
+    "Hoja de Vida",
+    "Carta de Solicitud",
+    "Acuerdo de Confidencialidad",
+    "Copia de Cédula"
+];
 
+// LÍMITES SEGÚN REGLAS DE NEGOCIO
+const LIMITES = {
+    ATRASOS: 5,
+    FALTAS: 3,
+    LLAMADOS: 3
+};
 
 interface Documento { id: string; nombre: string; validado: boolean; }
 
 interface Pasante {
     id: number; nombre: string; cedula: string; carrera: string; estado: string;
-    progresoHoras: number; faltas: number; atrasos: number; llamadosAtencion: number;
+    progresoHoras: number; horasRequeridas: number;
+    faltas: number; atrasos: number; llamadosAtencion: number;
     fechasFaltas: string[]; documentos: Documento[];
     informeFinalSubido: boolean;
     informeUrl?: string;
@@ -53,6 +66,23 @@ const RRHHModern = () => {
 
     const [showPdfModal, setShowPdfModal] = useState(false);
 
+    // --- LÓGICA DE ESTADOS AUTOMÁTICA ---
+    const determinarEstado = (p: Pasante): string => {
+        if (p.atrasos > LIMITES.ATRASOS) return "Finalizado por atrasos excedidos";
+        if (p.faltas > LIMITES.FALTAS) return "Finalizado por faltas excedidas";
+        if (p.llamadosAtencion > LIMITES.LLAMADOS) return "Finalizado por llamado de atención";
+        
+        // Si estaba finalizado y se corrigieron los contadores, vuelve a activo
+        if (p.estado.includes("Finalizado")) return "Activo";
+
+        if (p.horasRequeridas > 0 && p.progresoHoras >= p.horasRequeridas) return "Aprobado";
+        
+        const docsCompletos = p.documentos.every(d => d.validado);
+        if (docsCompletos && p.estado === "No habilitado") return "Activo"; 
+
+        return p.estado; 
+    };
+
     useEffect(() => {
         const fetchPasantes = async () => {
             try {
@@ -60,10 +90,7 @@ const RRHHModern = () => {
                 if (response.ok) {
                     const data = await response.json();
 
-                    // --- ACTUALIZACIÓN: Mapeo dinámico de documentos ---
                     const pasantesAdaptados = data.map((p: any) => {
-                        // Construimos los documentos basándonos en lo que viene de la BD
-                        // Si p.docHojaVida tiene valor (url), entonces validado es true
                         const docsDinamicos = [
                             { id: 'd1', nombre: 'Hoja de Vida', validado: !!p.docHojaVida },
                             { id: 'd2', nombre: 'Carta de Solicitud', validado: !!p.docCartaSolicitud },
@@ -77,14 +104,16 @@ const RRHHModern = () => {
                             cedula: p.cedula,
                             carrera: p.carrera,
                             estado: p.estado || "No habilitado",
-                            progresoHoras: p.horasCompletadas || 0,
-                            faltas: p.faltas || 0,
-                            atrasos: p.atrasos || 0,
-                            llamadosAtencion: p.llamadosAtencion || 0,
+                            // MAPEO ROBUSTO: Lee ambos formatos (camelCase o snake_case)
+                            progresoHoras: Number(p.horasCompletadas ?? p.horas_completadas ?? 0),
+                            horasRequeridas: Number(p.horasRequeridas ?? p.horas_requeridas ?? 0),
+                            faltas: p.faltas ?? 0,
+                            atrasos: p.atrasos ?? 0,
+                            llamadosAtencion: p.llamadosAtencion ?? p.llamados_atencion ?? 0,
                             fechasFaltas: p.fechasFaltas || [],
-                            documentos: docsDinamicos, // Usamos la lista real de BD
-                            informeFinalSubido: !!p.informeUrl, // Verificamos si existe URL de informe
-                            informeUrl: p.informeUrl
+                            documentos: docsDinamicos,
+                            informeFinalSubido: !!(p.informeUrl || p.informe_url),
+                            informeUrl: p.informeUrl || p.informe_url
                         };
                     });
                     setPasantes(pasantesAdaptados);
@@ -114,16 +143,38 @@ const RRHHModern = () => {
         p.cedula.includes(searchTerm)
     );
 
-    const toggleDocumento = async () => {
-        // Validación manual deshabilitada porque ahora es automática según archivos
+    // --- GESTIÓN DE CONTADORES ---
+    const updateContador = async (tipo: 'faltas' | 'atrasos' | 'llamadosAtencion', delta: number) => {
         if (!selectedPasante) return;
-        // alert("El estado de los documentos se actualiza automáticamente al subir los archivos.");
-    };
 
-    const calcularProgresoDocs = () => {
-        if (!selectedPasante) return 0;
-        const validados = selectedPasante.documentos.filter(d => d.validado).length;
-        return (validados / selectedPasante.documentos.length) * 100;
+        const nuevoValor = Math.max(0, selectedPasante[tipo] + delta);
+        
+        // Objeto temporal para recalcular estado
+        const pasanteTemporal = { ...selectedPasante, [tipo]: nuevoValor };
+        const nuevoEstado = determinarEstado(pasanteTemporal);
+
+        const pasanteActualizado = { ...pasanteTemporal, estado: nuevoEstado };
+        
+        // Actualizar UI Localmente
+        setSelectedPasante(pasanteActualizado);
+        setPasantes(prev => prev.map(p => p.id === pasanteActualizado.id ? pasanteActualizado : p));
+
+        // Mapeo para enviar al backend (el backend espera camelCase que luego traduce)
+        const bodyToSend = { 
+            [tipo]: nuevoValor,
+            estado: nuevoEstado 
+        };
+
+        try {
+            await fetch(`http://localhost:3001/pasantes/${selectedPasante.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(bodyToSend)
+            });
+        } catch (error) {
+            console.error("Error actualizando contador:", error);
+            alert("Error de conexión al actualizar.");
+        }
     };
 
     const handleLogout = () => {
@@ -132,9 +183,6 @@ const RRHHModern = () => {
             navigate('/login');
         }
     };
-
-    const handleJustificarFalta = () => alert("Lógica para justificar falta...");
-    const handleGenerarReporteRetiro = () => alert("Lógica para reporte de retiro...");
 
     const handleDescargarInforme = () => {
         if (selectedPasante?.informeUrl) {
@@ -155,7 +203,18 @@ const RRHHModern = () => {
         }
     };
 
+    const calcularProgresoDocs = () => {
+        if (!selectedPasante) return 0;
+        const validados = selectedPasante.documentos.filter(d => d.validado).length;
+        return (validados / selectedPasante.documentos.length) * 100;
+    };
 
+    const getStatusColor = (estado: string) => {
+        if (estado.includes("Finalizado")) return "pill-danger";
+        if (estado === "Aprobado") return "pill-blue";
+        if (estado === "Activo") return "pill-success";
+        return "pill-warning";
+    };
 
     return (
         <div className="layout-wrapper">
@@ -231,7 +290,7 @@ const RRHHModern = () => {
                                 <h1>{selectedPasante.nombre}</h1>
                                 <div className="header-badges">
                                     <span className="badge-pill">{selectedPasante.carrera}</span>
-                                    <span className={`badge-pill ${selectedPasante.estado === 'Activo' ? 'pill-success' : 'pill-warning'}`}>
+                                    <span className={`badge-pill ${getStatusColor(selectedPasante.estado)}`}>
                                         {selectedPasante.estado}
                                     </span>
                                 </div>
@@ -240,9 +299,10 @@ const RRHHModern = () => {
 
                         <div className="clean-dashboard-grid">
                             <div className="grid-left">
+                                {/* CARD: DOCUMENTACIÓN */}
                                 <div className="clean-card">
-                                    <div
-                                        className="card-top interactive-header"
+                                    <div 
+                                        className="card-top interactive-header" 
                                         onClick={() => navigate(`/documentacion/${selectedPasante.id}`)}
                                         style={{ cursor: 'pointer' }}
                                         title="Ir al gestor de documentación"
@@ -253,7 +313,6 @@ const RRHHModern = () => {
                                         </div>
                                         <FileCheck size={18} className="text-blue-500" />
                                     </div>
-
                                     <div className="progress-circular">
                                         <div className="progress-text">{calcularProgresoDocs().toFixed(0)}%</div>
                                         <svg viewBox="0 0 36 36" className="circular-chart">
@@ -263,13 +322,7 @@ const RRHHModern = () => {
                                     </div>
                                     <div className="checklist-mini">
                                         {selectedPasante.documentos.map(doc => (
-                                            <div
-                                                key={doc.id}
-                                                className="check-row"
-                                                onClick={() => toggleDocumento()}
-                                                style={{ cursor: 'pointer' }}
-                                                title={doc.validado ? "Documento cargado" : "Pendiente de carga"}
-                                            >
+                                            <div key={doc.id} className="check-row">
                                                 <div className={`check-box ${doc.validado ? 'checked' : ''}`}>{doc.validado && <CheckCircle2 size={12} color="white" />}</div>
                                                 <span className={doc.validado ? 'text-strike' : ''}>{doc.nombre}</span>
                                             </div>
@@ -277,26 +330,81 @@ const RRHHModern = () => {
                                     </div>
                                 </div>
 
+                                {/* CARD: CONTROL DISCIPLINARIO (COMPLETO) */}
                                 <div className="clean-card">
-                                    <div className="card-top"><span className="card-label">Asistencia</span><Clock size={18} className="text-orange-500" /></div>
-                                    <div className="stats-row">
-                                        <div className="stat-item"><span className="stat-num text-red-500">{selectedPasante.faltas}</span><span className="stat-desc">Faltas</span></div>
-                                        <div className="stat-separator"></div>
-                                        <div className="stat-item"><span className="stat-num text-orange-500">{selectedPasante.atrasos}</span><span className="stat-desc">Atrasos</span></div>
+                                    <div className="card-top">
+                                        <span className="card-label">Control Disciplinario</span>
+                                        <Gavel size={18} className="text-red-500" />
                                     </div>
-                                    {selectedPasante.faltas > 0 && <button className="btn-clean btn-outline" onClick={handleJustificarFalta}><Clock size={14} /> Justificar Falta</button>}
-                                </div>
+                                    
+                                    <div className="discipline-grid">
+                                        {/* Atrasos */}
+                                        <div className="control-item">
+                                            <div className="control-header">
+                                                <span className="control-title">Atrasos</span>
+                                                <span className={`control-val ${selectedPasante.atrasos > LIMITES.ATRASOS ? 'text-danger' : ''}`}>
+                                                    {selectedPasante.atrasos}/{LIMITES.ATRASOS}
+                                                </span>
+                                            </div>
+                                            <div className="control-buttons">
+                                                <button onClick={() => updateContador('atrasos', -1)}>-</button>
+                                                <button onClick={() => updateContador('atrasos', 1)}>+</button>
+                                            </div>
+                                        </div>
 
-                                <div className="clean-card">
-                                    <div className="card-top"><span className="card-label">Disciplina</span><AlertTriangle size={18} className="text-red-500" /></div>
-                                    <div className="discipline-display"><div className="discipline-count">{selectedPasante.llamadosAtencion}</div><span>Llamados de Atención</span></div>
-                                    {selectedPasante.llamadosAtencion > 0 && <button className="btn-clean btn-danger" onClick={handleGenerarReporteRetiro}>Generar Informe Retiro</button>}
+                                        {/* Faltas */}
+                                        <div className="control-item">
+                                            <div className="control-header">
+                                                <span className="control-title">Faltas</span>
+                                                <span className={`control-val ${selectedPasante.faltas > LIMITES.FALTAS ? 'text-danger' : ''}`}>
+                                                    {selectedPasante.faltas}/{LIMITES.FALTAS}
+                                                </span>
+                                            </div>
+                                            <div className="control-buttons">
+                                                <button onClick={() => updateContador('faltas', -1)}>-</button>
+                                                <button onClick={() => updateContador('faltas', 1)}>+</button>
+                                            </div>
+                                        </div>
+
+                                        {/* Llamados */}
+                                        <div className="control-item">
+                                            <div className="control-header">
+                                                <span className="control-title">Llamados</span>
+                                                <span className={`control-val ${selectedPasante.llamadosAtencion > LIMITES.LLAMADOS ? 'text-danger' : ''}`}>
+                                                    {selectedPasante.llamadosAtencion}/{LIMITES.LLAMADOS}
+                                                </span>
+                                            </div>
+                                            <div className="control-buttons">
+                                                <button onClick={() => updateContador('llamadosAtencion', -1)}>-</button>
+                                                <button onClick={() => updateContador('llamadosAtencion', 1)}>+</button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {selectedPasante.estado.includes("Finalizado") && (
+                                        <div className="alert-box-danger">
+                                            <Ban size={16}/>
+                                            <span>Estado Crítico: {selectedPasante.estado}</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
                             <div className="grid-right">
                                 <div className="clean-card card-full-height">
                                     <div className="card-top"><span className="card-label">Cierre de Pasantías</span></div>
+                                    
+                                    <div className="stats-row mb-4" style={{justifyContent: 'center', gap: '20px'}}>
+                                        <div className="stat-item">
+                                            <span className="stat-num">{selectedPasante.progresoHoras.toFixed(1)}</span>
+                                            <span className="stat-desc">Horas Realizadas</span>
+                                        </div>
+                                        <div className="stat-item">
+                                            <span className="stat-num">{selectedPasante.horasRequeridas}</span>
+                                            <span className="stat-desc">Meta</span>
+                                        </div>
+                                    </div>
+
                                     <div className="informe-status-area">
                                         {selectedPasante.informeFinalSubido ? (
                                             <>
@@ -327,7 +435,12 @@ const RRHHModern = () => {
                                     <div className="divider"></div>
                                     <div className="info-notes">
                                         <h4>Notas del sistema:</h4>
-                                        <ul><li>El estado cambiará automáticamente a "Finalizado" tras validar el informe.</li><li>Recuerde verificar las horas totales.</li></ul>
+                                        <ul>
+                                            <li>Horas laborales: 8am-12pm y 12:30pm-4:30pm (No cuenta almuerzo).</li>
+                                            <li>Checklist 100% → <strong>Habilitado</strong>.</li>
+                                            <li>Horas 100% → <strong>Aprobado</strong>.</li>
+                                            <li>Exceder límites → <strong>Finalizado automáticamente</strong>.</li>
+                                        </ul>
                                     </div>
                                 </div>
                             </div>

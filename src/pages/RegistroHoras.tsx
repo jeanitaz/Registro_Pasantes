@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
     Clock, LogIn, LogOut, Coffee, 
-    AlertTriangle, Ban, CheckCircle, ArrowLeft 
+    AlertTriangle, Ban, CheckCircle, ArrowLeft,
+    CalendarDays, History, TrendingUp
 } from 'lucide-react';
 import '../styles/RegistroHoras.css';
 
@@ -18,15 +19,27 @@ interface EventoTimbrado {
     tipo: 'Entrada' | 'Salida Almuerzo' | 'Entrada Almuerzo' | 'Salida Final';
     hora: string;
     fecha: string;
-    timestamp: number; // Necesario para el cálculo
+    timestamp: number;
     esAtraso: boolean;
+}
+
+// Nueva interfaz para el historial diario
+interface DiaHistorial {
+    fecha: string;
+    horasRegistradas: number;
+    estado: 'Completo' | 'Incompleto' | 'Atraso';
 }
 
 const RegistroHoras = () => {
     const navigate = useNavigate();
     const [currentTime, setCurrentTime] = useState(new Date());
+    
+    // Estado para controlar la vista (Registro vs Historial)
+    const [vistaActual, setVistaActual] = useState<'registro' | 'historial'>('registro');
 
     const [eventosHoy, setEventosHoy] = useState<EventoTimbrado[]>([]);
+    const [historialDias, setHistorialDias] = useState<DiaHistorial[]>([]); // Nuevo estado para el historial
+    
     const [contadores, setContadores] = useState({
         atrasosEntrada: 0,
         atrasosAlmuerzo: 0,
@@ -34,8 +47,16 @@ const RegistroHoras = () => {
     });
     const [estadoUsuario, setEstadoUsuario] = useState("Activo");
 
+    // Cargar datos al iniciar
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+        
+        // Cargar historial del LocalStorage si existe
+        const storedHistory = localStorage.getItem('historial_dias');
+        if (storedHistory) {
+            setHistorialDias(JSON.parse(storedHistory));
+        }
+
         return () => clearInterval(timer);
     }, []);
 
@@ -68,42 +89,44 @@ const RegistroHoras = () => {
         return false;
     };
 
-    // --- NUEVO: FUNCIÓN PARA GUARDAR EN BASE DE DATOS ---
-    const guardarHorasEnBD = async (horaSalidaFinal: number, eventos: EventoTimbrado[]) => {
+    const guardarHorasEnBD = async (horaSalidaFinal: number, eventos: EventoTimbrado[], tuvoAtraso: boolean) => {
         try {
-            // 1. Buscamos los eventos clave del día
             const eventoEntrada = eventos.find(e => e.tipo === 'Entrada');
             const eventoSalidaAlmuerzo = eventos.find(e => e.tipo === 'Salida Almuerzo');
             const eventoEntradaAlmuerzo = eventos.find(e => e.tipo === 'Entrada Almuerzo');
 
             if (!eventoEntrada) return; 
 
-            // 2. Calculamos tiempo total bruto (Salida - Entrada)
             let tiempoTrabajadoMs = horaSalidaFinal - eventoEntrada.timestamp;
 
-            // 3. Restamos el tiempo de almuerzo si existe
             if (eventoSalidaAlmuerzo && eventoEntradaAlmuerzo) {
                 const tiempoAlmuerzoMs = eventoEntradaAlmuerzo.timestamp - eventoSalidaAlmuerzo.timestamp;
                 tiempoTrabajadoMs -= tiempoAlmuerzoMs;
             }
 
-            // 4. Convertimos a horas
             const horasGanadas = tiempoTrabajadoMs / (1000 * 60 * 60);
             const horasGanadasRedondeadas = Math.round(horasGanadas * 100) / 100;
 
-            console.log(`Horas calculadas hoy: ${horasGanadasRedondeadas}`);
+            // --- 1. GUARDAR EN HISTORIAL DIARIO ---
+            const nuevoRegistroDia: DiaHistorial = {
+                fecha: new Date().toLocaleDateString('es-EC'),
+                horasRegistradas: horasGanadasRedondeadas,
+                estado: tuvoAtraso ? 'Atraso' : (horasGanadasRedondeadas >= 4 ? 'Completo' : 'Incompleto')
+            };
 
-            // 5. Actualizamos LocalStorage y Base de Datos
+            const nuevoHistorial = [nuevoRegistroDia, ...historialDias];
+            setHistorialDias(nuevoHistorial);
+            localStorage.setItem('historial_dias', JSON.stringify(nuevoHistorial));
+            // --------------------------------------
+
             const storedUser = localStorage.getItem('user');
             if (storedUser) {
                 const user = JSON.parse(storedUser);
                 const nuevasHorasTotales = (Number(user.horasCompletadas) || 0) + horasGanadasRedondeadas;
                 
-                // A. Actualizar navegador (para el pasante)
                 user.horasCompletadas = nuevasHorasTotales;
                 localStorage.setItem('user', JSON.stringify(user));
 
-                // B. Actualizar Base de Datos (para que RRHH lo vea)
                 await fetch(`http://localhost:3001/pasantes/${user.id}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
@@ -112,15 +135,14 @@ const RegistroHoras = () => {
                     })
                 });
 
-                alert(`🏁 ¡Día finalizado! Se han sumado +${horasGanadasRedondeadas} horas. Total: ${nuevasHorasTotales.toFixed(2)}h`);
+                alert(`🏁 ¡Día finalizado! Guardado en historial: +${horasGanadasRedondeadas}h`);
             }
 
         } catch (error) {
-            console.error("Error guardando horas en BD:", error);
-            alert("Hubo un error de conexión al guardar las horas.");
+            console.error("Error:", error);
+            alert("Error al guardar.");
         }
     };
-    // ----------------------------------------------------
 
     const handleTimbrar = (tipo: 'Entrada' | 'Salida Almuerzo' | 'Entrada Almuerzo' | 'Salida Final') => {
         const now = new Date();
@@ -153,124 +175,178 @@ const RegistroHoras = () => {
             esAtraso
         };
 
-        // Guardamos en el estado local
         const nuevosEventos = [...eventosHoy, nuevoEvento];
         setEventosHoy(nuevosEventos);
         setContadores(nuevosContadores);
         setEstadoUsuario(nuevoEstado);
 
-        // Si es Salida Final, llamamos a la función de guardado
         if (tipo === 'Salida Final') {
-             // Usamos un pequeño timeout para asegurar que la UI responda antes del cálculo
-             setTimeout(() => guardarHorasEnBD(timestamp, nuevosEventos), 100);
+             // Verificar si hubo algún atraso hoy para marcar el estado del día
+             const huboAtrasoHoy = nuevosEventos.some(e => e.esAtraso);
+             setTimeout(() => guardarHorasEnBD(timestamp, nuevosEventos, huboAtrasoHoy), 100);
         }
     };
 
     return (
         <div className="registro-container">
-            <button className="btn-volver" onClick={() => navigate(-1)}>
-                <ArrowLeft size={20} />
-                <span>Volver al Panel</span>
-            </button>
-
-            <header className="clock-header">
-                <div className="clock-display">
-                    <Clock size={40} className="clock-icon" />
-                    <div className="time-text">
-                        <h1>{currentTime.toLocaleTimeString()}</h1>
-                        <span>{currentTime.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
-                    </div>
-                </div>
-                <div className={`status-badge ${estaBloqueado ? 'status-blocked' : 'status-active'}`}>
-                    {estaBloqueado ? <Ban size={16} /> : <CheckCircle size={16} />}
-                    {estadoUsuario}
-                </div>
-            </header>
-
-            <div className="counters-grid">
-                <div className="counter-card warning">
-                    <div className="counter-icon"><AlertTriangle size={20} /></div>
-                    <div className="counter-info">
-                        <span>Atrasos Entrada</span>
-                        <strong>{contadores.atrasosEntrada} / {LIMITE_ATRASOS_ENTRADA}</strong>
-                    </div>
-                </div>
-                <div className="counter-card warning">
-                    <div className="counter-icon"><Coffee size={20} /></div>
-                    <div className="counter-info">
-                        <span>Atrasos Almuerzo</span>
-                        <strong>{contadores.atrasosAlmuerzo} / {LIMITE_ATRASOS_ALMUERZO}</strong>
-                    </div>
-                </div>
-                <div className="counter-card danger">
-                    <div className="counter-icon"><Ban size={20} /></div>
-                    <div className="counter-info">
-                        <span>Faltas Totales</span>
-                        <strong>{contadores.faltas} / {LIMITE_FALTAS}</strong>
-                    </div>
+            <div className="top-nav-bar">
+                <button className="btn-volver" onClick={() => navigate(-1)}>
+                    <ArrowLeft size={20} />
+                    <span>Volver</span>
+                </button>
+                
+                {/* --- SELECTOR DE VISTAS --- */}
+                <div className="view-toggle">
+                    <button 
+                        className={`toggle-btn ${vistaActual === 'registro' ? 'active' : ''}`}
+                        onClick={() => setVistaActual('registro')}
+                    >
+                        <Clock size={18} />
+                        Registro
+                    </button>
+                    <button 
+                        className={`toggle-btn ${vistaActual === 'historial' ? 'active' : ''}`}
+                        onClick={() => setVistaActual('historial')}
+                    >
+                        <History size={18} />
+                        Historial
+                    </button>
                 </div>
             </div>
 
-            <div className="actions-panel">
-                <h2>Registrar Evento</h2>
-                <div className="buttons-grid">
-                    <button 
-                        className="timbrar-btn btn-entrada"
-                        disabled={getButtonState('Entrada')}
-                        onClick={() => handleTimbrar('Entrada')}
-                    >
-                        <LogIn size={24} />
-                        <span>Entrada</span>
-                    </button>
-
-                    <button 
-                        className="timbrar-btn btn-almuerzo-out"
-                        disabled={getButtonState('Salida Almuerzo')}
-                        onClick={() => handleTimbrar('Salida Almuerzo')}
-                    >
-                        <Coffee size={24} />
-                        <span>Salida Almuerzo</span>
-                    </button>
-
-                    <button 
-                        className="timbrar-btn btn-almuerzo-in"
-                        disabled={getButtonState('Entrada Almuerzo')}
-                        onClick={() => handleTimbrar('Entrada Almuerzo')}
-                    >
-                        <Coffee size={24} />
-                        <span>Regreso Almuerzo</span>
-                    </button>
-
-                    <button 
-                        className="timbrar-btn btn-salida"
-                        disabled={getButtonState('Salida Final')}
-                        onClick={() => handleTimbrar('Salida Final')}
-                    >
-                        <LogOut size={24} />
-                        <span>Salida Final</span>
-                    </button>
-                </div>
-                <p className="helper-text">
-                    * Al marcar Salida Final, se calcularán tus horas y se sincronizarán con el sistema.
-                </p>
-            </div>
-
-            <div className="history-list">
-                <h3>Historial de Hoy</h3>
-                <div className="timeline">
-                    {eventosHoy.map((evt) => (
-                        <div key={evt.id} className={`timeline-item ${evt.esAtraso ? 'item-atraso' : ''}`}>
-                            <div className="timeline-time">{evt.hora}</div>
-                            <div className="timeline-marker"></div>
-                            <div className="timeline-content">
-                                <span className="evt-type">{evt.tipo}</span>
-                                {evt.esAtraso && <span className="tag-atraso">Atraso</span>}
+            {/* --- VISTA: REGISTRO (RELOJ) --- */}
+            {vistaActual === 'registro' && (
+                <div className="fade-in-content">
+                    <header className="clock-header">
+                        <div className="clock-display">
+                            <Clock size={40} className="clock-icon" />
+                            <div className="time-text">
+                                <h1>{currentTime.toLocaleTimeString()}</h1>
+                                <span>{currentTime.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
                             </div>
                         </div>
-                    ))}
-                    {eventosHoy.length === 0 && <div className="empty-state">No hay registros hoy</div>}
+                        <div className={`status-badge ${estaBloqueado ? 'status-blocked' : 'status-active'}`}>
+                            {estaBloqueado ? <Ban size={16} /> : <CheckCircle size={16} />}
+                            {estadoUsuario}
+                        </div>
+                    </header>
+
+                    <div className="counters-grid">
+                        <div className="counter-card warning">
+                            <div className="counter-icon"><AlertTriangle size={20} /></div>
+                            <div className="counter-info">
+                                <span>Atrasos Entrada</span>
+                                <strong>{contadores.atrasosEntrada} / {LIMITE_ATRASOS_ENTRADA}</strong>
+                            </div>
+                        </div>
+                        <div className="counter-card warning">
+                            <div className="counter-icon"><Coffee size={20} /></div>
+                            <div className="counter-info">
+                                <span>Atrasos Almuerzo</span>
+                                <strong>{contadores.atrasosAlmuerzo} / {LIMITE_ATRASOS_ALMUERZO}</strong>
+                            </div>
+                        </div>
+                        <div className="counter-card danger">
+                            <div className="counter-icon"><Ban size={20} /></div>
+                            <div className="counter-info">
+                                <span>Faltas Totales</span>
+                                <strong>{contadores.faltas} / {LIMITE_FALTAS}</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="actions-panel">
+                        <h2>Registrar Evento</h2>
+                        <div className="buttons-grid">
+                            <button className="timbrar-btn btn-entrada" disabled={getButtonState('Entrada')} onClick={() => handleTimbrar('Entrada')}>
+                                <LogIn size={24} /> <span>Entrada</span>
+                            </button>
+                            <button className="timbrar-btn btn-almuerzo-out" disabled={getButtonState('Salida Almuerzo')} onClick={() => handleTimbrar('Salida Almuerzo')}>
+                                <Coffee size={24} /> <span>Salida Almuerzo</span>
+                            </button>
+                            <button className="timbrar-btn btn-almuerzo-in" disabled={getButtonState('Entrada Almuerzo')} onClick={() => handleTimbrar('Entrada Almuerzo')}>
+                                <Coffee size={24} /> <span>Regreso Almuerzo</span>
+                            </button>
+                            <button className="timbrar-btn btn-salida" disabled={getButtonState('Salida Final')} onClick={() => handleTimbrar('Salida Final')}>
+                                <LogOut size={24} /> <span>Salida Final</span>
+                            </button>
+                        </div>
+                        <p className="helper-text">* Al marcar Salida Final, se calcularán tus horas y se guardarán en el historial.</p>
+                    </div>
+
+                    <div className="history-list">
+                        <h3>Eventos de Hoy</h3>
+                        <div className="timeline">
+                            {eventosHoy.map((evt) => (
+                                <div key={evt.id} className={`timeline-item ${evt.esAtraso ? 'item-atraso' : ''}`}>
+                                    <div className="timeline-time">{evt.hora}</div>
+                                    <div className="timeline-marker"></div>
+                                    <div className="timeline-content">
+                                        <span className="evt-type">{evt.tipo}</span>
+                                        {evt.esAtraso && <span className="tag-atraso">Atraso</span>}
+                                    </div>
+                                </div>
+                            ))}
+                            {eventosHoy.length === 0 && <div className="empty-state">No hay registros hoy</div>}
+                        </div>
+                    </div>
                 </div>
-            </div>
+            )}
+
+            {/* --- VISTA: HISTORIAL DIARIO --- */}
+            {vistaActual === 'historial' && (
+                <div className="fade-in-content history-view">
+                    <div className="history-header-card">
+                        <div className="icon-wrapper"><CalendarDays size={32} /></div>
+                        <div>
+                            <h2>Historial de Actividad</h2>
+                            <p>Registro acumulado de tus jornadas laborales.</p>
+                        </div>
+                    </div>
+
+                    <div className="history-table-container">
+                        {historialDias.length === 0 ? (
+                            <div className="empty-history">
+                                <History size={48} className="text-gray-300 mb-2"/>
+                                <p>Aún no has completado ninguna jornada.</p>
+                            </div>
+                        ) : (
+                            <table className="history-table">
+                                <thead>
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Horas</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {historialDias.map((dia, idx) => (
+                                        <tr key={idx}>
+                                            <td className="font-medium">{dia.fecha}</td>
+                                            <td className="text-blue">+{dia.horasRegistradas} h</td>
+                                            <td>
+                                                <span className={`status-pill ${
+                                                    dia.estado === 'Completo' ? 'pill-success' : 
+                                                    dia.estado === 'Atraso' ? 'pill-warning' : 'pill-danger'
+                                                }`}>
+                                                    {dia.estado}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                    
+                    {historialDias.length > 0 && (
+                        <div className="history-summary">
+                            <TrendingUp size={20} />
+                            <span>Total Acumulado: <strong>{historialDias.reduce((acc, curr) => acc + curr.horasRegistradas, 0).toFixed(2)} horas</strong></span>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 };
