@@ -488,6 +488,6 @@ const RRHHModern = () => {
             )}
         </div>
     );
-}
+};
 
 export default RRHHModern;

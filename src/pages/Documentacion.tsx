@@ -340,6 +340,6 @@ const Documentacion = () => {
             )}
         </div>
     );
-}
+};
 
 export default Documentacion;

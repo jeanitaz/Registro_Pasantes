@@ -351,6 +351,6 @@ const PasanteHome = () => {
       </main>
     </div>
   );
-}
+};
 
 export default PasanteHome;
