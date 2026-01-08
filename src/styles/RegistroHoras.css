@@ -1,424 +1,166 @@
-:root {
-  --primary-color: #6366f1;
-  --success-color: #10b981;
-  --warning-color: #f59e0b;
-  --danger-color: #ef4444;
-  --bg-color: #f8fafc;
-  --card-bg: #ffffff;
-  --text-primary: #1e293b;
-  --text-secondary: #64748b;
+.historial-layout {
+    padding: 2rem;
+    background-color: #f8fafc; /* Fondo gris muy claro */
+    min-height: 100vh;
 }
 
-/* Contenedor Principal */
-.registro-container {
-  max-width: 800px;
-  margin: 2rem auto;
-  padding: 2rem;
-  background-color: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  font-family: 'Segoe UI', system-ui, sans-serif;
-  color: #334155;
-}
-
-/* Header del Reloj */
-.clock-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  padding-bottom: 1.5rem;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.clock-display {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.clock-icon {
-  color: #3b82f6; /* Azul moderno */
-}
-
-.time-text h1 {
-  font-size: 2.5rem;
-  margin: 0;
-  line-height: 1;
-  color: #0f172a;
-  font-variant-numeric: tabular-nums; /* Evita que los números salten */
-}
-
-.time-text span {
-  color: #64748b;
-  font-size: 0.95rem;
-  text-transform: capitalize;
-}
-
-/* Badge de Estado */
-.status-badge {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border-radius: 999px;
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.status-active {
-  background-color: #dcfce7;
-  color: #166534;
-}
-
-.status-blocked {
-  background-color: #fee2e2;
-  color: #991b1b;
-}
-
-/* Grid de Contadores */
-.counters-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
-}
-
-.counter-card {
-  display: flex;
-  align-items: center;
-  padding: 1rem;
-  border-radius: 8px;
-  border: 1px solid transparent;
-}
-
-.counter-card.warning {
-  background-color: #fffbeb;
-  border-color: #fcd34d;
-}
-
-.counter-card.danger {
-  background-color: #fef2f2;
-  border-color: #fecaca;
-}
-
-.counter-icon {
-  padding: 0.5rem;
-  background-color: rgba(255, 255, 255, 0.6);
-  border-radius: 50%;
-  margin-right: 1rem;
-}
-
-.counter-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.counter-info span {
-  font-size: 0.85rem;
-  color: #64748b;
-}
-
-.counter-info strong {
-  font-size: 1.25rem;
-  color: #0f172a;
-}
-
-/* Panel de Acciones y Botones */
-.actions-panel h2 {
-  font-size: 1.25rem;
-  margin-bottom: 1rem;
-  color: #1e293b;
-}
-
-.buttons-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr); /* 2 columnas */
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.timbrar-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 1.5rem;
-  border: none;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  color: white;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.timbrar-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px rgba(0,0,0,0.15);
-}
-
-.timbrar-btn:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.timbrar-btn:disabled {
-  background-color: #e2e8f0;
-  color: #94a3b8;
-  cursor: not-allowed;
-  box-shadow: none;
-}
-
-/* Colores específicos de botones */
-.btn-entrada { background-color: #22c55e; } /* Verde */
-.btn-entrada:hover:not(:disabled) { background-color: #16a34a; }
-
-.btn-almuerzo-out { background-color: #f59e0b; } /* Naranja */
-.btn-almuerzo-out:hover:not(:disabled) { background-color: #d97706; }
-
-.btn-almuerzo-in { background-color: #3b82f6; } /* Azul */
-.btn-almuerzo-in:hover:not(:disabled) { background-color: #2563eb; }
-
-.btn-salida { background-color: #ef4444; } /* Rojo */
-.btn-salida:hover:not(:disabled) { background-color: #dc2626; }
-
-.helper-text {
-  font-size: 0.8rem;
-  color: #94a3b8;
-  font-style: italic;
-  margin-bottom: 2rem;
-}
-
-/* Historial / Timeline */
-.history-list h3 {
-  font-size: 1.1rem;
-  margin-bottom: 1rem;
-  color: #334155;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 2rem;
-  background-color: #f8fafc;
-  border-radius: 8px;
-  color: #94a3b8;
-  border: 1px dashed #cbd5e1;
-}
-
-.timeline {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  border-left: 2px solid #e2e8f0;
-  margin-left: 1rem;
-  padding-left: 1.5rem;
-}
-
-.timeline-item {
-  position: relative;
-  display: flex;
-  align-items: center;
-  padding-bottom: 1.5rem;
-}
-
-.timeline-item:last-child {
-  padding-bottom: 0;
-}
-
-.timeline-marker {
-  position: absolute;
-  left: -1.95rem; /* Ajuste para centrar en la línea */
-  width: 12px;
-  height: 12px;
-  background-color: #fff;
-  border: 2px solid #3b82f6;
-  border-radius: 50%;
-  z-index: 1;
-}
-
-.timeline-item.item-atraso .timeline-marker {
-  border-color: #ef4444;
-}
-
-.timeline-time {
-  min-width: 80px;
-  font-weight: 600;
-  color: #64748b;
-  font-size: 0.9rem;
-}
-
-.timeline-content {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.evt-type {
-  font-weight: 500;
-  color: #1e293b;
-}
-
-.tag-atraso {
-  background-color: #fee2e2;
-  color: #ef4444;
-  font-size: 0.75rem;
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-  font-weight: 700;
-}
-
-/* Responsive */
-@media (max-width: 600px) {
-  .clock-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
-  
-  .buttons-grid {
-    grid-template-columns: 1fr; /* 1 columna en móvil */
-  }
-  
-  .time-text h1 {
-    font-size: 2rem;
-  }
-}
-
-.btn-volver {
-  background: none;
-  border: none;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #64748b;
-  font-weight: 600;
-  cursor: pointer;
-  margin-bottom: 1.5rem;
-  padding: 0;
-  font-size: 1rem;
-  transition: color 0.2s ease;
-}
-
-.btn-volver:hover {
-  color: #3b82f6; /* Azul al pasar el mouse */
-}
-
-/* Agrega esto en tu CSS */
-.top-nav-bar {
+.historial-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 2rem;
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
-.view-toggle {
-    display: flex;
-    background: rgba(255, 255, 255, 0.1);
-    padding: 4px;
-    border-radius: 8px;
-    gap: 5px;
+.historial-header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #1e293b;
 }
 
-.toggle-btn {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
-    border: none;
-    background: transparent;
+.subtitle {
+    margin: 5px 0 0 0;
+    color: #64748b;
+    font-size: 0.9rem;
+}
+
+/* Buscador */
+.search-bar {
+    position: relative;
+    width: 300px;
+}
+
+.search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
     color: #94a3b8;
-    cursor: pointer;
-    border-radius: 6px;
-    font-weight: 500;
-    transition: all 0.3s;
 }
 
-.toggle-btn.active {
-    background: #2563eb;
-    color: white;
-    box-shadow: 0 2px 10px rgba(37, 99, 235, 0.3);
+.search-bar input {
+    width: 100%;
+    padding: 10px 10px 10px 40px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    outline: none;
+    transition: border-color 0.2s;
 }
 
-.history-view {
-    animation: fadeIn 0.3s ease-in;
+.search-bar input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-.history-header-card {
+/* Tabla */
+.table-container {
     background: white;
-    padding: 20px;
     border-radius: 12px;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    margin-bottom: 20px;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
-
-.icon-wrapper {
-    background: #eff6ff;
-    color: #2563eb;
-    padding: 12px;
-    border-radius: 50%;
-}
-
-.history-table-container {
-    background: white;
-    border-radius: 12px;
     overflow: hidden;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 
-.history-table {
+.custom-table {
     width: 100%;
     border-collapse: collapse;
+    text-align: left;
 }
 
-.history-table th {
-    text-align: left;
-    padding: 16px;
-    background: #f8fafc;
-    color: #64748b;
+.custom-table th {
+    background-color: #f1f5f9;
+    padding: 1rem;
+    font-weight: 600;
+    color: #475569;
     font-size: 0.85rem;
     text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-.history-table td {
-    padding: 16px;
+.custom-table td {
+    padding: 1rem;
     border-bottom: 1px solid #f1f5f9;
     color: #334155;
 }
 
-.text-blue { color: #2563eb; font-weight: bold; }
-
-.status-pill {
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    font-weight: 600;
+.custom-table tr:hover {
+    background-color: #f8fafc;
 }
 
-.pill-success { background: #dcfce7; color: #166534; }
-.pill-warning { background: #fef9c3; color: #854d0e; }
-.pill-danger { background: #fee2e2; color: #991b1b; }
+/* Celdas específicas */
+.pasante-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
 
-.history-summary {
-    margin-top: 20px;
-    padding: 15px;
-    background: #f0f9ff;
-    border-radius: 8px;
-    color: #0369a1;
+.avatar-circle {
+    width: 32px;
+    height: 32px;
+    background-color: #e2e8f0;
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    color: #64748b;
 }
 
-.empty-history {
-    text-align: center;
-    padding: 40px;
-    color: #94a3b8;
+.pasante-info {
     display: flex;
     flex-direction: column;
+}
+
+.pasante-info .name {
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.pasante-info .cedula {
+    font-size: 0.8rem;
+    color: #94a3b8;
+}
+
+/* Badges de Eventos */
+.badge-event {
+    display: inline-flex;
     align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.text-green-600 { color: #16a34a; }
+.bg-green-100 { background-color: #dcfce7; }
+
+.text-red-600 { color: #dc2626; }
+.bg-red-100 { background-color: #fee2e2; }
+
+.text-orange-600 { color: #ea580c; }
+.bg-orange-100 { background-color: #ffedd5; }
+
+.text-blue-600 { color: #2563eb; }
+.bg-blue-100 { background-color: #dbeafe; }
+
+.date-cell, .time-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #64748b;
+    font-size: 0.9rem;
+}
+
+.guard-cell {
+    font-size: 0.9rem;
+    color: #64748b;
+    font-style: italic;
+}
+
+.empty-row {
+    text-align: center;
+    padding: 3rem;
+    color: #94a3b8;
 }

@@ -7,20 +7,19 @@ const fs = require('fs');
 
 const app = express();
 
-// 1. INCREASE BODY PARSER LIMIT TO 200MB (Critical)
+// 1. CONFIGURACIÓN DE LÍMITES Y CORS
 app.use(express.json({ limit: '200mb' })); 
 app.use(express.urlencoded({ limit: '200mb', extended: true }));
-
 app.use(cors());
 
-// Ensure uploads directory exists
+// Asegurar que la carpeta de subidas existe
 const uploadDirGlobal = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDirGlobal)) {
     fs.mkdirSync(uploadDirGlobal, { recursive: true });
 }
-
 app.use('/uploads', express.static(uploadDirGlobal));
 
+// 2. CONEXIÓN A LA BASE DE DATOS
 const db = mysql.createConnection({
     host: 'localhost',
     user: 'root',
@@ -33,14 +32,13 @@ db.connect(err => {
     else console.log('✅ Connected to MySQL successfully');
 });
 
-// Multer Configuration
+// 3. CONFIGURACIÓN DE MULTER Y UTILIDADES
 const storage = multer.diskStorage({
     destination: (req, file, cb) => { cb(null, uploadDirGlobal); },
     filename: (req, file, cb) => { cb(null, Date.now() + path.extname(file.originalname)); }
 });
 const upload = multer({ storage: storage });
 
-// Master Base64 Save Function
 const saveBase64ToFile = (base64String, prefix) => {
     if (!base64String) return null;
     const matches = base64String.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
@@ -54,20 +52,16 @@ const saveBase64ToFile = (base64String, prefix) => {
 };
 
 // ==========================================
-// 🚀 RUTA DE LOGIN (CORREGIDA)
+// 🚀 RUTA DE LOGIN
 // ==========================================
 app.post('/login', (req, res) => {
     const { usuario, password } = req.body;
-
-    // 1. Search in Admin Users (Admin, RRHH, Seguridad)
     const sqlAdmin = 'SELECT * FROM usuarios_admin WHERE usuario = ? AND password = ?';
     
     db.query(sqlAdmin, [usuario, password], (err, results) => {
         if (err) return res.status(500).json(err);
-        
         if (results.length > 0) {
             const user = results[0];
-            // Return actual role from DB (Seguridad, Administrador, etc.)
             return res.json({ 
                 id: user.id, 
                 role: user.rol, 
@@ -76,20 +70,17 @@ app.post('/login', (req, res) => {
                 estado: user.estado 
             }); 
         }
-
-        // 2. If not admin, search in Pasantes
         const sqlPasante = 'SELECT * FROM pasantes WHERE usuario = ? AND password = ?';
         db.query(sqlPasante, [usuario, password], (err, resPasante) => {
             if (resPasante.length > 0) {
                 const p = resPasante[0];
                 return res.json({ 
                     id: p.id, 
-                    role: 'Pasante', // Force role for this table
+                    role: 'Pasante', 
                     name: `${p.nombres} ${p.apellidos}`,
                     usuario: p.usuario,
                     estado: p.estado,
-                    docHojaVida: p.doc_hoja_vida,
-                    // ... other necessary fields
+                    docHojaVida: p.doc_ho_vida,
                 });
             }
             return res.status(401).json({ error: 'Credenciales inválidas' });
@@ -97,9 +88,62 @@ app.post('/login', (req, res) => {
     });
 });
 
-// --- ATTENDANCE TRACKING ROUTES (REQUIRED FOR SEGURIDAD) ---
+// ==========================================
+// ⏱️ RUTAS DE ASISTENCIA (FILTRADO POR USUARIO LOGUEADO)
+// ==========================================
 
-// 1. Get today's attendance status
+app.get('/asistencia', (req, res) => {
+    // Capturamos el usuario desde la URL (ej: /asistencia?usuario=Ariel)
+    const { usuario } = req.query;
+
+    let sql = `
+        SELECT 
+            r.id, 
+            r.fecha_hora, 
+            r.tipo_evento, 
+            COALESCE(CONCAT(u.nombres, ' ', u.apellidos), r.guardia_responsable) AS nombre_guardia,
+            p.nombres AS pasante_nombres, 
+            p.apellidos AS pasante_apellidos, 
+            p.cedula, 
+            p.carrera
+        FROM registros_asistencia r
+        JOIN pasantes p ON r.pasante_id = p.id
+        LEFT JOIN usuarios_admin u ON r.guardia_responsable = u.usuario
+    `;
+
+    const params = [];
+
+    // Si se pasa un usuario, filtramos la consulta SQL
+    if (usuario) {
+        sql += ` WHERE r.guardia_responsable = ? `;
+        params.push(usuario);
+    }
+
+    sql += ` ORDER BY r.fecha_hora DESC LIMIT 100`;
+
+    db.query(sql, params, (err, results) => {
+        if (err) {
+            console.error("❌ Error en GET /asistencia:", err);
+            return res.status(500).json({ error: 'Error al obtener historial' });
+        }
+        
+        const response = results.map(row => ({
+            id: row.id,
+            fecha_hora: row.fecha_hora,
+            tipo_evento: row.tipo_evento,
+            guardia: row.nombre_guardia,
+            pasante: {
+                nombres: row.pasante_nombres,
+                apellidos: row.pasante_apellidos,
+                cedula: row.cedula,
+                carrera: row.carrera
+            }
+        }));
+        res.json(response);
+    });
+});
+
+// Resto de rutas de asistencia se mantienen igual...
 app.get('/asistencia/hoy/:id', (req, res) => {
     const { id } = req.params;
     const sql = `SELECT tipo_evento, fecha_hora FROM registros_asistencia 
@@ -110,19 +154,13 @@ app.get('/asistencia/hoy/:id', (req, res) => {
     });
 });
 
-// 2. Register attendance event (Timbrar)
 app.post('/timbrar', (req, res) => {
     const { pasanteId, tipoEvento, guardia } = req.body;
 
-    console.log(`⏱️ New clock-in attempt: ${tipoEvento} for Pasante ID ${pasanteId}`);
-
-    // A. Verify intern status
     db.query('SELECT * FROM pasantes WHERE id = ?', [pasanteId], (err, results) => {
         if (err || results.length === 0) return res.status(500).json({ error: 'Pasante no encontrado' });
-        
         const pasante = results[0];
 
-        // Security Lock
         if (pasante.estado && (pasante.estado.includes('Finalizado') || pasante.estado === 'No habilitado')) {
             return res.status(400).json({ error: `Pasante bloqueado: ${pasante.estado}` });
         }
@@ -131,43 +169,26 @@ app.post('/timbrar', (req, res) => {
         let nuevoAtraso = 0;
         let mensajeAtraso = "";
 
-        // B. Delay Logic
         if (tipoEvento === 'entrada') {
             const horaEntradaLimite = new Date(ahora);
             horaEntradaLimite.setHours(8, 15, 0); 
-
             if (ahora > horaEntradaLimite) {
                 nuevoAtraso = 1;
                 mensajeAtraso = "Llegada tardía (+15 min)";
             }
         } 
-        else if (tipoEvento === 'entrada_almuerzo') {
-            db.query(`SELECT fecha_hora FROM registros_asistencia 
-                      WHERE pasante_id = ? AND tipo_evento = 'salida_almuerzo' 
-                      AND DATE(fecha_hora) = CURDATE() ORDER BY id DESC LIMIT 1`, 
-            [pasanteId], (err, rows) => {
-                if (!err && rows.length > 0) {
-                    const salidaAlmuerzo = new Date(rows[0].fecha_hora);
-                    const diferenciaMinutos = (ahora - salidaAlmuerzo) / 1000 / 60;
-                    if (diferenciaMinutos > 40) actualizarAtrasos(pasante, 1);
-                }
-            });
-        }
-
-        // C. Insert Record
+        
         const sqlInsert = 'INSERT INTO registros_asistencia (pasante_id, tipo_evento, guardia_responsable, fecha_hora) VALUES (?, ?, ?, ?)';
         db.query(sqlInsert, [pasanteId, tipoEvento, guardia, ahora], (err) => {
             if (err) return res.status(500).json({ error: "Error saving attendance" });
-
             if (nuevoAtraso > 0) actualizarAtrasos(pasante, 1);
-
             if (tipoEvento === 'salida') calcularHorasDia(pasanteId, ahora, res);
             else res.json({ message: 'Timbrado exitoso', alerta: mensajeAtraso });
         });
     });
 });
 
-// Helper Functions
+// Helpers y Rutas de Pasantes se mantienen igual...
 function actualizarAtrasos(pasante, cantidad) {
     const nuevosAtrasos = (pasante.atrasos || 0) + cantidad;
     let nuevoEstado = pasante.estado;
@@ -198,8 +219,6 @@ function calcularHorasDia(pasanteId, horaSalida, res) {
         }
     });
 }
-
-// --- STANDARD ROUTES ---
 
 app.get('/pasantes', (req, res) => {
     const { usuario, password } = req.query;
@@ -235,7 +254,6 @@ app.get('/pasantes/:id', (req, res) => {
     });
 });
 
-// CREATE INTERN
 app.post('/pasantes', upload.single('foto'), (req, res) => {
     const body = req.body;
     let filename = req.file ? req.file.filename : null;
@@ -250,7 +268,6 @@ app.post('/pasantes', upload.single('foto'), (req, res) => {
     });
 });
 
-// UPDATE INTERN (PATCH)
 app.patch('/pasantes/:id', (req, res) => {
     const { id } = req.params;
     const body = req.body;
@@ -305,29 +322,27 @@ app.delete('/pasantes/:id', (req, res) => {
     });
 });
 
-// CREATE USER (With Duplicate Check)
 app.post('/usuarios', (req, res) => {
     const { nombres, apellidos, cedula, rol, usuario, password, estado } = req.body;
-    
     db.query('INSERT INTO usuarios_admin (nombres, apellidos, cedula, rol, usuario, password, estado, fecha_registro) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
     [nombres, apellidos, cedula, rol, usuario, password, estado, new Date()], (err, result) => {
         if (err) {
-            if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ error: `El usuario '${usuario}' ya existe. Edítalo manualmente.` });
+            if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ error: `El usuario '${usuario}' ya existe.` });
             return res.status(500).json(err);
         }
         res.json({ message: 'User created', id: result.insertId });
     });
 });
 
-// Audit and User Routes
 app.get('/auditoria', (req, res) => { 
     const sql = `(SELECT id, CONCAT(nombres, ' ', apellidos) as nombre, CONCAT('Pasante (Created by: ', COALESCE(creado_por, 'System'), ')') as rol, fecha_registro as fecha FROM pasantes) UNION (SELECT id, CONCAT(nombres, ' ', apellidos) as nombre, rol, fecha_registro as fecha FROM usuarios_admin) ORDER BY fecha DESC LIMIT 5`;
     db.query(sql, (err, results) => { if (err) return res.status(500).json(err); res.json(results); });
 }); 
+
 app.get('/usuarios', (req, res) => { db.query('SELECT * FROM usuarios_admin', (e, r) => res.json(r)); });
 
+// 4. INICIO DEL SERVIDOR
 const PORT = 3001;
 app.listen(PORT, () => {
     console.log(`🚀 Server ready on port ${PORT}`);
-    console.log(`📂 Uploads folder: ${uploadDirGlobal}`);
 });
