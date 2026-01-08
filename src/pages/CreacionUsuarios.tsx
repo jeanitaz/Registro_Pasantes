@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, UserCog, Save, X, ArrowLeft } from 'lucide-react';
+import { Save, X, ArrowLeft } from 'lucide-react';
 import '../styles/CreacionUsuarios.css';
 
 const CreacionUsuarios = () => {
@@ -16,27 +16,20 @@ const CreacionUsuarios = () => {
         estado: 'Activo'
     });
 
-    // --- ROL DEFINITION ---
     const rolesDisponibles = [
         "Talento Humano",
         "Seguridad" 
     ];
 
-    // --- USERNAME GENERATION LOGIC ---
     useEffect(() => {
         const generarUsuario = () => {
             const nombreLimpio = formData.nombres.trim().toLowerCase();
             const apellidoLimpio = formData.apellidos.trim().toLowerCase();
 
             if (nombreLimpio.length > 0 && apellidoLimpio.length > 0) {
-                // 1. Primera letra del PRIMER nombre
                 const primerNombre = nombreLimpio.split(' ')[0];
                 const letraInicial = primerNombre.charAt(0);
-
-                // 2. PRIMER apellido completo
                 const primerApellido = apellidoLimpio.split(' ')[0];
-
-                // 3. Concatenar
                 setFormData(prev => ({ 
                     ...prev, 
                     usuario: `${letraInicial}${primerApellido}` 
@@ -75,7 +68,7 @@ const CreacionUsuarios = () => {
 
             if (response.ok) {
                 alert(`Usuario ${formData.usuario} creado exitosamente.`);
-                navigate(-1); // Volver atrás
+                navigate(-1); 
             } else {
                 const errorData = await response.json();
                 console.error("Server Error:", errorData);
@@ -88,73 +81,63 @@ const CreacionUsuarios = () => {
     };
 
     return (
-        <div className="sophisticated-wrapper">
-            <div className="ambient-light light-1"></div>
-            <div className="ambient-light light-2"></div>
-
-            <main className="main-view full-width">
+        <div className="creacion-usuarios-scope">
+            
+            <main className="cu-main-view">
                 
-                {/* HEADER REDISEÑADO */}
-                <header className="glass-header-row">
-                    <div className="header-left">
-                        <button className="btn-back-pill" onClick={() => navigate(-1)}>
-                            <ArrowLeft size={18} />
-                            <span>Volver</span>
-                        </button>
-                        <div className="header-texts">
-                            <h1>Gestión de Usuarios</h1>
-                            <p>Directorio de personal administrativo y seguridad.</p>
-                        </div>
-                    </div>
-                    
-                    <div className="role-icon-preview">
-                        {formData.rol === 'Seguridad' ? (
-                            <Shield size={32} className="text-blue"/> 
-                        ) : (
-                            <UserCog size={32} className="text-purple"/>
-                        )}
+                <header className="cu-header">
+                    <button className="cu-btn-back" onClick={() => navigate(-1)}>
+                        <ArrowLeft size={18} /> Volver
+                    </button>
+                    <div className="cu-title">
+                        <h1>Gestión de Usuarios</h1>
+                        <p>Directorio de personal administrativo y seguridad.</p>
                     </div>
                 </header>
 
-                <div className="form-container-compact">
-                    <form className="glass-card form-content" onSubmit={handleSubmit}>
+                <div className="cu-form-card">
+                    <form onSubmit={handleSubmit}>
                         
-                        <div className="form-section-title">
+                        {/* SECCIÓN 1 */}
+                        <div className="cu-section-title">
                             <h3>Datos del Funcionario</h3>
-                            <span className="divider"></span>
+                            <span className="cu-divider"></span>
                         </div>
 
-                        <div className="form-grid">
-                            <div className="input-group">
-                                <label>Nombres</label>
+                        <div className="cu-grid">
+                            <div className="cu-input-group">
+                                <label className="cu-label">Nombres</label>
                                 <input 
+                                    className="cu-input"
                                     type="text" name="nombres" 
                                     placeholder="Ej: Juan Carlos" 
                                     value={formData.nombres} onChange={handleChange} required 
                                 />
                             </div>
 
-                            <div className="input-group">
-                                <label>Apellidos</label>
+                            <div className="cu-input-group">
+                                <label className="cu-label">Apellidos</label>
                                 <input 
+                                    className="cu-input"
                                     type="text" name="apellidos" 
                                     placeholder="Ej: Pérez Gómez" 
                                     value={formData.apellidos} onChange={handleChange} required 
                                 />
                             </div>
 
-                            <div className="input-group">
-                                <label>Número de Cédula</label>
+                            <div className="cu-input-group">
+                                <label className="cu-label">Número de Cédula</label>
                                 <input 
+                                    className="cu-input"
                                     type="text" name="cedula" 
                                     placeholder="1700000000" maxLength={10}
                                     value={formData.cedula} onChange={handleChange} required 
                                 />
                             </div>
 
-                            <div className="input-group">
-                                <label>Rol Asignado</label>
-                                <select name="rol" value={formData.rol} onChange={handleChange} required>
+                            <div className="cu-input-group">
+                                <label className="cu-label">Rol Asignado</label>
+                                <select className="cu-select" name="rol" value={formData.rol} onChange={handleChange} required>
                                     <option value="">Seleccione un rol...</option>
                                     {rolesDisponibles.map(r => (
                                         <option key={r} value={r}>{r}</option>
@@ -162,37 +145,39 @@ const CreacionUsuarios = () => {
                                 </select>
                             </div>
                             
-                            <div className="input-group">
-                                <label>Estado Inicial</label>
-                                <select name="estado" value={formData.estado} onChange={handleChange}>
+                            <div className="cu-input-group">
+                                <label className="cu-label">Estado Inicial</label>
+                                <select className="cu-select" name="estado" value={formData.estado} onChange={handleChange}>
                                     <option value="Activo">Activo</option>
                                     <option value="Inactivo">Inactivo</option>
                                 </select>
                             </div>
                         </div>
 
-                        <div className="form-section-title">
+                        {/* SECCIÓN 2 */}
+                        <div className="cu-section-title">
                             <h3>Credenciales de Sistema</h3>
-                            <span className="divider"></span>
+                            <span className="cu-divider"></span>
                         </div>
 
-                        <div className="form-grid">
-                            <div className="input-group">
-                                <label>Usuario (Auto-generado)</label>
+                        <div className="cu-grid">
+                            <div className="cu-input-group">
+                                <label className="cu-label">Usuario (Auto-generado)</label>
                                 <input 
+                                    className="cu-input cu-readonly"
                                     type="text" name="usuario" 
                                     value={formData.usuario} 
-                                    readOnly // Se mantiene readOnly para evitar edición manual errónea, la lógica lo genera
-                                    className="input-readonly"
+                                    readOnly 
                                 />
-                                <small className="helper-text">
+                                <small className="cu-helper-text">
                                     {formData.usuario ? `Acceso: ${formData.usuario}` : "Formato: letra nombre + apellido"}
                                 </small>
                             </div>
 
-                            <div className="input-group">
-                                <label>Contraseña Temporal</label>
+                            <div className="cu-input-group">
+                                <label className="cu-label">Contraseña Temporal</label>
                                 <input 
+                                    className="cu-input"
                                     type="password" name="password" 
                                     placeholder="••••••••" 
                                     value={formData.password} onChange={handleChange} required 
@@ -200,11 +185,11 @@ const CreacionUsuarios = () => {
                             </div>
                         </div>
 
-                        <div className="form-actions-footer">
-                            <button type="button" className="btn-cancel" onClick={() => navigate(-1)}>
+                        <div className="cu-footer">
+                            <button type="button" className="cu-btn-cancel" onClick={() => navigate(-1)}>
                                 <X size={18} /> Cancelar
                             </button>
-                            <button type="submit" className="btn-save">
+                            <button type="submit" className="cu-btn-save">
                                 <Save size={18} /> Guardar Usuario
                             </button>
                         </div>
