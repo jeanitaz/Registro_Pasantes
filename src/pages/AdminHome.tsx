@@ -1,8 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import * as XLSX from 'xlsx-js-style'; 
+import { 
+    LayoutTemplate, Users, FileText, 
+    Settings, LogOut, Download, Briefcase, 
+    ShieldCheck, Clock
+} from 'lucide-react';
 import '../styles/AdminHome.css';
 
-// Interfaz para los datos que vienen del backend
 interface LogItem {
     id: number;
     nombre: string;
@@ -13,176 +18,176 @@ interface LogItem {
 const AdminHome = () => {
     const navigate = useNavigate();
     const [logs, setLogs] = useState<LogItem[]>([]);
+    const [showModal, setShowModal] = useState(false);
 
-    // Cargar logs al inicio y cada 5 segundos
     useEffect(() => {
         const fetchLogs = async () => {
             try {
-                const response = await fetch('http://localhost:3001/auditoria');
+                const response = await fetch('http://localhost:3001/auditoria', { cache: 'no-store' });
                 if (response.ok) {
                     const data = await response.json();
                     setLogs(data);
                 }
-            } catch (error) {
-                console.error("Error cargando auditoría:", error);
-            }
+            } catch (error) { console.error(error); }
         };
-
-        fetchLogs(); // Primera carga
-        
-        // Polling para efecto "En vivo"
+        fetchLogs();
         const interval = setInterval(fetchLogs, 5000);
         return () => clearInterval(interval);
     }, []);
 
     const handleLogout = () => {
-        if (window.confirm("¿Deseas cerrar tu sesión?")) {
+        if(window.confirm("¿Salir del sistema?")) {
+            localStorage.removeItem('token');
             navigate('/login');
         }
     };
 
-    // Formatear la hora (ej: 10:42)
-    const formatearHora = (fechaISO: string) => {
-        if (!fechaISO) return '--:--';
-        const fecha = new Date(fechaISO);
-        return fecha.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' });
+    const handleDownload = async (type: 'pasantes' | 'rrhh') => {
+        try {
+            const endpoint = type === 'pasantes' ? '/pasantes' : '/usuarios';
+            const res = await fetch(`http://localhost:3001${endpoint}`);
+            const data = await res.json();
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(data);
+            XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+            XLSX.writeFile(wb, `Data_${type}.xlsx`);
+            setShowModal(false);
+        } catch(e) { alert("Error"); }
     };
 
     return (
-        <div className="sophisticated-wrapper">
-            
-            {/* LUCES AMBIENTALES */}
-            <div className="ambient-light light-1"></div>
-            <div className="ambient-light light-2"></div>
-
-            {/* --- SIDEBAR --- */}
-            <aside className="glass-sidebar">
-                <div className="sidebar-brand">
-                    <div className="brand-logo">I</div>
-                    <span className="brand-text">INAMHI <small>Manager</small></span>
-                </div>
-
-                {/* GRUPO 1 */}
-                <div className="menu-group">
-                    <p className="menu-label">Main</p>
-                    <a href="#" className="menu-item active">Dashboard</a>
-                    <a href="#" className="menu-item">Analíticas</a>
-                    <a href="#" className="menu-item">Reportes</a>
-                </div>
-
-                {/* GRUPO 2 */}
-                <div className="menu-group">
-                    <p className="menu-label">Administración</p>
-                    <button onClick={() => navigate('/historial')} className="menu-item link-btn">Usuarios</button>
-                    <button onClick={() => navigate('/historialP')} className="menu-item link-btn">Pasantes</button>
-                    <a href="#" className="menu-item warning">Edición Directa</a>
-                </div>
-
-                {/* BOTÓN DE LOGOUT */}
-                <div className="menu-group session-group">
-                    <p className="menu-label">Sesión</p>
-                    <button className="btn-logout" onClick={handleLogout}>
-                        <span>⏻</span> Cerrar Sesión
-                    </button>
-                </div>
-
-                {/* PERFIL */}
-                <div className="sidebar-profile-wrapper">
-                    <div className="sidebar-profile">
-                        <div className="profile-pic">AD</div>
-                        <div className="profile-info">
-                            <span className="name">Admin. Principal</span>
-                            <span className="status">● Conectado</span>
+        /* CLASE CONTENEDORA QUE PROTEGE EL ESTILO */
+        <div className="admin-home-scope">
+            <div className="modern-layout">
+                
+                {/* SIDEBAR FLOTANTE */}
+                <aside className="sidebar-floating">
+                    <div className="brand">
+                        INAMHI <span>APP</span>
+                    </div>
+                    <nav className="menu-list">
+                        <button className="menu-link active"><LayoutTemplate size={18}/> Panel Principal</button>
+                        <button className="menu-link" onClick={() => navigate('/historial')}><Users size={18}/> Funcionarios</button>
+                        <button className="menu-link" onClick={() => navigate('/historialP')}><Briefcase size={18}/> Pasantes</button>
+                        <button className="menu-link" onClick={() => setShowModal(true)}><FileText size={18}/> Reportes</button>
+                    </nav>
+                    <div className="user-mini">
+                        <div className="user-avatar">AD</div>
+                        <div className="user-data">
+                            <div>Admin User</div>
+                            <div>Super Admin</div>
                         </div>
                     </div>
-                </div>
-            </aside>
+                </aside>
 
-            {/* --- CONTENIDO PRINCIPAL --- */}
-            <main className="main-view">
-                <header className="glass-header">
-                    <div className="header-title">
-                        <h1>Vista General</h1>
-                        <p>Bienvenido al sistema de control centralizado.</p>
-                    </div>
-                    <div className="header-actions">
-                        <span className="system-status">Estado: <strong>Óptimo</strong></span>
-                        <button className="btn-glow">Exportar Datos</button>
-                    </div>
-                </header>
-
-                <div className="sophisticated-grid">
+                {/* CONTENIDO PRINCIPAL */}
+                <main className="main-wrapper">
                     
-                    {/* Tarjeta Usuarios */}
-                    <div className="glass-card wide-card users-module" onClick={() => navigate('/historial')} style={{cursor: 'pointer'}}>
-                        <div className="card-content">
-                            <div className="icon-box blue">👥</div>
-                            <div className="text-content">
-                                <h3>Gestión de Usuarios</h3>
-                                <p>Administración total de roles y accesos.</p>
+                    <header className="header-simple">
+                        <div>
+                            <h1>Dashboard</h1>
+                            <p>Resumen general del sistema de control.</p>
+                        </div>
+                        <button className="logout-btn-top" onClick={handleLogout}>
+                            <LogOut size={18}/> Cerrar Sesión
+                        </button>
+                    </header>
+
+                    {/* FILA DE TARJETAS */}
+                    <div className="cards-row">
+                        <div className="fancy-card users" onClick={() => navigate('/usuarios')}>
+                            <div className="card-text">
+                                <h3>Gestión</h3>
+                                <h2>Usuarios</h2>
+                                <p>Crear, editar, eliminar roles</p>
                             </div>
-                            <button className="action-arrow">→</button>
+                            <div className="card-icon-float icon-indigo"><Users size={24}/></div>
                         </div>
-                    </div>
 
-                    {/* Tarjeta Configuración */}
-                    <div className="glass-card config-module">
-                        <div className="card-top">
-                            <div className="icon-box purple">⚙️</div>
-                            <button className="dots">•••</button>
-                        </div>
-                        <h3>Configuración</h3>
-                        <p>Parámetros y reglas.</p>
-                    </div>
-
-                    {/* Tarjeta Reportes */}
-                    <div className="glass-card reports-module">
-                        <div className="card-top">
-                            <div className="icon-box cyan">📊</div>
-                            <span className="tag">PDF</span>
-                        </div>
-                        <h3>Reportes</h3>
-                        <p>Auditoría de asistencia.</p>
-                    </div>
-
-                    {/* Tarjeta Peligro */}
-                    <div className="glass-card danger-module">
-                        <div className="card-content">
-                            <div className="icon-box red">⚠️</div>
-                            <div className="text-content">
-                                <h3>Modificación Directa</h3>
-                                <p>Edición excepcional de base de datos.</p>
+                        <div className="fancy-card interns" onClick={() => navigate('/historialP')}>
+                            <div className="card-text">
+                                <h3>Académico</h3>
+                                <h2>Pasantes</h2>
+                                <p>Registro y seguimiento</p>
                             </div>
+                            <div className="card-icon-float icon-blue"><Briefcase size={24}/></div>
+                        </div>
+
+                        <div className="fancy-card reports" onClick={() => setShowModal(true)}>
+                            <div className="card-text">
+                                <h3>Datos</h3>
+                                <h2>Reportes</h2>
+                                <p>Descarga en Excel</p>
+                            </div>
+                            <div className="card-icon-float icon-green"><Download size={24}/></div>
+                        </div>
+
+                        <div className="fancy-card config">
+                            <div className="card-text">
+                                <h3>Sistema</h3>
+                                <h2>Ajustes</h2>
+                                <p>Configuración global</p>
+                            </div>
+                            <div className="card-icon-float icon-orange"><Settings size={24}/></div>
                         </div>
                     </div>
 
-                    {/* Tarjeta LOGS con DATOS REALES */}
-                    <div className="glass-card log-module">
-                        <div className="module-header">
-                            <h3>Log de Auditoría</h3>
-                            <div className="live-status">
-                                <span className="blink-dot">●</span> En vivo
-                            </div>
+                    {/* LISTA DE AUDITORÍA */}
+                    <div className="audit-container">
+                        <div className="audit-header">
+                            <h3><ShieldCheck size={18} style={{display:'inline', marginBottom:'-3px'}}/> Actividad Reciente</h3>
+                            <span style={{fontSize:'0.8rem', color:'#8898aa'}}>Últimos 5 movimientos</span>
                         </div>
-                        <ul className="log-list">
-                            {logs.length > 0 ? (
-                                logs.map((log, index) => (
-                                    <li key={`${log.id}-${index}`}>
-                                        <span className="time">{formatearHora(log.fecha)}</span>
-                                        <span className="msg">
-                                            Nuevo <strong>{log.rol}</strong>: {log.nombre}
+                        
+                        <div className="audit-list">
+                            {logs.length > 0 ? logs.map((log, i) => (
+                                <div key={i} className="log-stripe">
+                                    <div className="log-info">
+                                        <div className="log-avatar">{log.nombre.charAt(0)}</div>
+                                        <div className="log-details">
+                                            <div>{log.nombre}</div>
+                                            <div>Acción: {log.rol}</div>
+                                        </div>
+                                    </div>
+                                    <div className="log-meta">
+                                        <span className={`badge-pill ${log.rol.toLowerCase().includes('admin') ? 'admin' : 'security'}`}>
+                                            {log.rol.split(' ')[0]}
                                         </span>
-                                    </li>
-                                ))
-                            ) : (
-                                <li style={{padding: '10px', color: '#9ca3af', fontSize: '0.85rem'}}>
-                                    Esperando registros recientes...
-                                </li>
-                            )}
-                        </ul>
+                                        <span className="time-stamp">
+                                            <Clock size={12} style={{marginRight:'4px', marginBottom:'-2px'}}/>
+                                            {new Date(log.fecha).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                                        </span>
+                                    </div>
+                                </div>
+                            )) : <p style={{textAlign:'center', color:'#8898aa'}}>No hay actividad reciente.</p>}
+                        </div>
                     </div>
-                </div>
-            </main>
+
+                </main>
+
+                {/* MODAL */}
+                {showModal && (
+                    <div className="modal-overlay" onClick={() => setShowModal(false)}>
+                        <div className="modal-white" onClick={e => e.stopPropagation()}>
+                            <h2 style={{margin:0, color:'#32325d'}}>Descargar Datos</h2>
+                            <p style={{color:'#8898aa'}}>Seleccione formato de reporte</p>
+                            
+                            <div className="modal-grid">
+                                <div className="modal-option" onClick={() => handleDownload('pasantes')}>
+                                    <Briefcase size={32}/>
+                                    <span>Pasantes</span>
+                                </div>
+                                <div className="modal-option" onClick={() => handleDownload('rrhh')}>
+                                    <Users size={32}/>
+                                    <span>Personal</span>
+                                </div>
+                            </div>
+                            
+                            <button onClick={() => setShowModal(false)} style={{marginTop:'25px', background:'none', border:'none', color:'#f5365c', fontWeight:'bold', cursor:'pointer'}}>Cancelar</button>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

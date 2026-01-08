@@ -59,7 +59,7 @@ const PasanteHome = () => {
         if (storedUser) {
             const localUser = JSON.parse(storedUser);
             
-            // 1. Primero mostramos lo que hay en caché para que sea rápido
+            // 1. Carga inicial desde caché (localStorage)
             setPasante({
                 ...localUser,
                 id: localUser.id, 
@@ -72,41 +72,37 @@ const PasanteHome = () => {
                 historialReciente: localUser.historialReciente || [],
                 informeSubido: !!localUser.informeUrl,
                 informeUrl: localUser.informeUrl,
-                fotoUrl: localUser.fotoUrl
+                fotoUrl: localUser.fotoUrl // Intenta cargar foto del login
             });
 
-            // 2. CONSULTAR AL SERVIDOR PARA TRAER DATOS FRESCOS DE RRHH
+            // 2. CONSULTAR AL SERVIDOR (Datos frescos y FOTO URL)
             try {
                 const response = await fetch(`http://localhost:3001/pasantes/${localUser.id}`);
                 if (response.ok) {
                     const dataDB = await response.json();
                     
-                    // Mezclamos los datos locales con los frescos de la BD
-                    // (La BD es la verdad absoluta para contadores y estado)
                     const datosActualizados = {
                         ...localUser,
-                        ...dataDB, // Esto sobreescribe faltas, atrasos, estado, etc.
+                        ...dataDB, 
                         
-                        // Aseguramos nombres correctos si la BD devuelve snake_case
+                        // Normalización de datos
                         llamadosAtencion: dataDB.llamadosAtencion ?? dataDB.llamados_atencion ?? 0,
                         horasCompletadas: dataDB.horasCompletadas ?? dataDB.horas_completadas ?? 0,
-                        
-                        // Aseguramos nombre completo
                         nombre: `${dataDB.nombres} ${dataDB.apellidos}`,
                         
-                        // Documentos
+                        // Archivos e Imagen
                         informeSubido: !!(dataDB.informeUrl || dataDB.informe_url),
                         informeUrl: dataDB.informeUrl || dataDB.informe_url,
-                        fotoUrl: dataDB.fotoUrl || dataDB.foto_url
+                        
+                        // AQUÍ SE TRAE LA IMAGEN GUARDADA DEL SERVIDOR
+                        fotoUrl: dataDB.fotoUrl || dataDB.foto_url 
                     };
 
                     setPasante(datosActualizados);
-                    
-                    // Actualizamos localStorage para que la próxima carga sea más precisa
                     localStorage.setItem('user', JSON.stringify(datosActualizados));
                 }
             } catch (error) {
-                console.error("Error sincronizando datos con el servidor:", error);
+                console.error("Error sincronizando datos:", error);
             }
         } else {
             navigate('/login');
@@ -125,17 +121,11 @@ const PasanteHome = () => {
     }
   };
 
-  const handleRegistroHoras = () => {
-    navigate('/horas'); 
-  };
-
-  const handleUploadClick = () => {
-    fileInputRef.current?.click();
-  };
+  const handleRegistroHoras = () => { navigate('/horas'); };
+  const handleUploadClick = () => { fileInputRef.current?.click(); };
 
   const handleDownloadExcel = () => {
     if (!pasante) return;
-
     const tituloStyle = { font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "2563EB" } }, alignment: { horizontal: "center", vertical: "center" } };
     const labelStyle = { font: { bold: true, color: { rgb: "334155" } } };
     const headerTablaStyle = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "3B82F6" } }, alignment: { horizontal: "center", vertical: "center" }, border: { top: { style: "thin", color: { rgb: "FFFFFF" } }, bottom: { style: "thin", color: { rgb: "FFFFFF" } }, right: { style: "thin", color: { rgb: "FFFFFF" } } } };
@@ -188,76 +178,40 @@ const PasanteHome = () => {
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-
     if (file && pasante) {
-      if (file.type !== 'application/pdf') {
-        alert("❌ Error: Solo se permiten archivos PDF.");
-        return;
-      }
-      if (file.size > 2 * 1024 * 1024) {
-        alert("❌ El archivo es muy pesado (Máx 2MB para esta demo).");
-        return;
-      }
+      if (file.type !== 'application/pdf') { alert("❌ Error: Solo PDF."); return; }
+      if (file.size > 5 * 1024 * 1024) { alert("❌ Archivo muy pesado (Máx 5MB)."); return; } // Límite aumentado
 
       setIsUploading(true);
-
       try {
         const base64Pdf = await convertToBase64(file);
         const response = await fetch(`http://localhost:3001/pasantes/${pasante.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                informeFinalSubido: true, 
-                informeUrl: base64Pdf     
-            })
+            body: JSON.stringify({ informeFinalSubido: true, informeUrl: base64Pdf })
         });
 
         if (response.ok) {
-            alert(`✅ Archivo "${file.name}" subido correctamente.`);
+            alert(`✅ Archivo subido correctamente.`);
             const refreshResponse = await fetch(`http://localhost:3001/pasantes/${pasante.id}`);
             if (refreshResponse.ok) {
                 const freshData = await refreshResponse.json();
-                setPasante(prev => prev ? ({ 
-                    ...prev, 
-                    informeSubido: true,
-                    informeUrl: freshData.informeUrl 
-                }) : null);
+                setPasante(prev => prev ? ({ ...prev, informeSubido: true, informeUrl: freshData.informeUrl }) : null);
             }
-        } else {
-            throw new Error("No se pudo guardar en la base de datos.");
-        }
-      } catch (error) {
-        console.error(error);
-        alert("❌ Error al subir. Intenta de nuevo.");
-      } finally {
-        setIsUploading(false);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-      }
+        } else { throw new Error("Error en BD"); }
+      } catch (error) { alert("❌ Error al subir."); } 
+      finally { setIsUploading(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
     }
   };
 
   if (!pasante) return <div className="loading-screen">Cargando perfil...</div>;
 
-  const porcentaje = pasante.horasRequeridas > 0
-    ? Math.min((pasante.horasCompletadas / pasante.horasRequeridas) * 100, 100)
-    : 0;
-
+  const porcentaje = pasante.horasRequeridas > 0 ? Math.min((pasante.horasCompletadas / pasante.horasRequeridas) * 100, 100) : 0;
   const esCompletado = porcentaje >= 100;
-  
   const tieneFoto = pasante.fotoUrl && pasante.fotoUrl.startsWith('http');
-  
-  const estaEnRiesgo = 
-      pasante.atrasos >= LIMITES.ATRASOS - 1 || 
-      pasante.faltas >= LIMITES.FALTAS - 1 || 
-      pasante.llamadosAtencion >= LIMITES.LLAMADOS - 1;
-
+  const estaEnRiesgo = pasante.atrasos >= LIMITES.ATRASOS - 1 || pasante.faltas >= LIMITES.FALTAS - 1;
   const estaFinalizadoMal = pasante.estado.includes("Finalizado por");
-
-  const getBarColor = (val: number, max: number) => {
-      if (val >= max) return 'bg-red-500'; 
-      if (val >= max - 1) return 'bg-yellow-500'; 
-      return 'bg-blue-500';
-  };
+  const getBarColor = (val: number, max: number) => { if (val >= max) return 'bg-red-500'; if (val >= max - 1) return 'bg-yellow-500'; return 'bg-blue-500'; };
 
   return (
     <div className="layout-wrapper">
@@ -267,18 +221,9 @@ const PasanteHome = () => {
           <span className="logo-text">InternApp</span>
         </div>
         <div className="nav-links">
-          <button className="nav-item active">
-            <div className="nav-icon"><Activity size={20} /></div>
-            <span>Dashboard</span>
-          </button>
-          <button onClick={handleRegistroHoras} className="nav-item">
-            <div className="nav-icon"><ClipboardList size={20} /></div>
-            <span>Registro de Horas</span>
-          </button>
-          <button onClick={handleLogout} className="nav-item logout-item">
-            <div className="nav-icon"><LogOut size={20} /></div>
-            <span>Cerrar Sesión</span>
-          </button>
+          <button className="nav-item active"><div className="nav-icon"><Activity size={20} /></div><span>Dashboard</span></button>
+          <button onClick={handleRegistroHoras} className="nav-item"><div className="nav-icon"><ClipboardList size={20} /></div><span>Registro de Horas</span></button>
+          <button onClick={handleLogout} className="nav-item logout-item"><div className="nav-icon"><LogOut size={20} /></div><span>Cerrar Sesión</span></button>
         </div>
       </aside>
 
@@ -291,27 +236,26 @@ const PasanteHome = () => {
           <div className="profile-pill">
             <div className={`status-dot ${estaFinalizadoMal ? 'dot-red' : 'dot-green'}`}></div>
             <span>{pasante.estado || "Activo"}</span>
-            <div className="avatar-circle" style={{ overflow: 'hidden', padding: tieneFoto ? 0 : '' }}>
+            
+            {/* --- VISUALIZACIÓN DE LA IMAGEN GUARDADA --- */}
+            <div className="avatar-circle" style={{ overflow: 'hidden', padding: tieneFoto ? 0 : undefined, border: tieneFoto ? '2px solid #e2e8f0' : 'none' }}>
                 {tieneFoto ? (
                     <img src={pasante.fotoUrl} alt="Perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                     pasante.nombre.charAt(0)
                 )}
             </div>
+            {/* ----------------------------------------- */}
+
           </div>
         </header>
 
-        {/* --- ALERTA DE RIESGO --- */}
         {(estaEnRiesgo || estaFinalizadoMal) && (
             <div className={`risk-banner ${estaFinalizadoMal ? 'banner-critical' : 'banner-warning'}`}>
                 {estaFinalizadoMal ? <XCircle size={24} /> : <ShieldAlert size={24} />}
                 <div className="banner-content">
                     <h4>{estaFinalizadoMal ? "Pasantía Interrumpida" : "Atención Requerida"}</h4>
-                    <p>
-                        {estaFinalizadoMal 
-                            ? `Estado: ${pasante.estado}. Comunícate con tu supervisor.` 
-                            : "Estás cerca de alcanzar el límite permitido de faltas o atrasos. Cuida tu asistencia."}
-                    </p>
+                    <p>{estaFinalizadoMal ? `Estado: ${pasante.estado}. Comunícate con tu supervisor.` : "Estás cerca de alcanzar el límite permitido de faltas o atrasos."}</p>
                 </div>
             </div>
         )}
@@ -339,48 +283,20 @@ const PasanteHome = () => {
                 </div>
               </div>
 
-              {/* --- CONTROL DISCIPLINARIO (VISUALIZACIÓN) --- */}
               <div className="card discipline-card">
-                  <div className="card-header-row">
-                      <h3>Estado Disciplinario</h3>
-                      <AlertTriangle size={18} className="text-gray-400"/>
-                  </div>
-                  
+                  <div className="card-header-row"><h3>Estado Disciplinario</h3><AlertTriangle size={18} className="text-gray-400"/></div>
                   <div className="discipline-bars">
                       <div className="discipline-item">
-                          <div className="bar-header">
-                              <span>Atrasos</span>
-                              <span className={pasante.atrasos >= LIMITES.ATRASOS ? 'text-red-500' : ''}>
-                                  {pasante.atrasos} / {LIMITES.ATRASOS}
-                              </span>
-                          </div>
-                          <div className="bar-track">
-                              <div className={`bar-fill ${getBarColor(pasante.atrasos, LIMITES.ATRASOS)}`} style={{width: `${Math.min((pasante.atrasos / LIMITES.ATRASOS) * 100, 100)}%`}}></div>
-                          </div>
+                          <div className="bar-header"><span>Atrasos</span><span className={pasante.atrasos >= LIMITES.ATRASOS ? 'text-red-500' : ''}>{pasante.atrasos} / {LIMITES.ATRASOS}</span></div>
+                          <div className="bar-track"><div className={`bar-fill ${getBarColor(pasante.atrasos, LIMITES.ATRASOS)}`} style={{width: `${Math.min((pasante.atrasos / LIMITES.ATRASOS) * 100, 100)}%`}}></div></div>
                       </div>
-
                       <div className="discipline-item">
-                          <div className="bar-header">
-                              <span>Faltas</span>
-                              <span className={pasante.faltas >= LIMITES.FALTAS ? 'text-red-500' : ''}>
-                                  {pasante.faltas} / {LIMITES.FALTAS}
-                              </span>
-                          </div>
-                          <div className="bar-track">
-                              <div className={`bar-fill ${getBarColor(pasante.faltas, LIMITES.FALTAS)}`} style={{width: `${Math.min((pasante.faltas / LIMITES.FALTAS) * 100, 100)}%`}}></div>
-                          </div>
+                          <div className="bar-header"><span>Faltas</span><span className={pasante.faltas >= LIMITES.FALTAS ? 'text-red-500' : ''}>{pasante.faltas} / {LIMITES.FALTAS}</span></div>
+                          <div className="bar-track"><div className={`bar-fill ${getBarColor(pasante.faltas, LIMITES.FALTAS)}`} style={{width: `${Math.min((pasante.faltas / LIMITES.FALTAS) * 100, 100)}%`}}></div></div>
                       </div>
-
                       <div className="discipline-item">
-                          <div className="bar-header">
-                              <span>Llamados de Atención</span>
-                              <span className={pasante.llamadosAtencion >= LIMITES.LLAMADOS ? 'text-red-500' : ''}>
-                                  {pasante.llamadosAtencion} / {LIMITES.LLAMADOS}
-                              </span>
-                          </div>
-                          <div className="bar-track">
-                              <div className={`bar-fill ${getBarColor(pasante.llamadosAtencion, LIMITES.LLAMADOS)}`} style={{width: `${Math.min((pasante.llamadosAtencion / LIMITES.LLAMADOS) * 100, 100)}%`}}></div>
-                          </div>
+                          <div className="bar-header"><span>Llamados de Atención</span><span className={pasante.llamadosAtencion >= LIMITES.LLAMADOS ? 'text-red-500' : ''}>{pasante.llamadosAtencion} / {LIMITES.LLAMADOS}</span></div>
+                          <div className="bar-track"><div className={`bar-fill ${getBarColor(pasante.llamadosAtencion, LIMITES.LLAMADOS)}`} style={{width: `${Math.min((pasante.llamadosAtencion / LIMITES.LLAMADOS) * 100, 100)}%`}}></div></div>
                       </div>
                   </div>
               </div>
@@ -403,7 +319,7 @@ const PasanteHome = () => {
                 <div className="card-header-row"><h3>Gestión de Cierre</h3></div>
                 <div className="modern-actions-container">
                   <div className="action-panel" onClick={handleDownloadExcel} style={{ cursor: 'pointer', border: '1px solid #22c55e', backgroundColor: '#f0fdf4' }}>
-                    <div className="panel-icon"><FileSpreadsheet size={24} className="text-green-600" style={{ color: '#16a34a' }} /></div>
+                    <div className="panel-icon"><FileSpreadsheet size={24} style={{ color: '#16a34a' }} /></div>
                     <div className="panel-content"><h4 style={{ color: '#15803d' }}>Reporte de Horas</h4><p>Descargar Excel detallado.</p></div>
                     <button className="panel-btn-icon"><Download size={20} style={{ color: '#16a34a' }} /></button>
                   </div>

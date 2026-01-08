@@ -11,6 +11,7 @@ import HistorialPasantes from "../pages/HistorialPasantes";
 import HistorialAlertas from "../pages/HistorialAlertas";
 import Documentacion from "../pages/Documentacion";
 import RegistroHoras from "../pages/RegistroHoras";
+import SeguridadHome from "../pages/SeguridadHome";
 const AppRoutes = () => {
     return (
         <Routes>
@@ -23,6 +24,7 @@ const AppRoutes = () => {
             <Route path="/historial" element={<HistorialUsuarios />} />
             <Route path="/historialAlertas" element={<HistorialAlertas />} />
             <Route path="/horas" element={<RegistroHoras />} />
+            <Route path="/seguridad" element={<SeguridadHome />} />
             <Route path="/admin" element={<AdminHome />} />
             <Route path="/rrhh" element={<RRHHHome />} />
             <Route path="/pasante" element={<PasanteHome />} />

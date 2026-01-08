@@ -23,7 +23,6 @@ const CreacionPasante = () => {
         fotoBase64: ''            
     });
 
-    // Estado para manejar los errores de validación
     const [errors, setErrors] = useState({
         cedula: '',
         email: '',
@@ -68,36 +67,30 @@ const CreacionPasante = () => {
         return () => clearTimeout(timer);
     }, [formData.nombres, formData.apellidos]);
 
-    // --- MODIFICADO: HANDLER CON RESTRICCIONES DE ENTRADA ---
+    // --- MANEJO DE INPUTS ---
     const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
 
-        // Validación en tiempo real para Cédula y Teléfono (Solo números y máx 10)
+        // Validación tiempo real: solo números para cédula/teléfono
         if (name === 'cedula' || name === 'telefono') {
-            // Elimina cualquier caracter que no sea número
             const soloNumeros = value.replace(/\D/g, '');
-            
-            // Limita a 10 dígitos
             if (soloNumeros.length <= 10) {
                 setFormData(prev => ({ ...prev, [name]: soloNumeros }));
-                
-                // Limpiar error visual si el usuario corrige y llega a 10
                 if (soloNumeros.length === 10) {
                     setErrors(prev => ({ ...prev, [name]: '' }));
                 }
             }
-            return; // Detiene la ejecución estándar para estos campos
+            return; 
         }
 
-        // Para el resto de campos
         setFormData(prev => ({ ...prev, [name]: value }));
         
-        // Limpiar errores simples al escribir
         if (name === 'email' || name === 'password') {
             setErrors(prev => ({ ...prev, [name]: '' }));
         }
     };
 
+    // --- CARGA DE FOTO ---
     const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
@@ -126,31 +119,27 @@ const CreacionPasante = () => {
         }
     };
 
-    // --- NUEVO: FUNCIÓN DE VALIDACIÓN ANTES DE ENVIAR ---
+    // --- VALIDACIÓN PRE-ENVÍO ---
     const validarFormulario = () => {
         let esValido = true;
         const nuevosErrores = { cedula: '', email: '', telefono: '', password: '' };
 
-        // 1. Validar Cédula (Exactamente 10 dígitos)
         if (formData.cedula.length !== 10) {
             nuevosErrores.cedula = 'La cédula debe tener 10 dígitos.';
             esValido = false;
         }
 
-        // 2. Validar Teléfono (Exactamente 10 dígitos y empezar con 09 generalmente)
         if (formData.telefono.length !== 10) {
             nuevosErrores.telefono = 'El celular debe tener 10 dígitos.';
             esValido = false;
         }
 
-        // 3. Validar Correo (Regex simple para formato email)
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(formData.email)) {
             nuevosErrores.email = 'Formato de correo inválido.';
             esValido = false;
         }
 
-        // 4. Validar Contraseña (Mínimo 6 caracteres)
         if (formData.password.length < 6) {
             nuevosErrores.password = 'La contraseña debe tener al menos 6 caracteres.';
             esValido = false;
@@ -163,27 +152,24 @@ const CreacionPasante = () => {
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         
-        // Ejecutar validaciones antes de cualquier cosa
         if (!validarFormulario()) {
-            alert("⚠️ Por favor corrige los errores resaltados antes de continuar.");
+            alert("⚠️ Por favor corrige los errores antes de continuar.");
             return;
         }
 
         if (isConverting) {
-            alert("⏳ Procesando imagen, por favor espera un segundo...");
+            alert("⏳ Procesando imagen, espera un segundo...");
             return;
         }
 
-        // Verificar si hay imagen seleccionada pero no procesada
         if (formData.foto && !formData.fotoBase64) {
-            alert("⚠️ La imagen aún se está cargando. Intenta de nuevo en 2 segundos.");
+            alert("⚠️ La imagen aún se está cargando.");
             return;
         }
 
-        // --- OBTENER USUARIO ACTUAL DE RRHH ---
+        // --- OBTENER USUARIO ACTUAL ---
         const rrhhUser = JSON.parse(localStorage.getItem('user') || '{}');
         const nombreCreador = rrhhUser.usuario || 'RRHH Desconocido';
-        // -------------------------------------
 
         const nuevoPasante = {
             ...formData,
@@ -191,10 +177,9 @@ const CreacionPasante = () => {
             fotoUrl: formData.fotoBase64 || "",
             estado: "No habilitado",
             fechaRegistro: new Date().toISOString(),
-            creadoPor: nombreCreador 
+            creadoPor: nombreCreador // <--- SE ENVÍA EL CREADOR
         };
 
-        // Eliminar campos que no van a la BD (como el file object crudo)
         delete (nuevoPasante as any).foto;
         delete (nuevoPasante as any).fotoBase64;
 
@@ -207,13 +192,13 @@ const CreacionPasante = () => {
 
             if (response.ok) {
                 alert(`¡Éxito! Pasante registrado correctamente.`);
-                navigate('/rrhh');
+                navigate('/rrhh'); // O donde quieras redirigir
             } else {
                 alert("Error al guardar en la base de datos.");
             }
         } catch (error) {
             console.error("Error de conexión:", error);
-            alert("No se pudo conectar con el servidor local.");
+            alert("No se pudo conectar con el servidor.");
         }
     };
 
@@ -249,7 +234,6 @@ const CreacionPasante = () => {
                                 <input type="text" name="apellidos" placeholder="Ej: Pérez Loor" value={formData.apellidos} onChange={handleChange} required />
                             </div>
                             
-                            {/* CÉDULA CON VALIDACIÓN VISUAL */}
                             <div className="input-group">
                                 <label>Cédula de Identidad</label>
                                 <input 
@@ -271,7 +255,6 @@ const CreacionPasante = () => {
                                 <input type="date" name="fechaNacimiento" value={formData.fechaNacimiento} onChange={handleChange} required />
                             </div>
 
-                            {/* EMAIL CON VALIDACIÓN VISUAL */}
                             <div className="input-group">
                                 <label>Correo Electrónico</label>
                                 <input 
@@ -287,7 +270,6 @@ const CreacionPasante = () => {
                                 {errors.email && <span className="error-msg" style={{color: '#ef4444', fontSize: '0.8rem', marginTop:'4px'}}>{errors.email}</span>}
                             </div>
 
-                            {/* TELÉFONO CON VALIDACIÓN VISUAL */}
                             <div className="input-group">
                                 <label>Teléfono / Celular</label>
                                 <input 
@@ -384,7 +366,6 @@ const CreacionPasante = () => {
                                 </small>
                             </div>
                             
-                            {/* CONTRASEÑA CON VALIDACIÓN VISUAL */}
                             <div className="input-group">
                                 <label>Contraseña Temporal</label>
                                 <input 

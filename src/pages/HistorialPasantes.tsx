@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx-js-style'; 
 
 import { 
-    Search, GraduationCap, Building, 
+    Search, Building, 
     MapPin, Edit2, 
     Trash2, Save, X, Key, User,
-    FileSpreadsheet 
+    FileSpreadsheet, ArrowLeft, Plus
 } from 'lucide-react';
 import '../styles/HistorialPasantes.css';
 
@@ -61,46 +61,22 @@ const HistorialPasantes = () => {
     );
 
     const handleExportExcel = () => {
-        if (filteredPasantes.length === 0) {
-            alert("No hay datos para exportar.");
-            return;
-        }
-
-        const titleStyle = { font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "2563EB" } }, alignment: { horizontal: "center", vertical: "center" } };
-        const headerStyle = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "3B82F6" } }, alignment: { horizontal: "center", vertical: "center" }, border: { top: { style: "thin", color: { rgb: "FFFFFF" } }, bottom: { style: "thin", color: { rgb: "FFFFFF" } }, right: { style: "thin", color: { rgb: "FFFFFF" } } } };
-        const cellStyle = { alignment: { horizontal: "left", vertical: "center" }, border: { bottom: { style: "thin", color: { rgb: "E2E8F0" } } } };
-        const cellCentered = { alignment: { horizontal: "center", vertical: "center" }, border: { bottom: { style: "thin", color: { rgb: "E2E8F0" } } } };
-        const cellProgress = { alignment: { horizontal: "center", vertical: "center" }, font: { bold: true, color: { rgb: "059669" } }, border: { bottom: { style: "thin", color: { rgb: "E2E8F0" } } } };
-
-        const wsData: any[] = [];
-        wsData.push([{ v: "HISTORIAL DE AVANCE - PASANTES INAMHI", s: titleStyle }, { v: "", s: titleStyle }, { v: "", s: titleStyle }, { v: "", s: titleStyle }, { v: "", s: titleStyle }, { v: "", s: titleStyle }, { v: "", s: titleStyle }, { v: "", s: titleStyle }, { v: "", s: titleStyle }]);
-        wsData.push([]); 
-        const headers = ["CÉDULA", "NOMBRES", "APELLIDOS", "INSTITUCIÓN", "CARRERA", "DEPENDENCIA", "ESTADO", "HORAS (Avance)", "% PROGRESO"];
-        wsData.push(headers.map(h => ({ v: h, s: headerStyle })));
-
-        filteredPasantes.forEach(p => {
-            const horasCompletadas = Number(p.horasCompletadas) || 0;
-            const horasRequeridas = Number(p.horasRequeridas) || 1;
-            const porcentaje = ((horasCompletadas / horasRequeridas) * 100).toFixed(1);
-
-            wsData.push([
-                { v: p.cedula, s: cellCentered }, { v: p.nombres, s: cellStyle }, { v: p.apellidos, s: cellStyle },
-                { v: p.institucion, s: cellStyle }, { v: p.carrera, s: cellStyle }, { v: p.dependencia, s: cellStyle },
-                { v: p.estado, s: cellCentered }, { v: `${horasCompletadas} / ${p.horasRequeridas}`, s: cellCentered },
-                { v: `${porcentaje}%`, s: cellProgress }
-            ]);
-        });
-
-        const ws = XLSX.utils.aoa_to_sheet(wsData);
-        ws['!cols'] = [{ wch: 15 }, { wch: 25 }, { wch: 25 }, { wch: 25 }, { wch: 25 }, { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 15 }];
-        ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }];
+        if (filteredPasantes.length === 0) return;
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Avance Horas");
-        XLSX.writeFile(wb, `Reporte_Pasantes_${new Date().toISOString().split('T')[0]}.xlsx`);
+        const ws = XLSX.utils.json_to_sheet(filteredPasantes.map(p => ({
+            Cédula: p.cedula,
+            Nombres: p.nombres,
+            Apellidos: p.apellidos,
+            Carrera: p.carrera,
+            Estado: p.estado,
+            Horas: `${p.horasCompletadas}/${p.horasRequeridas}`
+        })));
+        XLSX.utils.book_append_sheet(wb, ws, "Pasantes");
+        XLSX.writeFile(wb, "Reporte_Pasantes.xlsx");
     };
 
     const handleDelete = async (id: string) => {
-        if (window.confirm("¿Eliminar registro?")) {
+        if (window.confirm("¿Eliminar este registro?")) {
             try {
                 await fetch(`http://localhost:3001/pasantes/${id}`, { method: 'DELETE' });
                 setPasantes(pasantes.filter(p => p.id !== id));
@@ -113,110 +89,125 @@ const HistorialPasantes = () => {
         setIsModalOpen(true);
     };
 
+    // --- FUNCIÓN DE GUARDADO CORREGIDA ---
     const handleSaveEdit = async () => {
         if (!editingPasante) return;
+
+        // 1. Crear payload limpio solo con lo que vamos a editar
+        // Esto evita enviar campos como fechaRegistro que no existen en el update del backend
+        const datosParaEnviar: any = {
+            horasCompletadas: Number(editingPasante.horasCompletadas),
+            estado: editingPasante.estado
+        };
+
+        // 2. Solo enviar password si el usuario escribió algo nuevo
+        if (editingPasante.password && editingPasante.password.trim() !== '') {
+            datosParaEnviar.password = editingPasante.password;
+        }
+
         try {
-            // CORRECCIÓN IMPORTANTE: Cambiado PUT a PATCH para coincidir con server.js
             const response = await fetch(`http://localhost:3001/pasantes/${editingPasante.id}`, {
                 method: 'PATCH', 
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(editingPasante)
+                body: JSON.stringify(datosParaEnviar) // Enviamos solo los datos filtrados
             });
+
             if (response.ok) {
-                setPasantes(pasantes.map(p => p.id === editingPasante.id ? editingPasante : p));
+                // Actualizamos el estado local mezclando los datos viejos con los nuevos
+                setPasantes(pasantes.map(p => 
+                    p.id === editingPasante.id 
+                    ? { ...p, ...datosParaEnviar } 
+                    : p
+                ));
+                
                 setIsModalOpen(false);
                 setEditingPasante(null);
                 alert("Actualizado correctamente.");
             } else {
-                alert("No se pudo actualizar.");
+                const errorData = await response.json();
+                throw new Error(errorData.message || "Error al actualizar");
             }
-        } catch (error) { alert("Error al conectar con el servidor."); }
-    };
-
-    const getProgress = (current?: number | string, total?: number | string) => {
-        const c = Number(current) || 0;
-        const t = Number(total) || 1; 
-        if (t <= 0) return 0;
-        return Math.min((c / t) * 100, 100);
+        } catch (error) { 
+            console.error(error);
+            alert("Error al conectar con el servidor."); 
+        }
     };
 
     return (
-        <div className="sophisticated-wrapper">
-            <div className="ambient-light light-1"></div>
-            <div className="ambient-light light-2"></div>
-
-            <main className="main-view full-width">
-                <header className="glass-header">
-                    <div className="header-title">
-                        <button className="btn-back" onClick={() => navigate(-1)}>← Volver</button>
+        <div className="history-page-wrapper">
+            <header className="page-header-modern">
+                <div className="header-info">
+                    <button className="back-btn-modern" onClick={() => navigate(-1)}><ArrowLeft size={20}/></button>
+                    <div>
                         <h1>Historial de Pasantes</h1>
-                        <p>Gestión académica y seguimiento de horas.</p>
+                        <p>{filteredPasantes.length} estudiantes registrados</p>
                     </div>
-                    <div className="header-actions">
-                        <div className="search-pill">
-                            <Search size={18} />
-                            <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                        </div>
-                        <button className="btn-glow small" style={{ backgroundColor: '#10b981', borderColor: '#059669', color: 'white', display:'flex', gap:'5px', alignItems:'center' }} onClick={handleExportExcel}>
-                            <FileSpreadsheet size={18} /> Excel
-                        </button>
-                        <button className="btn-glow small" onClick={() => navigate('/registro')}>+ Nuevo</button>
+                </div>
+
+                <div className="header-actions-modern">
+                    <div className="search-box-modern">
+                        <Search size={18} />
+                        <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                     </div>
-                </header>
+                    <button className="btn-modern excel" onClick={handleExportExcel}>
+                        <FileSpreadsheet size={18} /> <span>Reporte</span>
+                    </button>
+                    <button className="btn-modern primary" onClick={() => navigate('/registro')}>
+                        <Plus size={18} /> <span>Nuevo</span>
+                    </button>
+                </div>
+            </header>
 
-                <div className="cards-grid">
-                    {loading ? <p className="loading-text">Cargando...</p> : filteredPasantes.length === 0 ? (
-                        <div className="empty-state-card"><GraduationCap size={48} /><p>No hay registros.</p></div>
-                    ) : (
-                        filteredPasantes.map((pasante) => {
-                            const horasC = Number(pasante.horasCompletadas) || 0;
-                            const horasR = Number(pasante.horasRequeridas) || 200;
-                            const progress = getProgress(horasC, horasR);
-                            const tieneFoto = pasante.fotoUrl && pasante.fotoUrl.startsWith('http'); // Ajustado para URLs del backend
+            <section className="cards-grid-modern">
+                {loading ? (
+                    <div className="loader-full">Cargando pasantes...</div>
+                ) : (
+                    filteredPasantes.map((p) => {
+                        const horasC = Number(p.horasCompletadas) || 0;
+                        const horasR = Number(p.horasRequeridas) || 1;
+                        const progress = Math.min((horasC / horasR) * 100, 100);
+                        const tieneFoto = p.fotoUrl && p.fotoUrl.startsWith('http');
 
-                            return (
-                                <div key={pasante.id} className="student-card">
-                                    <div className="card-header-flex">
-                                        <span className={`status-badge-pill ${pasante.estado === 'Activo' ? 'pill-green' : 'pill-gray'}`}>{pasante.estado}</span>
-                                        <div className="card-actions">
-                                            <button className="icon-btn-mini edit" onClick={() => handleOpenEdit(pasante)}><Edit2 size={16} /></button>
-                                            <button className="icon-btn-mini delete" onClick={() => handleDelete(pasante.id)}><Trash2 size={16} /></button>
-                                        </div>
-                                    </div>
-
-                                    <div className="student-profile">
-                                        <div className="avatar-student" style={{ overflow: 'hidden', padding: tieneFoto ? 0 : '' }}>
-                                            {tieneFoto ? <img src={pasante.fotoUrl} alt="p" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/> : <span>{pasante.nombres.charAt(0)}</span>}
-                                        </div>
-                                        <h3>{pasante.nombres} {pasante.apellidos.split(' ')[0]}</h3>
-                                        <p className="career-text"><GraduationCap size={14}/> {pasante.carrera}</p>
-                                    </div>
-
-                                    <div className="student-details">
-                                        <div className="detail-item"><Building size={14} className="icon-subtle"/><span>{pasante.institucion}</span></div>
-                                        <div className="detail-item"><MapPin size={14} className="icon-subtle"/><span>{pasante.dependencia}</span></div>
-                                        <div className="detail-item"><User size={14} className="icon-subtle"/><span className="mono-text">{pasante.usuario}</span></div>
-                                    </div>
-
-                                    <div className="progress-section">
-                                        <div className="progress-labels">
-                                            <span>Avance</span>
-                                            <span>{horasC} / {horasR} h</span>
-                                        </div>
-                                        <div className="progress-track">
-                                            <div 
-                                                className="progress-fill" 
-                                                style={{ width: `${progress}%`, backgroundColor: progress >= 100 ? '#10b981' : '#3b82f6' }}
-                                            ></div>
-                                        </div>
+                        return (
+                            <div key={p.id} className="modern-student-card">
+                                <div className="card-top-tag">
+                                    <span className={`badge ${p.estado.toLowerCase().replace(' ', '-')}`}>{p.estado}</span>
+                                    <div className="card-quick-actions">
+                                        <button onClick={() => handleOpenEdit(p)} className="action-icon edit"><Edit2 size={14}/></button>
+                                        <button onClick={() => handleDelete(p.id)} className="action-icon delete"><Trash2 size={14}/></button>
                                     </div>
                                 </div>
-                            );
-                        })
-                    )}
-                </div>
-            </main>
 
+                                <div className="student-hero">
+                                    <div className="avatar-large">
+                                        {tieneFoto ? <img src={p.fotoUrl} alt="p" /> : p.nombres.charAt(0)}
+                                    </div>
+                                    <h3>{p.nombres} {p.apellidos}</h3>
+                                    <span className="student-career">{p.carrera}</span>
+                                </div>
+
+                                <div className="student-meta-info">
+                                    <div className="meta-row"><Building size={14}/> <span>{p.institucion}</span></div>
+                                    <div className="meta-row"><MapPin size={14}/> <span>{p.dependencia}</span></div>
+                                    <div className="meta-row"><User size={14}/> <span className="user-text">{p.usuario}</span></div>
+                                </div>
+
+                                <div className="student-progress-box">
+                                    <div className="progress-labels">
+                                        <span>Progreso</span>
+                                        <span>{horasC} / {horasR}h</span>
+                                    </div>
+                                    <div className="progress-rail">
+                                        <div className="progress-bar" style={{width: `${progress}%`, backgroundColor: progress >= 100 ? '#10b981' : '#2563eb'}}></div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })
+                )}
+            </section>
+
+            {/* MODAL MANTENIDO */}
             {isModalOpen && editingPasante && (
                 <div className="modal-overlay">
                     <div className="modal-glass">
@@ -226,14 +217,14 @@ const HistorialPasantes = () => {
                         </div>
                         <div className="modal-body">
                             <div style={{display:'flex', alignItems:'center', gap:'15px', marginBottom:'20px'}}>
-                                <div className="avatar-student" style={{width:'50px', height:'50px', fontSize:'1rem', overflow:'hidden', padding:0}}>
+                                <div className="avatar-student-modal" style={{width:'50px', height:'50px', borderRadius:'50%', background:'#2563eb', color:'white', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.2rem', fontWeight:'bold', overflow:'hidden'}}>
                                      {editingPasante.fotoUrl && editingPasante.fotoUrl.startsWith('http') ? (
                                         <img src={editingPasante.fotoUrl} alt="Foto" style={{width:'100%', height:'100%', objectFit:'cover'}} />
                                      ) : (
                                         <span>{editingPasante.nombres.charAt(0)}</span>
                                      )}
                                 </div>
-                                <p className="student-name-modal" style={{margin:0}}>{editingPasante.nombres} {editingPasante.apellidos}</p>
+                                <p className="student-name-modal" style={{margin:0, fontWeight:'bold'}}>{editingPasante.nombres} {editingPasante.apellidos}</p>
                             </div>
                             
                             <div className="credentials-box-modal">

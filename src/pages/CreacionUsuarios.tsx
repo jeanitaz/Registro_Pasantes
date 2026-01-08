@@ -1,12 +1,11 @@
 import { useState, useEffect, type FormEvent, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, UserCog, Save, X } from 'lucide-react';
+import { Shield, UserCog, Save, X, ArrowLeft } from 'lucide-react';
 import '../styles/CreacionUsuarios.css';
 
 const CreacionUsuarios = () => {
     const navigate = useNavigate();
 
-    // Estado del formulario
     const [formData, setFormData] = useState({
         nombres: '',
         apellidos: '',
@@ -14,14 +13,16 @@ const CreacionUsuarios = () => {
         rol: '',
         usuario: '',
         password: '',
-        estado: 'Activo' // Por defecto
+        estado: 'Activo'
     });
 
+    // --- ROL DEFINITION ---
     const rolesDisponibles = [
-        "Talento Humano"
+        "Talento Humano",
+        "Seguridad" 
     ];
 
-    // --- LÓGICA DE GENERACIÓN DE USUARIO ---
+    // --- USERNAME GENERATION LOGIC ---
     useEffect(() => {
         const generarUsuario = () => {
             const nombreLimpio = formData.nombres.trim().toLowerCase();
@@ -58,11 +59,14 @@ const CreacionUsuarios = () => {
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         
-        // NO enviamos fechaCreacion desde aquí, dejamos que MySQL use DEFAULT CURRENT_TIMESTAMP
+        if (!formData.rol) {
+            alert("Por favor selecciona un rol.");
+            return;
+        }
+
         const nuevoUsuario = { ...formData };
 
         try {
-            // Nota: Este endpoint espera JSON, no FormData, porque no hay imágenes
             const response = await fetch('http://localhost:3001/usuarios', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -71,14 +75,14 @@ const CreacionUsuarios = () => {
 
             if (response.ok) {
                 alert(`Usuario ${formData.usuario} creado exitosamente.`);
-                navigate(-1); // Volver
+                navigate(-1); // Volver atrás
             } else {
                 const errorData = await response.json();
-                console.error("Error del servidor:", errorData);
-                alert("Error al guardar el usuario en la base de datos.");
+                console.error("Server Error:", errorData);
+                alert(`Error al guardar: ${errorData.error || errorData.message || 'Desconocido'}`);
             }
         } catch (error) {
-            console.error(error);
+            console.error("Network Error:", error);
             alert("Error de conexión con el servidor.");
         }
     };
@@ -89,14 +93,26 @@ const CreacionUsuarios = () => {
             <div className="ambient-light light-2"></div>
 
             <main className="main-view full-width">
-                <header className="glass-header">
-                    <div className="header-title">
-                        <button className="btn-back" onClick={() => navigate(-1)}>← Volver</button>
-                        <h1>Gestión de Usuarios</h1>
-                        <p>Alta de personal administrativo y seguridad.</p>
+                
+                {/* HEADER REDISEÑADO */}
+                <header className="glass-header-row">
+                    <div className="header-left">
+                        <button className="btn-back-pill" onClick={() => navigate(-1)}>
+                            <ArrowLeft size={18} />
+                            <span>Volver</span>
+                        </button>
+                        <div className="header-texts">
+                            <h1>Gestión de Usuarios</h1>
+                            <p>Directorio de personal administrativo y seguridad.</p>
+                        </div>
                     </div>
+                    
                     <div className="role-icon-preview">
-                        {formData.rol === 'Seguridad' ? <Shield size={32} className="text-blue"/> : <UserCog size={32} className="text-purple"/>}
+                        {formData.rol === 'Seguridad' ? (
+                            <Shield size={32} className="text-blue"/> 
+                        ) : (
+                            <UserCog size={32} className="text-purple"/>
+                        )}
                     </div>
                 </header>
 
@@ -113,7 +129,7 @@ const CreacionUsuarios = () => {
                                 <label>Nombres</label>
                                 <input 
                                     type="text" name="nombres" 
-                                    placeholder="Ej: María José" 
+                                    placeholder="Ej: Juan Carlos" 
                                     value={formData.nombres} onChange={handleChange} required 
                                 />
                             </div>
@@ -122,7 +138,7 @@ const CreacionUsuarios = () => {
                                 <label>Apellidos</label>
                                 <input 
                                     type="text" name="apellidos" 
-                                    placeholder="Ej: López Torres" 
+                                    placeholder="Ej: Pérez Gómez" 
                                     value={formData.apellidos} onChange={handleChange} required 
                                 />
                             </div>
@@ -165,11 +181,12 @@ const CreacionUsuarios = () => {
                                 <label>Usuario (Auto-generado)</label>
                                 <input 
                                     type="text" name="usuario" 
-                                    value={formData.usuario} readOnly 
+                                    value={formData.usuario} 
+                                    readOnly // Se mantiene readOnly para evitar edición manual errónea, la lógica lo genera
                                     className="input-readonly"
                                 />
                                 <small className="helper-text">
-                                    {formData.usuario ? `Acceso: ${formData.usuario}@inamhi.gob.ec` : "Formato: letra nombre + apellido"}
+                                    {formData.usuario ? `Acceso: ${formData.usuario}` : "Formato: letra nombre + apellido"}
                                 </small>
                             </div>
 
@@ -188,7 +205,7 @@ const CreacionUsuarios = () => {
                                 <X size={18} /> Cancelar
                             </button>
                             <button type="submit" className="btn-save">
-                                <Save size={18} /> Crear Usuario
+                                <Save size={18} /> Guardar Usuario
                             </button>
                         </div>
 

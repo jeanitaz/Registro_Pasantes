@@ -11,7 +11,10 @@ const DOCS_REQUERIDOS = [
 ];
 
 const Documentacion = () => {
-    const { idPasante } = useParams(); 
+    // CORRECCIÓN 1: Intentamos capturar el ID con ambos nombres comunes
+    const params = useParams();
+    const idPasante = params.idPasante || params.id;
+
     const navigate = useNavigate();
 
     const [files, setFiles] = useState<{ [key: string]: File | null }>({});
@@ -19,18 +22,18 @@ const Documentacion = () => {
     const [nombrePasante, setNombrePasante] = useState<string>("");
     const [isUploading, setIsUploading] = useState(false);
     const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
-    
-    // Estados para el Modal de PDF
     const [pdfPreview, setPdfPreview] = useState<string | null>(null);
     const [showModal, setShowModal] = useState(false);
 
     const inputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
-    // Cargar datos
     useEffect(() => {
-        const cargarDatosPasante = async () => {
-            if (!idPasante) return;
+        if (!idPasante) {
+            console.error("ID de pasante no encontrado en la URL");
+            return;
+        }
 
+        const cargarDatosPasante = async () => {
             try {
                 const response = await fetch(`http://localhost:3001/pasantes/${idPasante}`);
                 if (response.ok) {
@@ -44,13 +47,12 @@ const Documentacion = () => {
                         docCopiaCedula: data.docCopiaCedula
                     });
 
-                    // Si ya es Activo, bloqueamos el botón desde el inicio
                     if (data.estado === 'Activo') setUploadStatus('success');
                 } else {
-                    alert("Pasante no encontrado.");
+                    alert("No se pudo cargar la información del pasante.");
                 }
             } catch (error) {
-                console.error("Error:", error);
+                console.error("Error cargando pasante:", error);
             }
         };
         cargarDatosPasante();
@@ -72,13 +74,12 @@ const Documentacion = () => {
                 alert(`El documento ${key} debe ser un PDF.`);
                 return;
             }
-            if (file.size > 200 * 1024 * 1024) {
-                alert(`⚠️ Archivo muy pesado. Máx 200MB.`);
+            // Límite de 10MB por archivo individual para no saturar
+            if (file.size > 10 * 1024 * 1024) {
+                alert(`⚠️ El archivo es muy pesado (${(file.size/1024/1024).toFixed(1)}MB). Máximo 10MB.`);
                 return;
             }
             setFiles(prev => ({ ...prev, [key]: file }));
-            // Si cambian un archivo, reactivamos el botón (opcional, depende de tu lógica)
-            // setUploadStatus('idle'); 
         }
     };
 
@@ -105,41 +106,50 @@ const Documentacion = () => {
     };
 
     const handleSubmit = async () => {
-        if (!idPasante) return;
+        if (!idPasante) {
+            alert("Error: No hay ID de pasante.");
+            return;
+        }
 
-        // Validamos si tenemos archivo NUEVO o si ya existe en BD
+        // Validar documentos faltantes
         const faltantes = DOCS_REQUERIDOS.filter(doc => !files[doc.key] && !savedDocs[doc.key]);
-        
         if (faltantes.length > 0) {
-            alert(`Faltan cargar: ${faltantes.map(d => d.label).join(', ')}`);
+            alert(`⚠️ Faltan documentos: ${faltantes.map(d => d.label).join(', ')}`);
             return;
         }
 
         setIsUploading(true);
 
         try {
+            // Convertir solo nuevos
             const promesas = Object.keys(files).map(async (key) => {
                 const file = files[key];
-                if (file) return { key, base64: await convertToBase64(file) };
+                if (file) {
+                    try {
+                        const base64 = await convertToBase64(file);
+                        return { key, base64 };
+                    } catch (e) {
+                        return null;
+                    }
+                }
                 return null;
             });
+
             const resultados = await Promise.all(promesas);
 
-            const documentosActualizados = DOCS_REQUERIDOS.map(req => ({
-                id: req.dbId,
-                nombre: req.label,
-                validado: true
-            }));
-
+            // Construir payload
             const payload: any = {
                 estado: "Activo",
-                documentacionCompleta: true,
-                documentos: documentosActualizados
+                documentacionCompleta: true 
             };
 
             resultados.forEach(item => {
-                if (item) payload[item.key] = item.base64;
+                if (item && item.base64) {
+                    payload[item.key] = item.base64;
+                }
             });
+
+            console.log("Enviando...", payload);
 
             const response = await fetch(`http://localhost:3001/pasantes/${idPasante}`, {
                 method: 'PATCH',
@@ -148,9 +158,10 @@ const Documentacion = () => {
             });
 
             if (response.ok) {
-                setUploadStatus('success'); // ESTO BLOQUEARÁ EL BOTÓN
-                alert(`✅ ${nombrePasante} ha sido ACTIVADO.`);
+                setUploadStatus('success');
+                alert(`✅ ¡Éxito! ${nombrePasante} ha sido activado.`);
                 
+                // Actualizar estado local
                 resultados.forEach(item => {
                     if(item) {
                         setSavedDocs(prev => ({...prev, [item.key]: item.base64}));
@@ -161,20 +172,31 @@ const Documentacion = () => {
                         });
                     }
                 });
-                
             } else {
-                throw new Error("Error del servidor.");
+                // Manejo de errores detallado
+                const errorText = await response.text(); // Leemos como texto por si es error HTML (413)
+                console.error("Error servidor:", errorText);
+                
+                if (response.status === 413) {
+                    alert("❌ Error: Los archivos son demasiado grandes para el servidor. Intenta subir de uno en uno o comprimirlos.");
+                } else {
+                    try {
+                        const errorJson = JSON.parse(errorText);
+                        alert(`❌ Error del servidor: ${errorJson.error || 'Desconocido'}`);
+                    } catch {
+                        alert(`❌ Error del servidor (${response.status}). Revisa la consola.`);
+                    }
+                }
             }
 
         } catch (error: any) {
-            console.error(error);
-            alert(`Error: ${error.message}`);
+            console.error("Error red:", error);
+            alert(`❌ Error de conexión: ${error.message}`);
         } finally {
             setIsUploading(false);
         }
     };
 
-    // Variable para saber si ya está todo listo (Activo)
     const isCompleted = uploadStatus === 'success';
 
     return (
@@ -233,7 +255,6 @@ const Documentacion = () => {
                                     </button>
                                 )}
 
-                                {/* Si ya está completado, ocultamos los inputs para no editar más */}
                                 {!isCompleted && (
                                     <>
                                         <input
@@ -267,7 +288,6 @@ const Documentacion = () => {
                     {isCompleted ? "Este usuario ya tiene la documentación completa." : "* Esta acción habilitará la cuenta del pasante inmediatamente."}
                 </div>
                 
-                {/* --- BOTÓN CONDICIONAL --- */}
                 <button 
                     className={`btn-submit-docs ${isCompleted ? 'completed-btn' : ''}`} 
                     onClick={handleSubmit}

@@ -11,13 +11,6 @@ import {
 } from 'lucide-react';
 import '../styles/RRHHHome.css';
 
-const DOCUMENTOS_REQUERIDOS = [
-    "Hoja de Vida",
-    "Carta de Solicitud",
-    "Acuerdo de Confidencialidad",
-    "Copia de Cédula"
-];
-
 // LÍMITES SEGÚN REGLAS DE NEGOCIO
 const LIMITES = {
     ATRASOS: 5,
@@ -83,45 +76,61 @@ const RRHHModern = () => {
         return p.estado; 
     };
 
+    // --- CARGA DE DATOS (POLLING + MAPEO SEGURO) ---
+    const fetchPasantes = async () => {
+        try {
+            const response = await fetch('http://localhost:3001/pasantes');
+            if (response.ok) {
+                const data = await response.json();
+
+                const pasantesAdaptados = data.map((p: any) => {
+                    const docsDinamicos = [
+                        { id: 'd1', nombre: 'Hoja de Vida', validado: !!p.docHojaVida },
+                        { id: 'd2', nombre: 'Carta de Solicitud', validado: !!p.docCartaSolicitud },
+                        { id: 'd3', nombre: 'Acuerdo de Confidencialidad', validado: !!p.docAcuerdoConfidencialidad },
+                        { id: 'd4', nombre: 'Copia de Cédula', validado: !!p.docCopiaCedula },
+                    ];
+
+                    return {
+                        id: p.id,
+                        nombre: p.nombre || `${p.nombres} ${p.apellidos}`,
+                        cedula: p.cedula,
+                        carrera: p.carrera,
+                        estado: p.estado || "No habilitado",
+                        // AQUÍ ESTÁ LA CORRECCIÓN CLAVE PARA LAS HORAS:
+                        progresoHoras: Number(p.horasCompletadas ?? p.horas_completadas ?? 0),
+                        horasRequeridas: Number(p.horasRequeridas ?? p.horas_requeridas ?? 0),
+                        faltas: p.faltas ?? 0,
+                        atrasos: p.atrasos ?? 0,
+                        llamadosAtencion: p.llamadosAtencion ?? p.llamados_atencion ?? 0,
+                        fechasFaltas: p.fechasFaltas || [],
+                        documentos: docsDinamicos,
+                        informeFinalSubido: !!(p.informeUrl || p.informe_url),
+                        informeUrl: p.informeUrl || p.informe_url
+                    };
+                });
+                setPasantes(pasantesAdaptados);
+            }
+        } catch (error) { console.error("Error loading interns:", error); }
+    };
+
     useEffect(() => {
-        const fetchPasantes = async () => {
-            try {
-                const response = await fetch('http://localhost:3001/pasantes');
-                if (response.ok) {
-                    const data = await response.json();
-
-                    const pasantesAdaptados = data.map((p: any) => {
-                        const docsDinamicos = [
-                            { id: 'd1', nombre: 'Hoja de Vida', validado: !!p.docHojaVida },
-                            { id: 'd2', nombre: 'Carta de Solicitud', validado: !!p.docCartaSolicitud },
-                            { id: 'd3', nombre: 'Acuerdo de Confidencialidad', validado: !!p.docAcuerdoConfidencialidad },
-                            { id: 'd4', nombre: 'Copia de Cédula', validado: !!p.docCopiaCedula },
-                        ];
-
-                        return {
-                            id: p.id,
-                            nombre: p.nombre || `${p.nombres} ${p.apellidos}`,
-                            cedula: p.cedula,
-                            carrera: p.carrera,
-                            estado: p.estado || "No habilitado",
-                            // MAPEO ROBUSTO: Lee ambos formatos (camelCase o snake_case)
-                            progresoHoras: Number(p.horasCompletadas ?? p.horas_completadas ?? 0),
-                            horasRequeridas: Number(p.horasRequeridas ?? p.horas_requeridas ?? 0),
-                            faltas: p.faltas ?? 0,
-                            atrasos: p.atrasos ?? 0,
-                            llamadosAtencion: p.llamadosAtencion ?? p.llamados_atencion ?? 0,
-                            fechasFaltas: p.fechasFaltas || [],
-                            documentos: docsDinamicos,
-                            informeFinalSubido: !!(p.informeUrl || p.informe_url),
-                            informeUrl: p.informeUrl || p.informe_url
-                        };
-                    });
-                    setPasantes(pasantesAdaptados);
-                }
-            } catch (error) { console.error("Error loading interns:", error); }
-        };
         fetchPasantes();
+        // Actualizar cada 5 segundos para ver cambios en tiempo real
+        const interval = setInterval(fetchPasantes, 5000);
+        return () => clearInterval(interval);
     }, []);
+
+    // --- SINCRONIZACIÓN AUTOMÁTICA DEL PANEL DERECHO ---
+    useEffect(() => {
+        if (selectedPasante) {
+            const actualizado = pasantes.find(p => p.id === selectedPasante.id);
+            // Si hay cambios en los datos del pasante seleccionado, actualizar la vista
+            if (actualizado && JSON.stringify(actualizado) !== JSON.stringify(selectedPasante)) {
+                setSelectedPasante(actualizado);
+            }
+        }
+    }, [pasantes, selectedPasante]);
 
     useEffect(() => {
         const revisarBuzon = () => {
@@ -153,13 +162,7 @@ const RRHHModern = () => {
         const pasanteTemporal = { ...selectedPasante, [tipo]: nuevoValor };
         const nuevoEstado = determinarEstado(pasanteTemporal);
 
-        const pasanteActualizado = { ...pasanteTemporal, estado: nuevoEstado };
-        
-        // Actualizar UI Localmente
-        setSelectedPasante(pasanteActualizado);
-        setPasantes(prev => prev.map(p => p.id === pasanteActualizado.id ? pasanteActualizado : p));
-
-        // Mapeo para enviar al backend (el backend espera camelCase que luego traduce)
+        // Mapeo para enviar al backend
         const bodyToSend = { 
             [tipo]: nuevoValor,
             estado: nuevoEstado 
@@ -171,6 +174,13 @@ const RRHHModern = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(bodyToSend)
             });
+            // No necesitamos actualizar el estado local manualmente aquí porque
+            // el fetchPasantes (polling) o el useEffect de sincronización lo harán.
+            // Pero para respuesta inmediata visual:
+            const pasanteActualizado = { ...pasanteTemporal, estado: nuevoEstado };
+            setPasantes(prev => prev.map(p => p.id === pasanteActualizado.id ? pasanteActualizado : p));
+            setSelectedPasante(pasanteActualizado);
+
         } catch (error) {
             console.error("Error actualizando contador:", error);
             alert("Error de conexión al actualizar.");
@@ -396,7 +406,8 @@ const RRHHModern = () => {
                                     
                                     <div className="stats-row mb-4" style={{justifyContent: 'center', gap: '20px'}}>
                                         <div className="stat-item">
-                                            <span className="stat-num">{selectedPasante.progresoHoras.toFixed(1)}</span>
+                                            {/* CORREGIDO: Mostrando decimales exactos */}
+                                            <span className="stat-num">{Number(selectedPasante.progresoHoras).toFixed(2)}</span>
                                             <span className="stat-desc">Horas Realizadas</span>
                                         </div>
                                         <div className="stat-item">
