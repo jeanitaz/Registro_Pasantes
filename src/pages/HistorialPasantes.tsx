@@ -36,20 +36,22 @@ const HistorialPasantes = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingPasante, setEditingPasante] = useState<Pasante | null>(null);
 
-    useEffect(() => {
-        const fetchPasantes = async () => {
-            try {
-                const response = await fetch('http://localhost:3001/pasantes');
-                if (response.ok) {
-                    const data = await response.json();
-                    setPasantes(data);
-                }
-            } catch (error) {
-                console.error("Error cargando pasantes:", error);
-            } finally {
-                setLoading(false);
+    // Fetch inicial
+    const fetchPasantes = async () => {
+        try {
+            const response = await fetch('http://localhost:3001/pasantes');
+            if (response.ok) {
+                const data = await response.json();
+                setPasantes(data);
             }
-        };
+        } catch (error) {
+            console.error("Error cargando pasantes:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchPasantes();
     }, []);
 
@@ -85,23 +87,26 @@ const HistorialPasantes = () => {
     };
 
     const handleOpenEdit = (pasante: Pasante) => {
-        setEditingPasante({ ...pasante, horasCompletadas: pasante.horasCompletadas || 0, password: pasante.password || '' });
+        // Aseguramos que los valores no sean undefined para los inputs
+        setEditingPasante({ 
+            ...pasante, 
+            horasCompletadas: pasante.horasCompletadas || 0, 
+        });
         setIsModalOpen(true);
     };
 
-    // --- FUNCIÓN DE GUARDADO CORREGIDA ---
+    // --- FUNCIÓN DE GUARDADO CORREGIDA Y ROBUSTA ---
     const handleSaveEdit = async () => {
         if (!editingPasante) return;
 
-        // 1. Crear payload limpio solo con lo que vamos a editar
-        // Esto evita enviar campos como fechaRegistro que no existen en el update del backend
+        // 1. Preparamos el objeto con SOLO los campos que el backend espera actualizar
         const datosParaEnviar: any = {
             horasCompletadas: Number(editingPasante.horasCompletadas),
             estado: editingPasante.estado
         };
 
-        // 2. Solo enviar password si el usuario escribió algo nuevo
-        if (editingPasante.password && editingPasante.password.trim() !== '') {
+        // Solo enviamos password si el usuario escribió algo (no enviar string vacío)
+        if (editingPasante.password && editingPasante.password.trim().length > 0) {
             datosParaEnviar.password = editingPasante.password;
         }
 
@@ -109,23 +114,28 @@ const HistorialPasantes = () => {
             const response = await fetch(`http://localhost:3001/pasantes/${editingPasante.id}`, {
                 method: 'PATCH', 
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(datosParaEnviar) // Enviamos solo los datos filtrados
+                body: JSON.stringify(datosParaEnviar)
             });
 
             if (response.ok) {
-                // Actualizamos el estado local mezclando los datos viejos con los nuevos
-                setPasantes(pasantes.map(p => 
-                    p.id === editingPasante.id 
-                    ? { ...p, ...datosParaEnviar } 
-                    : p
-                ));
+                // 2. ACTUALIZACIÓN OPTIMISTA DE LA UI
+                setPasantes(prevPasantes => prevPasantes.map(p => {
+                    if (p.id === editingPasante.id) {
+                        return { 
+                            ...p, 
+                            horasCompletadas: datosParaEnviar.horasCompletadas,
+                            estado: datosParaEnviar.estado
+                        };
+                    }
+                    return p;
+                }));
                 
                 setIsModalOpen(false);
                 setEditingPasante(null);
-                alert("Actualizado correctamente.");
+                alert("Pasante actualizado correctamente.");
             } else {
                 const errorData = await response.json();
-                throw new Error(errorData.message || "Error al actualizar");
+                throw new Error(errorData.message || "Error al actualizar en el servidor");
             }
         } catch (error) { 
             console.error(error);
@@ -167,11 +177,12 @@ const HistorialPasantes = () => {
                         const horasR = Number(p.horasRequeridas) || 1;
                         const progress = Math.min((horasC / horasR) * 100, 100);
                         const tieneFoto = p.fotoUrl && p.fotoUrl.startsWith('http');
+                        const estadoClass = (p.estado || 'pendiente').toLowerCase().replace(/\s+/g, '-');
 
                         return (
                             <div key={p.id} className="modern-student-card">
                                 <div className="card-top-tag">
-                                    <span className={`badge ${p.estado.toLowerCase().replace(' ', '-')}`}>{p.estado}</span>
+                                    <span className={`badge ${estadoClass}`}>{p.estado || 'Pendiente'}</span>
                                     <div className="card-quick-actions">
                                         <button onClick={() => handleOpenEdit(p)} className="action-icon edit"><Edit2 size={14}/></button>
                                         <button onClick={() => handleDelete(p.id)} className="action-icon delete"><Trash2 size={14}/></button>
@@ -207,13 +218,13 @@ const HistorialPasantes = () => {
                 )}
             </section>
 
-            {/* MODAL MANTENIDO */}
+            {/* MODAL DE EDICIÓN */}
             {isModalOpen && editingPasante && (
                 <div className="modal-overlay">
                     <div className="modal-glass">
                         <div className="modal-header">
                             <h3>Actualizar Pasante</h3>
-                            <button className="close-btn" onClick={() => setIsModalOpen(false)}><X size={20} /></button>
+                            <button className="close-btn" onClick={() => setIsModalOpen(false)}><X size={20}/></button>
                         </div>
                         <div className="modal-body">
                             <div style={{display:'flex', alignItems:'center', gap:'15px', marginBottom:'20px'}}>
@@ -234,19 +245,32 @@ const HistorialPasantes = () => {
                                 </div>
                                 <div className="input-group">
                                     <label><Key size={14}/> Contraseña</label>
-                                    <input type="text" value={editingPasante.password} onChange={(e) => setEditingPasante({...editingPasante, password: e.target.value})} placeholder="Nueva contraseña..."/>
+                                    <input 
+                                        type="text" 
+                                        value={editingPasante.password} 
+                                        onChange={(e) => setEditingPasante({...editingPasante, password: e.target.value})} 
+                                        placeholder="Nueva contraseña (opcional)..."
+                                    />
                                 </div>
                             </div>
 
                             <div className="input-group"><label>Horas Completadas</label>
                                 <div className="hours-input-wrapper">
-                                    <input type="number" value={editingPasante.horasCompletadas} onChange={(e) => setEditingPasante({...editingPasante, horasCompletadas: Number(e.target.value)})} />
+                                    <input 
+                                        type="number" 
+                                        value={editingPasante.horasCompletadas} 
+                                        onChange={(e) => setEditingPasante({...editingPasante, horasCompletadas: Number(e.target.value)})} 
+                                    />
                                 </div>
                             </div>
                             <div className="input-group"><label>Estado</label>
                                 <select value={editingPasante.estado} onChange={(e) => setEditingPasante({...editingPasante, estado: e.target.value})}>
                                     <option value="No habilitado">No habilitado</option>
                                     <option value="Activo">Activo</option>
+                                    <option value="Retiro anticipado">Retiro anticipado</option>
+                                    <option value="Finalizado por faltas excedidas">Finalizado por faltas excedidas</option>
+                                    <option value="Finalizado por atrasos excedidos">Finalizado por atrasos excedidos</option>
+                                    <option value="Finalizado por llamado de atención">Finalizado por llamado de atención</option>
                                     <option value="Finalizado">Finalizado</option>
                                 </select>
                             </div>
