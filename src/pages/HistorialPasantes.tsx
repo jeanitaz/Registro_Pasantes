@@ -6,7 +6,7 @@ import {
     Search, Building, 
     MapPin, Edit2, 
     Trash2, Save, X, Key, User,
-    FileSpreadsheet, ArrowLeft, Plus
+    FileSpreadsheet, ArrowLeft, Plus, Clock
 } from 'lucide-react';
 import '../styles/HistorialPasantes.css';
 
@@ -25,6 +25,9 @@ interface Pasante {
     password?: string;
     fechaRegistro?: string;
     fotoUrl?: string; 
+    // NUEVOS CAMPOS
+    horaEntrada?: string;
+    horaSalida?: string;
 }
 
 const HistorialPasantes = () => {
@@ -71,7 +74,8 @@ const HistorialPasantes = () => {
             Apellidos: p.apellidos,
             Carrera: p.carrera,
             Estado: p.estado,
-            Horas: `${p.horasCompletadas}/${p.horasRequeridas}`
+            Horas: `${p.horasCompletadas}/${p.horasRequeridas}`,
+            'Horario': `${p.horaEntrada || '--'} - ${p.horaSalida || '--'}`
         })));
         XLSX.utils.book_append_sheet(wb, ws, "Pasantes");
         XLSX.writeFile(wb, "Reporte_Pasantes.xlsx");
@@ -87,25 +91,26 @@ const HistorialPasantes = () => {
     };
 
     const handleOpenEdit = (pasante: Pasante) => {
-        // Aseguramos que los valores no sean undefined para los inputs
         setEditingPasante({ 
             ...pasante, 
-            horasCompletadas: pasante.horasCompletadas || 0, 
+            horasCompletadas: pasante.horasCompletadas || 0,
+            horaEntrada: pasante.horaEntrada || '', 
+            horaSalida: pasante.horaSalida || ''
         });
         setIsModalOpen(true);
     };
 
-    // --- FUNCIÓN DE GUARDADO CORREGIDA Y ROBUSTA ---
     const handleSaveEdit = async () => {
         if (!editingPasante) return;
 
-        // 1. Preparamos el objeto con SOLO los campos que el backend espera actualizar
+        // Preparamos los datos a enviar
         const datosParaEnviar: any = {
             horasCompletadas: Number(editingPasante.horasCompletadas),
-            estado: editingPasante.estado
+            estado: editingPasante.estado,
+            horaEntrada: editingPasante.horaEntrada,
+            horaSalida: editingPasante.horaSalida
         };
 
-        // Solo enviamos password si el usuario escribió algo (no enviar string vacío)
         if (editingPasante.password && editingPasante.password.trim().length > 0) {
             datosParaEnviar.password = editingPasante.password;
         }
@@ -118,13 +123,11 @@ const HistorialPasantes = () => {
             });
 
             if (response.ok) {
-                // 2. ACTUALIZACIÓN OPTIMISTA DE LA UI
                 setPasantes(prevPasantes => prevPasantes.map(p => {
                     if (p.id === editingPasante.id) {
                         return { 
                             ...p, 
-                            horasCompletadas: datosParaEnviar.horasCompletadas,
-                            estado: datosParaEnviar.estado
+                            ...datosParaEnviar
                         };
                     }
                     return p;
@@ -201,6 +204,10 @@ const HistorialPasantes = () => {
                                     <div className="meta-row"><Building size={14}/> <span>{p.institucion}</span></div>
                                     <div className="meta-row"><MapPin size={14}/> <span>{p.dependencia}</span></div>
                                     <div className="meta-row"><User size={14}/> <span className="user-text">{p.usuario}</span></div>
+                                    {/* Mostrar Horario si existe */}
+                                    {p.horaEntrada && (
+                                        <div className="meta-row"><Clock size={14}/> <span className="schedule-text">{p.horaEntrada} - {p.horaSalida}</span></div>
+                                    )}
                                 </div>
 
                                 <div className="student-progress-box">
@@ -250,6 +257,26 @@ const HistorialPasantes = () => {
                                         value={editingPasante.password} 
                                         onChange={(e) => setEditingPasante({...editingPasante, password: e.target.value})} 
                                         placeholder="Nueva contraseña (opcional)..."
+                                    />
+                                </div>
+                            </div>
+
+                            {/* SECCIÓN HORARIOS */}
+                            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px'}}>
+                                <div className="input-group">
+                                    <label>Hora Entrada</label>
+                                    <input 
+                                        type="time" 
+                                        value={editingPasante.horaEntrada} 
+                                        onChange={(e) => setEditingPasante({...editingPasante, horaEntrada: e.target.value})}
+                                    />
+                                </div>
+                                <div className="input-group">
+                                    <label>Hora Salida</label>
+                                    <input 
+                                        type="time" 
+                                        value={editingPasante.horaSalida} 
+                                        onChange={(e) => setEditingPasante({...editingPasante, horaSalida: e.target.value})}
                                     />
                                 </div>
                             </div>

@@ -173,6 +173,16 @@ app.get('/asistencia', (req, res) => {
     });
 });
 
+app.get('/asistencia/hoy/:id', (req, res) => {
+    const { id } = req.params;
+    const sql = `SELECT tipo_evento, fecha_hora FROM registros_asistencia 
+                 WHERE pasante_id = ? AND DATE(fecha_hora) = CURDATE()`;
+    db.query(sql, [id], (err, results) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json(results);
+    });
+});
+
 // TIMBRAR (Lógica de Atrasos y Retiros)
 app.post('/timbrar', (req, res) => {
     const { pasanteId, tipoEvento, guardia } = req.body;
@@ -265,7 +275,6 @@ function calcularHorasDia(pasanteId, horaSalida, res) {
 // ==========================================
 
 app.get('/pasantes', (req, res) => {
-    // ... tu lógica existente de get pasantes ...
     const { usuario, password } = req.query;
     let sql = 'SELECT * FROM pasantes';
     let params = [];
@@ -288,6 +297,14 @@ app.get('/pasantes', (req, res) => {
             docCopiaCedula: p.doc_copia_cedula ? `http://localhost:3001/uploads/${p.doc_copia_cedula}` : null
         }));
         res.json(formateados);
+    });
+});
+
+app.get('/pasantes/:id', (req, res) => {
+    db.query('SELECT * FROM pasantes WHERE id = ?', [req.params.id], (err, results) => {
+        if (err || results.length === 0) return res.status(404).json({ message: 'No encontrado' });
+        const p = results[0];
+        res.json({ ...p, horasCompletadas: p.horas_completadas || 0, horasRequeridas: p.horas_requeridas || 0, fotoUrl: p.foto_url ? `http://localhost:3001/uploads/${p.foto_url}` : null });
     });
 });
 
