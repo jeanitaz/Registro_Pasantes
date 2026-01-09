@@ -325,65 +325,95 @@ app.post('/pasantes', upload.single('foto'), (req, res) => {
     });
 });
 
+// ✅ CORRECCIÓN EN RUTA PATCH PARA PASANTES (UPDATE UNIFICADO)
 app.patch('/pasantes/:id', (req, res) => {
     const { id } = req.params;
     const body = req.body;
 
-    // Obtener nombre del pasante para el log
-    db.query('SELECT nombres, apellidos FROM pasantes WHERE id = ?', [id], (e, r) => {
-        const nombrePasante = r.length > 0 ? `${r[0].nombres} ${r[0].apellidos}` : 'Pasante';
+    // 1. Obtener nombre para auditoría
+    db.query('SELECT nombres, apellidos, estado FROM pasantes WHERE id = ?', [id], (e, r) => {
+        if (e || r.length === 0) return res.status(404).json({ error: "Pasante no encontrado" });
+        
+        const pasanteActual = r[0];
+        const nombrePasante = `${pasanteActual.nombres} ${pasanteActual.apellidos}`;
+        
+        // 2. Construcción dinámica de la Query
+        let updates = [];
+        let values = [];
 
+        // Mapeo de campos especiales
+        const dbMap = { 
+            horasCompletadas: 'horas_completadas', 
+            horasRequeridas: 'horas_requeridas', 
+            horaEntrada: 'hora_entrada',
+            horaSalida: 'hora_salida',
+            docHojaVida: 'doc_hoja_vida',
+            docCartaSolicitud: 'doc_carta_solicitud',
+            docAcuerdoConfidencialidad: 'doc_acuerdo_confidencialidad',
+            docCopiaCedula: 'doc_copia_cedula'
+        };
+
+        // Procesar campos enviados
+        Object.keys(body).forEach(key => {
+            // Ignorar campos que no son columnas o se tratan aparte
+            if (['id', 'fotoUrl', 'informeUrl', 'documentacionCompleta'].includes(key)) return;
+
+            const dbCol = dbMap[key] || key; // Usar mapeo o el nombre original
+            
+            // Tratamiento especial para archivos Base64 en docs
+            if (['doc_hoja_vida', 'doc_carta_solicitud', 'doc_acuerdo_confidencialidad', 'doc_copia_cedula'].includes(dbCol)) {
+                if (body[key]) { 
+                    const filename = saveBase64ToFile(body[key], dbCol);
+                    updates.push(`${dbCol} = ?`);
+                    values.push(filename);
+                }
+            } else {
+                // Campos normales (texto, números, estado)
+                if (body[key] !== undefined) { 
+                    updates.push(`${dbCol} = ?`); 
+                    values.push(body[key]); 
+                }
+            }
+        });
+
+        // Lógica especial: Documentación completa
         if (body.documentacionCompleta) {
-            const doc1 = saveBase64ToFile(body.docHojaVida, 'hv');
-            const doc2 = saveBase64ToFile(body.docCartaSolicitud, 'carta');
-            const doc3 = saveBase64ToFile(body.docAcuerdoConfidencialidad, 'acuerdo');
-            const doc4 = saveBase64ToFile(body.docCopiaCedula, 'cedula');
-            let sql = "UPDATE pasantes SET estado = 'Activo', documentacion_completa = 1";
-            const params = [];
-            if (doc1) { sql += ", doc_hoja_vida = ?"; params.push(doc1); }
-            if (doc2) { sql += ", doc_carta_solicitud = ?"; params.push(doc2); }
-            if (doc3) { sql += ", doc_acuerdo_confidencialidad = ?"; params.push(doc3); }
-            if (doc4) { sql += ", doc_copia_cedula = ?"; params.push(doc4); }
-            sql += " WHERE id = ?"; params.push(id);
-
-            db.query(sql, params, (err) => {
-                if (err) return res.status(500).json(err);
-                registrarAuditoria('Documentación Completa', `Pasante ${nombrePasante} activado por documentación.`, 'RRHH');
-                res.json({ message: 'Docs guardados' });
-            });
-            return;
+            updates.push("documentacion_completa = 1");
+            // Si no se envió estado explícito, forzar "Activo"
+            if (!body.estado) {
+                updates.push("estado = 'Activo'");
+                registrarAuditoria('Documentación Completa', `Pasante ${nombrePasante} activado.`, 'RRHH');
+            }
         }
 
+        // Lógica especial: Informe final
         if (body.informeUrl && body.informeUrl.startsWith('data:')) {
             const filename = saveBase64ToFile(body.informeUrl, 'informe_final');
-            return db.query("UPDATE pasantes SET informe_url = ? WHERE id = ?", [filename, id], (err) => {
-                if (err) return res.status(500).json(err);
-                registrarAuditoria('Informe Final', `Pasante ${nombrePasante} cargó su informe final.`, 'Pasante');
-                res.json({ message: 'Informe subido' });
-            });
+            updates.push("informe_url = ?");
+            values.push(filename);
+            registrarAuditoria('Informe Final', `Pasante ${nombrePasante} subió informe.`, 'Pasante');
         }
 
-        // Update Genérico (Estado, horas, etc.)
-        const dbMap = { horasCompletadas: 'horas_completadas', horasRequeridas: 'horas_requeridas', llamadosAtencion: 'llamados_atencion' };
-        const updates = []; const values = [];
-        Object.keys(body).forEach(key => {
-            if (['id', 'fotoUrl', 'informeUrl', 'docHojaVida', 'docCartaSolicitud', 'docAcuerdoConfidencialidad', 'docCopiaCedula', 'documentacionCompleta'].includes(key)) return;
-            const dbCol = dbMap[key] || key;
-            if (body[key] !== undefined) { updates.push(`${dbCol} = ?`); values.push(body[key]); }
-        });
-        
+        // 3. Ejecutar Update si hay cambios
         if (updates.length > 0) {
             values.push(id);
-            db.query(`UPDATE pasantes SET ${updates.join(', ')} WHERE id = ?`, values, (err) => {
-                if (err) return res.status(500).json(err);
-                
-                if (body.estado) {
-                    registrarAuditoria('Cambio de Estado', `Estado de ${nombrePasante} cambiado a: ${body.estado}`, 'Admin/Sistema');
+            const sql = `UPDATE pasantes SET ${updates.join(', ')} WHERE id = ?`;
+
+            db.query(sql, values, (err) => {
+                if (err) {
+                    console.error("Error updating:", err);
+                    return res.status(500).json({ error: err.sqlMessage });
                 }
-                res.json({ message: 'Actualizado' });
+
+                // Auditoría de cambio de estado
+                if (body.estado && body.estado !== pasanteActual.estado) {
+                    registrarAuditoria('Cambio de Estado', `Estado de ${nombrePasante} cambió de '${pasanteActual.estado}' a '${body.estado}'`, 'Admin');
+                }
+
+                res.json({ message: 'Actualizado correctamente' });
             });
         } else {
-            res.json({ message: 'Nada que actualizar' });
+            res.json({ message: 'No hubo cambios para guardar' });
         }
     });
 });

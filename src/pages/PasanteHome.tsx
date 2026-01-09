@@ -500,11 +500,6 @@ const PasanteHome = () => {
                     <p class="signer-role" style="font-size: 10px;">C.I: ${pasante.cedula || 'N/A'}</p>
                 </div>
             </div>
-
-            <div class="footer">
-                Documento generado electrónicamente por el Sistema de Gestión de Pasantes del INAMHI.<br>
-                Fecha de Emisión: ${new Date().toLocaleDateString('es-EC', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-            </div>
         </div>
     </body>
     </html>

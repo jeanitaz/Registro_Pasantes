@@ -100,15 +100,16 @@ const HistorialPasantes = () => {
         setIsModalOpen(true);
     };
 
+    // --- CORRECCIÓN EN EL GUARDADO ---
     const handleSaveEdit = async () => {
         if (!editingPasante) return;
 
-        // Preparamos los datos a enviar
+        // Preparamos los datos a enviar EXPLICITAMENTE
         const datosParaEnviar: any = {
             horasCompletadas: Number(editingPasante.horasCompletadas),
-            estado: editingPasante.estado,
-            horaEntrada: editingPasante.horaEntrada,
-            horaSalida: editingPasante.horaSalida
+            estado: editingPasante.estado, // <--- AHORA SE ENVÍA CORRECTAMENTE
+            horaEntrada: editingPasante.horaEntrada || null, // Null si está vacío
+            horaSalida: editingPasante.horaSalida || null
         };
 
         if (editingPasante.password && editingPasante.password.trim().length > 0) {
@@ -123,6 +124,7 @@ const HistorialPasantes = () => {
             });
 
             if (response.ok) {
+                // Actualizar estado local
                 setPasantes(prevPasantes => prevPasantes.map(p => {
                     if (p.id === editingPasante.id) {
                         return { 
