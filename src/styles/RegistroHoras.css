@@ -1,166 +1,155 @@
-.historial-layout {
-    padding: 2rem;
-    background-color: #f8fafc; /* Fondo gris muy claro */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+.registro-horas-scope {
+    --bg-page: #f8fafc;
+    --surface: #ffffff;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --border: #e2e8f0;
+    --primary: #2563eb;
+    --success: #10b981;
+    
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background-color: var(--bg-page);
     min-height: 100vh;
+    padding: 2rem;
+    color: var(--text-main);
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
 }
 
-.historial-header {
+.registro-horas-scope .container {
+    width: 100%;
+    max-width: 1000px;
+}
+
+/* HEADER */
+.registro-horas-scope header {
+    margin-bottom: 2rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 2rem;
-    background: white;
-    padding: 1.5rem;
-    border-radius: 12px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    flex-wrap: wrap; /* Para móviles */
+    gap: 15px;
 }
 
-.historial-header h1 {
-    margin: 0;
-    font-size: 1.5rem;
-    color: #1e293b;
-}
-
-.subtitle {
-    margin: 5px 0 0 0;
-    color: #64748b;
-    font-size: 0.9rem;
-}
-
-/* Buscador */
-.search-bar {
-    position: relative;
-    width: 300px;
-}
-
-.search-icon {
-    position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #94a3b8;
-}
-
-.search-bar input {
-    width: 100%;
-    padding: 10px 10px 10px 40px;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    outline: none;
-    transition: border-color 0.2s;
-}
-
-.search-bar input:focus {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-/* Tabla */
-.table-container {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
-}
-
-.custom-table {
-    width: 100%;
-    border-collapse: collapse;
-    text-align: left;
-}
-
-.custom-table th {
-    background-color: #f1f5f9;
-    padding: 1rem;
-    font-weight: 600;
-    color: #475569;
-    font-size: 0.85rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.custom-table td {
-    padding: 1rem;
-    border-bottom: 1px solid #f1f5f9;
-    color: #334155;
-}
-
-.custom-table tr:hover {
-    background-color: #f8fafc;
-}
-
-/* Celdas específicas */
-.pasante-cell {
+/* Nuevo contenedor de botones */
+.registro-horas-scope .header-actions {
     display: flex;
-    align-items: center;
     gap: 12px;
 }
 
-.avatar-circle {
-    width: 32px;
-    height: 32px;
-    background-color: #e2e8f0;
-    border-radius: 50%;
+.registro-horas-scope h1 {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--text-main);
+    margin: 0;
+}
+
+.registro-horas-scope .subtitle {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin-top: 5px;
+}
+
+.registro-horas-scope .btn-back {
+    background: white;
+    border: 1px solid var(--border);
+    padding: 10px 18px;
+    border-radius: 10px;
+    color: var(--text-muted);
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
     display: flex;
     align-items: center;
-    justify-content: center;
-    color: #64748b;
+}
+.registro-horas-scope .btn-back:hover {
+    border-color: var(--primary);
+    color: var(--primary);
 }
 
-.pasante-info {
+/* --- NUEVO ESTILO PARA BOTÓN EXPORTAR --- */
+.registro-horas-scope .btn-export {
+    background: var(--success);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 10px;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
+}
+.registro-horas-scope .btn-export:hover {
+    background: #059669;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(16, 185, 129, 0.3);
 }
 
-.pasante-info .name {
-    font-weight: 500;
-    font-size: 0.95rem;
+/* CARD */
+.registro-horas-scope .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+    overflow: hidden;
 }
 
-.pasante-info .cedula {
-    font-size: 0.8rem;
-    color: #94a3b8;
+/* TABLA */
+.registro-horas-scope table {
+    width: 100%;
+    border-collapse: collapse;
 }
 
-/* Badges de Eventos */
-.badge-event {
+.registro-horas-scope th {
+    text-align: left;
+    padding: 16px 24px;
+    background: #f1f5f9;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    border-bottom: 1px solid var(--border);
+}
+
+.registro-horas-scope td {
+    padding: 16px 24px;
+    border-bottom: 1px solid #f8fafc;
+    font-size: 0.9rem;
+    vertical-align: middle;
+}
+
+.registro-horas-scope tr:hover {
+    background-color: #f8fafc;
+}
+
+/* BADGES DE ESTADO */
+.registro-horas-scope .badge-event {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 4px 10px;
-    border-radius: 20px;
+}
+
+.registro-horas-scope .entrada { background: #dcfce7; color: #166534; }
+.registro-horas-scope .salida { background: #fee2e2; color: #991b1b; }
+.registro-horas-scope .almuerzo { background: #ffedd5; color: #9a3412; }
+
+.registro-horas-scope .date-cell {
+    font-family: monospace;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.registro-horas-scope .guardia-text {
     font-size: 0.85rem;
-    font-weight: 500;
-}
-
-.text-green-600 { color: #16a34a; }
-.bg-green-100 { background-color: #dcfce7; }
-
-.text-red-600 { color: #dc2626; }
-.bg-red-100 { background-color: #fee2e2; }
-
-.text-orange-600 { color: #ea580c; }
-.bg-orange-100 { background-color: #ffedd5; }
-
-.text-blue-600 { color: #2563eb; }
-.bg-blue-100 { background-color: #dbeafe; }
-
-.date-cell, .time-cell {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: #64748b;
-    font-size: 0.9rem;
-}
-
-.guard-cell {
-    font-size: 0.9rem;
-    color: #64748b;
-    font-style: italic;
-}
-
-.empty-row {
-    text-align: center;
-    padding: 3rem;
-    color: #94a3b8;
+    color: var(--text-muted);
 }

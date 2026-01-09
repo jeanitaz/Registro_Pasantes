@@ -27,6 +27,7 @@ interface Pasante {
     fechasFaltas: string[]; documentos: Documento[];
     informeFinalSubido: boolean;
     informeUrl?: string;
+    institucion?: string;
 }
 
 interface Alerta { id: number; usuario: string; fecha: string; tipo: string; leido: boolean; }
@@ -64,16 +65,16 @@ const RRHHModern = () => {
         if (p.atrasos > LIMITES.ATRASOS) return "Finalizado por atrasos excedidos";
         if (p.faltas > LIMITES.FALTAS) return "Finalizado por faltas excedidas";
         if (p.llamadosAtencion > LIMITES.LLAMADOS) return "Finalizado por llamado de atención";
-        
+
         // Si estaba finalizado y se corrigieron los contadores, vuelve a activo
         if (p.estado.includes("Finalizado")) return "Activo";
 
         if (p.horasRequeridas > 0 && p.progresoHoras >= p.horasRequeridas) return "Aprobado";
-        
-        const docsCompletos = p.documentos.every(d => d.validado);
-        if (docsCompletos && p.estado === "No habilitado") return "Activo"; 
 
-        return p.estado; 
+        const docsCompletos = p.documentos.every(d => d.validado);
+        if (docsCompletos && p.estado === "No habilitado") return "Activo";
+
+        return p.estado;
     };
 
     // --- CARGA DE DATOS (POLLING + MAPEO SEGURO) ---
@@ -96,6 +97,7 @@ const RRHHModern = () => {
                         nombre: p.nombre || `${p.nombres} ${p.apellidos}`,
                         cedula: p.cedula,
                         carrera: p.carrera,
+                        institucion: p.institucion || 'Inamhi', // Default to Inamhi if not present
                         estado: p.estado || "No habilitado",
                         // AQUÍ ESTÁ LA CORRECCIÓN CLAVE PARA LAS HORAS:
                         progresoHoras: Number(p.horasCompletadas ?? p.horas_completadas ?? 0),
@@ -157,15 +159,15 @@ const RRHHModern = () => {
         if (!selectedPasante) return;
 
         const nuevoValor = Math.max(0, selectedPasante[tipo] + delta);
-        
+
         // Objeto temporal para recalcular estado
         const pasanteTemporal = { ...selectedPasante, [tipo]: nuevoValor };
         const nuevoEstado = determinarEstado(pasanteTemporal);
 
         // Mapeo para enviar al backend
-        const bodyToSend = { 
+        const bodyToSend = {
             [tipo]: nuevoValor,
-            estado: nuevoEstado 
+            estado: nuevoEstado
         };
 
         try {
@@ -224,6 +226,210 @@ const RRHHModern = () => {
         if (estado === "Aprobado") return "pill-blue";
         if (estado === "Activo") return "pill-success";
         return "pill-warning";
+    };
+
+    const handleEarlyTermination = async () => {
+        if (!selectedPasante) return;
+        const confirmMsg = "⚠ ¿Está seguro de finalizar la pasantía SIN CONCLUSIÓN?\n\nEsta acción:\n1. Bloqueará el acceso al sistema de timbrado.\n2. Cambiará el estado a 'Retirado'.\n3. Habilitará la generación del informe de retiro.";
+        if (!window.confirm(confirmMsg)) return;
+
+        try {
+            const bodyToSend = { estado: "Retirado" };
+            await fetch(`http://localhost:3001/pasantes/${selectedPasante.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(bodyToSend)
+            });
+
+            // Actualizar estado local
+            const pasanteActualizado = { ...selectedPasante, estado: "Retirado" };
+            setPasantes(prev => prev.map(p => p.id === pasanteActualizado.id ? pasanteActualizado : p));
+            setSelectedPasante(pasanteActualizado);
+            alert("Pasantía finalizada anticipadamente. Ahora puede generar el informe de retiro.");
+        } catch (error) {
+            console.error("Error finalizando pasantía:", error);
+            alert("Error al finalizar pasantía.");
+        }
+    };
+
+    const handlePrintTermination = () => {
+        if (!selectedPasante) return;
+
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return alert("Permita ventanas emergentes para imprimir.");
+
+        const htmlContent = `
+    <html>
+    <head>
+        <title>Acta de Finalización Anticipada - ${selectedPasante.nombre}</title>
+        <style>
+            @page { size: A4; margin: 20mm; }
+            body { 
+                font-family: 'Arial', sans-serif; 
+                color: #333; 
+                line-height: 1.5; 
+                margin: 0; 
+                padding: 0;
+            }
+            .document-container {
+                padding: 30px;
+                border: 1px solid #eee;
+                position: relative;
+            }
+            /* Encabezado Institucional */
+            .header { 
+                display: flex; 
+                align-items: center; 
+                border-bottom: 3px solid #1a3a5a; 
+                padding-bottom: 10px; 
+                margin-bottom: 30px;
+            }
+            .header-text { flex-grow: 1; text-align: center; }
+            .header-text h1 { 
+                font-size: 16px; 
+                margin: 0; 
+                color: #1a3a5a; 
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
+            .header-text h2 { font-size: 13px; margin: 5px 0 0; font-weight: normal; }
+
+            /* Título del Documento */
+            .title-section { text-align: center; margin-bottom: 40px; }
+            .title-section h3 { 
+                font-size: 20px; 
+                text-decoration: underline; 
+                margin-bottom: 10px;
+            }
+            .doc-number { font-size: 12px; color: #666; }
+
+            /* Cuerpo del acta */
+            .content-text { font-family: 'Times New Roman', serif; font-size: 15px; text-align: justify; margin-bottom: 25px; }
+
+            /* Tabla de Datos */
+            .info-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+            .info-table td { padding: 8px 5px; border-bottom: 1px solid #f0f0f0; }
+            .label { font-weight: bold; color: #1a3a5a; width: 30%; font-size: 13px; text-transform: uppercase; }
+            .value { font-size: 14px; }
+
+            /* Cuadro de Estadísticas */
+            .stats-container { 
+                background-color: #f8f9fa; 
+                border-left: 5px solid #1a3a5a; 
+                padding: 20px; 
+                margin: 30px 0;
+            }
+            .stats-title { font-weight: bold; margin-bottom: 15px; display: block; border-bottom: 1px solid #ddd; }
+            .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px; }
+
+            /* Firmas */
+            .signature-section { 
+                margin-top: 80px; 
+                display: flex; 
+                justify-content: space-around; 
+                page-break-inside: avoid;
+            }
+            .signature-box { 
+                text-align: center; 
+                width: 250px; 
+            }
+            .signature-line { 
+                border-top: 1px solid #000; 
+                margin-bottom: 10px; 
+            }
+            .signature-name { font-weight: bold; font-size: 13px; margin: 0; }
+            .signature-role { font-size: 11px; color: #555; text-transform: uppercase; }
+
+            /* Footer */
+            .footer { 
+                position: absolute; 
+                bottom: 20px; 
+                width: 100%; 
+                font-size: 10px; 
+                text-align: center; 
+                color: #999;
+                border-top: 1px solid #eee;
+                padding-top: 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="document-container">
+            <div class="header">
+                <div class="header-text">
+                    <h1>Instituto Nacional de Meteorología e Hidrología</h1>
+                    <h2>Dirección de Gestión de Talento Humano</h2>
+                </div>
+            </div>
+
+            <div class="title-section">
+                <h3>ACTA DE FINALIZACIÓN ANTICIPADA</h3>
+                <div class="doc-number">Ref: INAMHI-GTH-2024-${selectedPasante.cedula.slice(-4)}</div>
+            </div>
+
+            <div class="content-text">
+                En la ciudad de Quito, con fecha <strong>${new Date().toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })}</strong>, se suscribe la presente acta de finalización anticipada de pasantía pre-profesional, conforme a los registros que constan en el Sistema de Gestión Institucional:
+            </div>
+
+            <table class="info-table">
+                <tr>
+                    <td class="label">Apellidos y Nombres:</td>
+                    <td class="value">${selectedPasante.nombre}</td>
+                </tr>
+                <tr>
+                    <td class="label">Cédula de Identidad:</td>
+                    <td class="value">${selectedPasante.cedula}</td>
+                </tr>
+                <tr>
+                    <td class="label">Institución Educativa:</td>
+                    <td class="value">${selectedPasante.institucion}</td>
+                </tr>
+                <tr>
+                    <td class="label">Carrera:</td>
+                    <td class="value">${selectedPasante.carrera}</td>
+                </tr>
+                <tr>
+                    <td class="label">Estado de Cierre:</td>
+                    <td class="value"><strong>${selectedPasante.estado.toUpperCase()}</strong></td>
+                </tr>
+            </table>
+
+            <div class="stats-container">
+                <span class="stats-title">RESUMEN DE DESEMPEÑO Y ASISTENCIA</span>
+                <div class="stats-grid">
+                    <div><strong>Horas Realizadas:</strong> ${Number(selectedPasante.progresoHoras).toFixed(2)} / ${selectedPasante.horasRequeridas} h</div>
+                    <div><strong>Atrasos Registrados:</strong> ${selectedPasante.atrasos}/5</div>
+                    <div><strong>Faltas Injustificadas:</strong> ${selectedPasante.faltas}/3</div>
+                    <div><strong>Llamados de Atención:</strong> ${selectedPasante.llamadosAtencion}/3</div>
+                </div>
+            </div>
+
+            <div class="content-text" style="font-size: 13px;">
+                <strong>OBSERVACIONES:</strong> Se deja constancia que la relación de pasantía termina antes del plazo previsto originalmente. El INAMHI certifica únicamente las horas validadas mediante el registro biométrico y de actividades hasta la presente fecha.
+            </div>
+
+            <div class="signature-section">
+                <div class="signature-box">
+                    <div class="signature-line"></div>
+                    <p class="signature-name">Delegado de Talento Humano</p>
+                    <p class="signature-role">INAMHI</p>
+                </div>
+                <div class="signature-box">
+                    <div class="signature-line"></div>
+                    <p class="signature-name">${selectedPasante.nombre}</p>
+                    <p class="signature-role">PASANTE / PRACTICANTE</p>
+                    <p style="font-size: 10px; margin: 0;">C.I: ${selectedPasante.cedula}</p>
+                </div>
+            </div> 
+        </div>
+    </body>
+    </html>
+`;
+
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => printWindow.print(), 500);
     };
 
     return (
@@ -311,8 +517,8 @@ const RRHHModern = () => {
                             <div className="grid-left">
                                 {/* CARD: DOCUMENTACIÓN */}
                                 <div className="clean-card">
-                                    <div 
-                                        className="card-top interactive-header" 
+                                    <div
+                                        className="card-top interactive-header"
                                         onClick={() => navigate(`/documentacion/${selectedPasante.id}`)}
                                         style={{ cursor: 'pointer' }}
                                         title="Ir al gestor de documentación"
@@ -346,7 +552,7 @@ const RRHHModern = () => {
                                         <span className="card-label">Control Disciplinario</span>
                                         <Gavel size={18} className="text-red-500" />
                                     </div>
-                                    
+
                                     <div className="discipline-grid">
                                         {/* Atrasos */}
                                         <div className="control-item">
@@ -393,7 +599,7 @@ const RRHHModern = () => {
 
                                     {selectedPasante.estado.includes("Finalizado") && (
                                         <div className="alert-box-danger">
-                                            <Ban size={16}/>
+                                            <Ban size={16} />
                                             <span>Estado Crítico: {selectedPasante.estado}</span>
                                         </div>
                                     )}
@@ -403,8 +609,8 @@ const RRHHModern = () => {
                             <div className="grid-right">
                                 <div className="clean-card card-full-height">
                                     <div className="card-top"><span className="card-label">Cierre de Pasantías</span></div>
-                                    
-                                    <div className="stats-row mb-4" style={{justifyContent: 'center', gap: '20px'}}>
+
+                                    <div className="stats-row mb-4" style={{ justifyContent: 'center', gap: '20px' }}>
                                         <div className="stat-item">
                                             {/* CORREGIDO: Mostrando decimales exactos */}
                                             <span className="stat-num">{Number(selectedPasante.progresoHoras).toFixed(2)}</span>
@@ -444,6 +650,32 @@ const RRHHModern = () => {
                                         )}
                                     </div>
                                     <div className="divider"></div>
+
+                                    {/* MÓDULO DE FINALIZACIÓN ANTICIPADA */}
+                                    <div className="early-termination-module" style={{ marginBottom: '20px', padding: '15px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                        <h4 style={{ margin: '0 0 10px 0', color: '#475569', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                            <Ban size={14} /> Zona de Finalización
+                                        </h4>
+
+                                        {selectedPasante.estado === 'Retirado' ? (
+                                            <button
+                                                className="btn-clean"
+                                                style={{ width: '100%', background: '#fff', border: '1px solid #cbd5e1', color: '#334155' }}
+                                                onClick={handlePrintTermination}
+                                            >
+                                                <FileText size={16} /> Generar Acta de Retiro
+                                            </button>
+                                        ) : (
+                                            <button
+                                                className="btn-clean"
+                                                style={{ width: '100%', background: '#fee2e2', border: '1px solid #fda4af', color: '#b91c1c' }}
+                                                onClick={handleEarlyTermination}
+                                            >
+                                                <LogOut size={16} /> Finalizar sin Conclusión
+                                            </button>
+                                        )}
+                                    </div>
+
                                     <div className="info-notes">
                                         <h4>Notas del sistema:</h4>
                                         <ul>

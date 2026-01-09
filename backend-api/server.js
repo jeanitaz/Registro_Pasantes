@@ -8,7 +8,7 @@ const fs = require('fs');
 const app = express();
 
 // 1. CONFIGURACIÓN DE LÍMITES Y CORS
-app.use(express.json({ limit: '200mb' })); 
+app.use(express.json({ limit: '200mb' }));
 app.use(express.urlencoded({ limit: '200mb', extended: true }));
 app.use(cors());
 
@@ -23,7 +23,7 @@ app.use('/uploads', express.static(uploadDirGlobal));
 const db = mysql.createConnection({
     host: 'localhost',
     user: 'root',
-    password: '0993643838Jc', 
+    password: '0993643838Jc',
     database: 'sistema_inamhi'
 });
 
@@ -48,7 +48,14 @@ const saveBase64ToFile = (base64String, prefix) => {
     if (matches[1].includes('pdf')) extension = 'pdf';
     else if (matches[1].includes('image')) extension = 'jpg';
     const filename = `${prefix}-${Date.now()}.${extension}`;
-    try { fs.writeFileSync(path.join(uploadDirGlobal, filename), buffer); return filename; } catch (e) { return null; }
+    try {
+        fs.writeFileSync(path.join(uploadDirGlobal, filename), buffer);
+        console.log(`✅ File saved: ${filename}`);
+        return filename;
+    } catch (e) {
+        console.error("❌ Error saving file:", e);
+        return null;
+    }
 };
 
 // ==========================================
@@ -57,26 +64,26 @@ const saveBase64ToFile = (base64String, prefix) => {
 app.post('/login', (req, res) => {
     const { usuario, password } = req.body;
     const sqlAdmin = 'SELECT * FROM usuarios_admin WHERE usuario = ? AND password = ?';
-    
+
     db.query(sqlAdmin, [usuario, password], (err, results) => {
         if (err) return res.status(500).json(err);
         if (results.length > 0) {
             const user = results[0];
-            return res.json({ 
-                id: user.id, 
-                role: user.rol, 
+            return res.json({
+                id: user.id,
+                role: user.rol,
                 name: `${user.nombres} ${user.apellidos}`,
                 usuario: user.usuario,
-                estado: user.estado 
-            }); 
+                estado: user.estado
+            });
         }
         const sqlPasante = 'SELECT * FROM pasantes WHERE usuario = ? AND password = ?';
         db.query(sqlPasante, [usuario, password], (err, resPasante) => {
             if (resPasante.length > 0) {
                 const p = resPasante[0];
-                return res.json({ 
-                    id: p.id, 
-                    role: 'Pasante', 
+                return res.json({
+                    id: p.id,
+                    role: 'Pasante',
                     name: `${p.nombres} ${p.apellidos}`,
                     usuario: p.usuario,
                     estado: p.estado,
@@ -94,7 +101,8 @@ app.post('/login', (req, res) => {
 
 app.get('/asistencia', (req, res) => {
     // Capturamos el usuario desde la URL (ej: /asistencia?usuario=Ariel)
-    const { usuario } = req.query;
+    // Capturamos el usuario desde la URL (ej: /asistencia?usuario=Ariel)
+    const { usuario, pasante_id } = req.query;
 
     let sql = `
         SELECT 
@@ -113,8 +121,13 @@ app.get('/asistencia', (req, res) => {
 
     const params = [];
 
-    // Si se pasa un usuario, filtramos la consulta SQL
-    if (usuario) {
+    // Prioridad: Filtro por ID de pasante (usado en reportes)
+    if (pasante_id) {
+        sql += ` WHERE r.pasante_id = ? `;
+        params.push(pasante_id);
+    }
+    // Backward compatibility: Filtro por guardia (usuario)
+    else if (usuario) {
         sql += ` WHERE r.guardia_responsable = ? `;
         params.push(usuario);
     }
@@ -126,7 +139,7 @@ app.get('/asistencia', (req, res) => {
             console.error("❌ Error en GET /asistencia:", err);
             return res.status(500).json({ error: 'Error al obtener historial' });
         }
-        
+
         const response = results.map(row => ({
             id: row.id,
             fecha_hora: row.fecha_hora,
@@ -171,13 +184,13 @@ app.post('/timbrar', (req, res) => {
 
         if (tipoEvento === 'entrada') {
             const horaEntradaLimite = new Date(ahora);
-            horaEntradaLimite.setHours(8, 15, 0); 
+            horaEntradaLimite.setHours(8, 15, 0);
             if (ahora > horaEntradaLimite) {
                 nuevoAtraso = 1;
                 mensajeAtraso = "Llegada tardía (+15 min)";
             }
-        } 
-        
+        }
+
         const sqlInsert = 'INSERT INTO registros_asistencia (pasante_id, tipo_evento, guardia_responsable, fecha_hora) VALUES (?, ?, ?, ?)';
         db.query(sqlInsert, [pasanteId, tipoEvento, guardia, ahora], (err) => {
             if (err) return res.status(500).json({ error: "Error saving attendance" });
@@ -200,15 +213,15 @@ function calcularHorasDia(pasanteId, horaSalida, res) {
     db.query(`SELECT tipo_evento, fecha_hora FROM registros_asistencia WHERE pasante_id = ? AND DATE(fecha_hora) = CURDATE()`, [pasanteId], (err, eventos) => {
         let entrada = null, salAlm = null, entAlm = null;
         eventos.forEach(e => {
-            if(e.tipo_evento === 'entrada') entrada = new Date(e.fecha_hora);
-            if(e.tipo_evento === 'salida_almuerzo') salAlm = new Date(e.fecha_hora);
-            if(e.tipo_evento === 'entrada_almuerzo') entAlm = new Date(e.fecha_hora);
+            if (e.tipo_evento === 'entrada') entrada = new Date(e.fecha_hora);
+            if (e.tipo_evento === 'salida_almuerzo') salAlm = new Date(e.fecha_hora);
+            if (e.tipo_evento === 'entrada_almuerzo') entAlm = new Date(e.fecha_hora);
         });
 
         if (entrada) {
             let totalMilisegundos = horaSalida - entrada;
             if (salAlm && entAlm) totalMilisegundos -= (entAlm - salAlm);
-            else if (salAlm && !entAlm) totalMilisegundos -= (30 * 60 * 1000); 
+            else if (salAlm && !entAlm) totalMilisegundos -= (30 * 60 * 1000);
 
             const horasGanadas = totalMilisegundos / 1000 / 60 / 60;
             db.query('UPDATE pasantes SET horas_completadas = horas_completadas + ? WHERE id = ?', [horasGanadas, pasanteId], (err) => {
@@ -255,6 +268,7 @@ app.get('/pasantes/:id', (req, res) => {
 });
 
 app.post('/pasantes', upload.single('foto'), (req, res) => {
+    console.log("📥 POST /pasantes received. Body size approx:", JSON.stringify(req.body).length);
     const body = req.body;
     let filename = req.file ? req.file.filename : null;
     if (!filename && body.fotoUrl && body.fotoUrl.startsWith('data:')) filename = saveBase64ToFile(body.fotoUrl, 'foto_perfil');
@@ -284,7 +298,7 @@ app.patch('/pasantes/:id', (req, res) => {
         if (doc3) { sql += ", doc_acuerdo_confidencialidad = ?"; params.push(doc3); }
         if (doc4) { sql += ", doc_copia_cedula = ?"; params.push(doc4); }
         sql += " WHERE id = ?"; params.push(id);
-        
+
         db.query(sql, params, (err) => {
             if (err) return res.status(500).json(err);
             res.json({ message: 'Docs guardados' });
@@ -324,20 +338,21 @@ app.delete('/pasantes/:id', (req, res) => {
 
 app.post('/usuarios', (req, res) => {
     const { nombres, apellidos, cedula, rol, usuario, password, estado } = req.body;
-    db.query('INSERT INTO usuarios_admin (nombres, apellidos, cedula, rol, usuario, password, estado, fecha_registro) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
-    [nombres, apellidos, cedula, rol, usuario, password, estado, new Date()], (err, result) => {
-        if (err) {
-            if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ error: `El usuario '${usuario}' ya existe.` });
-            return res.status(500).json(err);
-        }
-        res.json({ message: 'User created', id: result.insertId });
-    });
+    db.query('INSERT INTO usuarios_admin (nombres, apellidos, cedula, rol, usuario, password, estado, fecha_registro) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [nombres, apellidos, cedula, rol, usuario, password, estado, new Date()], (err, result) => {
+            if (err) {
+                if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ error: `El usuario '${usuario}' ya existe.` });
+                return res.status(500).json(err);
+            }
+            res.json({ message: 'User created', id: result.insertId });
+        });
 });
 
-app.get('/auditoria', (req, res) => { 
-    const sql = `(SELECT id, CONCAT(nombres, ' ', apellidos) as nombre, CONCAT('Pasante (Created by: ', COALESCE(creado_por, 'System'), ')') as rol, fecha_registro as fecha FROM pasantes) UNION (SELECT id, CONCAT(nombres, ' ', apellidos) as nombre, rol, fecha_registro as fecha FROM usuarios_admin) ORDER BY fecha DESC LIMIT 5`;
+app.get('/auditoria', (req, res) => {
+    const limit = req.query.limit ? parseInt(req.query.limit) : 5;
+    const sql = `(SELECT id, CONCAT(nombres, ' ', apellidos) as nombre, CONCAT('Pasante (Created by: ', COALESCE(creado_por, 'System'), ')') as rol, fecha_registro as fecha FROM pasantes) UNION (SELECT id, CONCAT(nombres, ' ', apellidos) as nombre, rol, fecha_registro as fecha FROM usuarios_admin) ORDER BY fecha DESC LIMIT ${limit}`;
     db.query(sql, (err, results) => { if (err) return res.status(500).json(err); res.json(results); });
-}); 
+});
 
 app.get('/usuarios', (req, res) => { db.query('SELECT * FROM usuarios_admin', (e, r) => res.json(r)); });
 
