@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type ChangeEvent } from 'react';
+﻿import { useState, useEffect, useRef, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx-js-style';
 
@@ -206,17 +206,17 @@ const PasanteHome = () => {
     }
   };
 
+  // 3. UPDATED REPORT GENERATION FUNCTION
   const handleGenerateFinalReport = async () => {
     if (!pasante?.id) {
       alert("Error: No se ha identificado al pasante.");
       return;
     }
 
-    // 1. Abrir ventana inmediatamente
     const printWindow = window.open('', '_blank');
     if (!printWindow) return alert("Permita ventanas emergentes.");
 
-    // Estructura base inicial
+    // Initial loading state
     const baseStructure = `
       <html>
       <head>
@@ -238,7 +238,7 @@ const PasanteHome = () => {
     printWindow.document.write(baseStructure);
     printWindow.document.close();
 
-    // 2. Fetch de datos
+    // Fetch History
     let fullHistory: any[] = [];
     try {
       console.log("Iniciando fetch de historial para:", pasante.id);
@@ -247,8 +247,6 @@ const PasanteHome = () => {
       if (!res.ok) throw new Error(`Error del servidor: ${res.status}`);
 
       fullHistory = await res.json();
-      console.log("Historial recibido:", fullHistory.length, "registros");
-
       fullHistory.sort((a: any, b: any) => new Date(a.fecha_hora).getTime() - new Date(b.fecha_hora).getTime());
     } catch (e: any) {
       console.error("Error generating report:", e);
@@ -264,9 +262,9 @@ const PasanteHome = () => {
       return;
     }
 
-    // 3. Construir el contenido final del reporte
+    // Build Final HTML with Logo
     const finalHtml = `
-      <html>
+        <html>
       <head>
         <title>Informe Final - ${pasante.nombre}</title>
         <style>
@@ -280,140 +278,85 @@ const PasanteHome = () => {
             }
             .document-container {
                 padding: 40px;
-                border: 1px solid #eee; /* Borde sutil para visualización en pantalla */
+                border: 1px solid #eee; 
             }
             @media print {
                 .document-container { border: none; padding: 0; }
                 body { margin: 0; }
             }
 
-            /* Encabezado */
+            /* --- ENCABEZADO CON IMAGEN --- */
             .header { 
                 display: flex; 
                 align-items: center; 
+                justify-content: space-between;
                 border-bottom: 3px solid #1a3a5a; 
                 padding-bottom: 15px; 
                 margin-bottom: 30px;
             }
-            .header-info { text-align: center; width: 100%; }
+            .header-logo img {
+                max-height: 80px;
+                width: auto;
+                display: block;
+            }
+            .header-info { 
+                text-align: right;
+                flex: 1;
+                margin-left: 20px;
+            }
             .header-info h1 { 
-                font-size: 18px; 
+                font-size: 16px; 
                 margin: 0; 
                 color: #1a3a5a; 
                 text-transform: uppercase; 
-                letter-spacing: 1px;
+                letter-spacing: 0.5px;
             }
-            .header-info h2 { font-size: 14px; margin: 5px 0 0; font-weight: normal; color: #555; }
+            .header-info h2 { 
+                font-size: 13px; 
+                margin: 5px 0 0; 
+                font-weight: normal; 
+                color: #555; 
+            }
 
-            /* Título y Referencia */
             .title-section { text-align: center; margin-bottom: 30px; }
-            .title-section h3 { 
-                font-size: 20px; 
-                text-decoration: underline; 
-                margin-bottom: 5px; 
-                color: #000;
-            }
+            .title-section h3 { font-size: 20px; text-decoration: underline; margin-bottom: 5px; color: #000; }
             .ref-number { font-size: 12px; color: #666; }
-
-            /* Grid de Datos Personales */
+            
             .info-grid {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 15px 30px;
-                margin-bottom: 30px;
-                background-color: #f8fafc;
-                padding: 20px;
-                border-radius: 6px;
-                border: 1px solid #e2e8f0;
+                display: grid; grid-template-columns: 1fr 1fr; gap: 15px 30px;
+                margin-bottom: 30px; background-color: #f8fafc; padding: 20px;
+                border-radius: 6px; border: 1px solid #e2e8f0;
             }
             .info-item { display: flex; flex-direction: column; }
-            .info-label { 
-                font-size: 11px; 
-                text-transform: uppercase; 
-                color: #64748b; 
-                font-weight: bold; 
-                margin-bottom: 4px;
-            }
+            .info-label { font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 4px; }
             .info-value { font-size: 14px; color: #0f172a; font-weight: 500; }
 
-            /* Texto del Certificado */
             .certificate-text {
-                font-family: 'Times New Roman', serif;
-                font-size: 16px;
-                text-align: justify;
-                line-height: 1.8;
-                margin-bottom: 40px;
+                font-family: 'Times New Roman', serif; font-size: 16px; text-align: justify;
+                line-height: 1.8; margin-bottom: 40px;
             }
 
-            /* Tabla de Historial */
             .history-section { margin-bottom: 40px; }
-            .history-title { 
-                font-size: 14px; 
-                font-weight: bold; 
-                color: #1a3a5a; 
-                border-left: 4px solid #1a3a5a; 
-                padding-left: 10px; 
-                margin-bottom: 15px; 
-            }
+            .history-title { font-size: 14px; font-weight: bold; color: #1a3a5a; border-left: 4px solid #1a3a5a; padding-left: 10px; margin-bottom: 15px; }
             
             table { width: 100%; border-collapse: collapse; font-size: 11px; }
-            th { 
-                background-color: #f1f5f9; 
-                color: #475569; 
-                font-weight: bold; 
-                text-align: left; 
-                padding: 10px; 
-                border-bottom: 2px solid #e2e8f0; 
-                text-transform: uppercase;
-            }
-            td { 
-                padding: 8px 10px; 
-                border-bottom: 1px solid #f1f5f9; 
-                color: #334155; 
-            }
+            th { background-color: #f1f5f9; color: #475569; font-weight: bold; text-align: left; padding: 10px; border-bottom: 2px solid #e2e8f0; text-transform: uppercase; }
+            td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; color: #334155; }
             tr:nth-child(even) td { background-color: #fcfcfc; }
             
-            /* Firmas */
-            .signatures-container { 
-                display: flex; 
-                justify-content: space-between; 
-                margin-top: 80px; 
-                page-break-inside: avoid; 
-            }
-            .signature-box { 
-                width: 40%; 
-                text-align: center; 
-            }
-            .signature-line { 
-                border-top: 1px solid #000; 
-                margin-bottom: 10px; 
-                width: 80%; 
-                margin-left: auto; 
-                margin-right: auto; 
-            }
+            .signatures-container { display: flex; justify-content: space-between; margin-top: 80px; page-break-inside: avoid; }
+            .signature-box { width: 40%; text-align: center; }
+            .signature-line { border-top: 1px solid #000; margin-bottom: 10px; width: 80%; margin-left: auto; margin-right: auto; }
             .signer-name { font-weight: bold; font-size: 13px; margin: 0; }
             .signer-role { font-size: 12px; color: #666; font-style: italic; }
-
-            /* Footer */
-            .footer { 
-                position: fixed; 
-                bottom: 20px; 
-                left: 0; right: 0; 
-                text-align: center; 
-                font-size: 10px; 
-                color: #94a3b8; 
-                border-top: 1px solid #eee; 
-                padding-top: 10px; 
-                margin: 0 40px;
-            }
         </style>
-    </head>
-    <body>
+      </head>
+      <body>
         <div class="document-container">
+            
             <div class="header">
-                <div class="header-info">
-                    <h1>Instituto Nacional de Meteorología e Hidrología</h1>
-                    <h2>Dirección de Gestión de Talento Humano</h2>
+                <div class="header-logo">
+                    <img src="https://i.postimg.cc/j2p691mH/Captura-de-pantalla-2026-01-09-130055.png" alt="Logo Institucional" />
                 </div>
             </div>
 
@@ -422,8 +365,8 @@ const PasanteHome = () => {
                 <div class="ref-number">REF: INAMHI-PAS-${new Date().getFullYear()}-${pasante.cedula?.slice(-4) || '0000'}</div>
             </div>
 
-            <div class="info-grid">
-                <div class="info-item">
+             <div class="info-grid">
+                 <div class="info-item">
                     <span class="info-label">Estudiante</span>
                     <span class="info-value">${pasante.nombre}</span>
                 </div>
@@ -501,15 +444,12 @@ const PasanteHome = () => {
                 </div>
             </div>
         </div>
-    </body>
-    </html>
+      </body>
+      </html>
     `;
 
-    // 4. Actualizar el contenido de la ventana existente
     if (printWindow.document.body) {
       printWindow.document.body.innerHTML = finalHtml;
-
-      // Pequeño delay para asegurar renderizado antes de imprimir
       setTimeout(() => {
         printWindow.focus();
         printWindow.print();
@@ -549,8 +489,6 @@ const PasanteHome = () => {
           <div className="profile-pill">
             <div className={`status-dot ${estaFinalizadoMal ? 'dot-red' : 'dot-green'}`}></div>
             <span>{pasante.estado || "Activo"}</span>
-
-            {/* --- VISUALIZACIÓN DE LA IMAGEN GUARDADA --- */}
             <div className="avatar-circle" style={{ overflow: 'hidden', padding: tieneFoto ? 0 : undefined, border: tieneFoto ? '2px solid #e2e8f0' : 'none' }}>
               {tieneFoto ? (
                 <img src={pasante.fotoUrl} alt="Perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -558,8 +496,6 @@ const PasanteHome = () => {
                 pasante.nombre.charAt(0)
               )}
             </div>
-            {/* ----------------------------------------- */}
-
           </div>
         </header>
 

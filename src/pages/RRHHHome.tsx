@@ -260,170 +260,183 @@ const RRHHModern = () => {
 
         const htmlContent = `
     <html>
-    <head>
-        <title>Acta de Finalización Anticipada - ${selectedPasante.nombre}</title>
-        <style>
-            @page { size: A4; margin: 20mm; }
-            body { 
-                font-family: 'Arial', sans-serif; 
-                color: #333; 
-                line-height: 1.5; 
-                margin: 0; 
-                padding: 0;
-            }
-            .document-container {
-                padding: 30px;
-                border: 1px solid #eee;
-                position: relative;
-            }
-            /* Encabezado Institucional */
-            .header { 
-                display: flex; 
-                align-items: center; 
-                border-bottom: 3px solid #1a3a5a; 
-                padding-bottom: 10px; 
-                margin-bottom: 30px;
-            }
-            .header-text { flex-grow: 1; text-align: center; }
-            .header-text h1 { 
-                font-size: 16px; 
-                margin: 0; 
-                color: #1a3a5a; 
-                text-transform: uppercase;
-                letter-spacing: 1px;
-            }
-            .header-text h2 { font-size: 13px; margin: 5px 0 0; font-weight: normal; }
+      <head>
+          <title>Acta de Finalización Anticipada - ${selectedPasante.nombre}</title>
+          <style>
+              @page { size: A4; margin: 20mm; }
+              body { 
+                  font-family: 'Arial', sans-serif; 
+                  color: #333; 
+                  line-height: 1.5; 
+                  margin: 0; 
+                  padding: 0;
+              }
+              .document-container {
+                  padding: 30px;
+                  border: 1px solid #eee;
+                  position: relative;
+              }
+              @media print {
+                  .document-container { border: none; padding: 0; }
+                  body { margin: 0; }
+              }
 
-            /* Título del Documento */
-            .title-section { text-align: center; margin-bottom: 40px; }
-            .title-section h3 { 
-                font-size: 20px; 
-                text-decoration: underline; 
-                margin-bottom: 10px;
-            }
-            .doc-number { font-size: 12px; color: #666; }
+              /* --- ENCABEZADO CON LOGO --- */
+              .header { 
+                  display: flex; 
+                  align-items: center; 
+                  justify-content: space-between; /* Separa logo y texto */
+                  border-bottom: 3px solid #1a3a5a; 
+                  padding-bottom: 10px; 
+                  margin-bottom: 30px;
+              }
+              .header-logo img {
+                  max-height: 70px; /* Tamaño controlado del logo */
+                  width: auto;
+                  display: block;
+              }
+              .header-text { 
+                  flex-grow: 1; 
+                  text-align: right; /* Alineación a la derecha se ve más formal */
+                  margin-left: 20px;
+              }
+              .header-text h1 { 
+                  font-size: 15px; 
+                  margin: 0; 
+                  color: #1a3a5a; 
+                  text-transform: uppercase;
+                  letter-spacing: 0.5px;
+              }
+              .header-text h2 { 
+                  font-size: 12px; 
+                  margin: 4px 0 0; 
+                  font-weight: normal; 
+                  color: #555;
+              }
 
-            /* Cuerpo del acta */
-            .content-text { font-family: 'Times New Roman', serif; font-size: 15px; text-align: justify; margin-bottom: 25px; }
+              /* Título del Documento */
+              .title-section { text-align: center; margin-bottom: 40px; }
+              .title-section h3 { 
+                  font-size: 18px; 
+                  text-decoration: underline; 
+                  margin-bottom: 8px;
+                  color: #000;
+                  text-transform: uppercase;
+              }
+              .doc-number { font-size: 12px; color: #666; font-weight: bold; }
 
-            /* Tabla de Datos */
-            .info-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-            .info-table td { padding: 8px 5px; border-bottom: 1px solid #f0f0f0; }
-            .label { font-weight: bold; color: #1a3a5a; width: 30%; font-size: 13px; text-transform: uppercase; }
-            .value { font-size: 14px; }
+              /* Cuerpo del acta */
+              .content-text { font-family: 'Times New Roman', serif; font-size: 15px; text-align: justify; margin-bottom: 25px; line-height: 1.6; }
 
-            /* Cuadro de Estadísticas */
-            .stats-container { 
-                background-color: #f8f9fa; 
-                border-left: 5px solid #1a3a5a; 
-                padding: 20px; 
-                margin: 30px 0;
-            }
-            .stats-title { font-weight: bold; margin-bottom: 15px; display: block; border-bottom: 1px solid #ddd; }
-            .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px; }
+              /* Tabla de Datos */
+              .info-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+              .info-table td { padding: 8px 5px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+              .label { font-weight: bold; color: #1a3a5a; width: 35%; font-size: 13px; text-transform: uppercase; }
+              .value { font-size: 14px; color: #333; }
 
-            /* Firmas */
-            .signature-section { 
-                margin-top: 80px; 
-                display: flex; 
-                justify-content: space-around; 
-                page-break-inside: avoid;
-            }
-            .signature-box { 
-                text-align: center; 
-                width: 250px; 
-            }
-            .signature-line { 
-                border-top: 1px solid #000; 
-                margin-bottom: 10px; 
-            }
-            .signature-name { font-weight: bold; font-size: 13px; margin: 0; }
-            .signature-role { font-size: 11px; color: #555; text-transform: uppercase; }
+              /* Cuadro de Estadísticas */
+              .stats-container { 
+                  background-color: #f8f9fa; 
+                  border-left: 5px solid #1a3a5a; 
+                  padding: 15px 20px; 
+                  margin: 30px 0;
+                  border-radius: 0 4px 4px 0;
+              }
+              .stats-title { font-size: 13px; font-weight: bold; margin-bottom: 10px; display: block; border-bottom: 1px solid #ddd; padding-bottom: 5px; color: #1a3a5a; text-transform: uppercase; }
+              .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px; }
 
-            /* Footer */
-            .footer { 
-                position: absolute; 
-                bottom: 20px; 
-                width: 100%; 
-                font-size: 10px; 
-                text-align: center; 
-                color: #999;
-                border-top: 1px solid #eee;
-                padding-top: 10px;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="document-container">
-            <div class="header">
-                <div class="header-text">
-                    <h1>Instituto Nacional de Meteorología e Hidrología</h1>
-                    <h2>Dirección de Gestión de Talento Humano</h2>
-                </div>
-            </div>
+              /* Firmas */
+              .signature-section { 
+                  margin-top: 60px; 
+                  display: flex; 
+                  justify-content: space-between; /* Mejor distribución */
+                  page-break-inside: avoid;
+              }
+              .signature-box { 
+                  text-align: center; 
+                  width: 45%; 
+              }
+              .signature-line { 
+                  border-top: 1px solid #000; 
+                  margin-bottom: 8px; 
+                  width: 80%;
+                  margin-left: auto; margin-right: auto;
+              }
+              .signature-name { font-weight: bold; font-size: 12px; margin: 0; }
+              .signature-role { font-size: 11px; color: #555; text-transform: uppercase; margin-top: 2px; }
+          </style>
+      </head>
+      <body>
+          <div class="document-container">
+              
+              <div class="header">
+                  <div class="header-logo">
+                      <img src="https://i.postimg.cc/j2p691mH/Captura-de-pantalla-2026-01-09-130055.png" alt="Logo INAMHI" />
+                  </div>
+              </div>
 
-            <div class="title-section">
-                <h3>ACTA DE FINALIZACIÓN ANTICIPADA</h3>
-                <div class="doc-number">Ref: INAMHI-GTH-2024-${selectedPasante.cedula.slice(-4)}</div>
-            </div>
+              <div class="title-section">
+                  <h3>Acta de Finalización Anticipada</h3>
+                  <div class="doc-number">Ref: INAMHI-GTH-2024-${selectedPasante.cedula ? selectedPasante.cedula.slice(-4) : '0000'}</div>
+              </div>
 
-            <div class="content-text">
-                En la ciudad de Quito, con fecha <strong>${new Date().toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })}</strong>, se suscribe la presente acta de finalización anticipada de pasantía pre-profesional, conforme a los registros que constan en el Sistema de Gestión Institucional:
-            </div>
+              <div class="content-text">
+                  En la ciudad de Quito, con fecha <strong>${new Date().toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })}</strong>, se suscribe la presente acta de finalización anticipada de pasantía pre-profesional, conforme a los registros que constan en el Sistema de Gestión Institucional:
+              </div>
 
-            <table class="info-table">
-                <tr>
-                    <td class="label">Apellidos y Nombres:</td>
-                    <td class="value">${selectedPasante.nombre}</td>
-                </tr>
-                <tr>
-                    <td class="label">Cédula de Identidad:</td>
-                    <td class="value">${selectedPasante.cedula}</td>
-                </tr>
-                <tr>
-                    <td class="label">Institución Educativa:</td>
-                    <td class="value">${selectedPasante.institucion}</td>
-                </tr>
-                <tr>
-                    <td class="label">Carrera:</td>
-                    <td class="value">${selectedPasante.carrera}</td>
-                </tr>
-                <tr>
-                    <td class="label">Estado de Cierre:</td>
-                    <td class="value"><strong>${selectedPasante.estado.toUpperCase()}</strong></td>
-                </tr>
-            </table>
+              <table class="info-table">
+                  <tr>
+                      <td class="label">Apellidos y Nombres:</td>
+                      <td class="value">${selectedPasante.nombre}</td>
+                  </tr>
+                  <tr>
+                      <td class="label">Cédula de Identidad:</td>
+                      <td class="value">${selectedPasante.cedula || 'N/A'}</td>
+                  </tr>
+                  <tr>
+                      <td class="label">Institución Educativa:</td>
+                      <td class="value">${selectedPasante.institucion || 'No Registrada'}</td>
+                  </tr>
+                  <tr>
+                      <td class="label">Carrera:</td>
+                      <td class="value">${selectedPasante.carrera || 'No Registrada'}</td>
+                  </tr>
+                  <tr>
+                      <td class="label">Estado de Cierre:</td>
+                      <td class="value" style="color: #e11d48;"><strong>${selectedPasante.estado.toUpperCase()}</strong></td>
+                  </tr>
+              </table>
 
-            <div class="stats-container">
-                <span class="stats-title">RESUMEN DE DESEMPEÑO Y ASISTENCIA</span>
-                <div class="stats-grid">
-                    <div><strong>Horas Realizadas:</strong> ${Number(selectedPasante.progresoHoras).toFixed(2)} / ${selectedPasante.horasRequeridas} h</div>
-                    <div><strong>Atrasos Registrados:</strong> ${selectedPasante.atrasos}/5</div>
-                    <div><strong>Faltas Injustificadas:</strong> ${selectedPasante.faltas}/3</div>
-                    <div><strong>Llamados de Atención:</strong> ${selectedPasante.llamadosAtencion}/3</div>
-                </div>
-            </div>
+              <div class="stats-container">
+                  <span class="stats-title">Resumen de Desempeño y Asistencia</span>
+                  <div class="stats-grid">
+                      <div><strong>Horas Realizadas:</strong> ${Number(selectedPasante.progresoHoras || 0).toFixed(2)} / ${selectedPasante.horasRequeridas} h</div>
+                      <div><strong>Atrasos Registrados:</strong> ${selectedPasante.atrasos || 0}/5</div>
+                      <div><strong>Faltas Injustificadas:</strong> ${selectedPasante.faltas || 0}/3</div>
+                      <div><strong>Llamados de Atención:</strong> ${selectedPasante.llamadosAtencion || 0}/3</div>
+                  </div>
+              </div>
 
-            <div class="content-text" style="font-size: 13px;">
-                <strong>OBSERVACIONES:</strong> Se deja constancia que la relación de pasantía termina antes del plazo previsto originalmente. El INAMHI certifica únicamente las horas validadas mediante el registro biométrico y de actividades hasta la presente fecha.
-            </div>
+              <div class="content-text" style="font-size: 13px;">
+                  <strong>OBSERVACIONES:</strong> Se deja constancia que la relación de pasantía termina antes del plazo previsto originalmente debido a las causales indicadas en el estado de cierre. El INAMHI certifica únicamente las horas validadas mediante el registro biométrico y de actividades hasta la presente fecha.
+              </div>
 
-            <div class="signature-section">
-                <div class="signature-box">
-                    <div class="signature-line"></div>
-                    <p class="signature-name">Delegado de Talento Humano</p>
-                    <p class="signature-role">INAMHI</p>
-                </div>
-                <div class="signature-box">
-                    <div class="signature-line"></div>
-                    <p class="signature-name">${selectedPasante.nombre}</p>
-                    <p class="signature-role">PASANTE / PRACTICANTE</p>
-                    <p style="font-size: 10px; margin: 0;">C.I: ${selectedPasante.cedula}</p>
-                </div>
-            </div> 
-        </div>
-    </body>
-    </html>
+              <div class="signature-section">
+                  <div class="signature-box">
+                      <div class="signature-line"></div>
+                      <p class="signature-name">Delegado de Talento Humano</p>
+                      <p class="signature-role">INAMHI</p>
+                  </div>
+                  <div class="signature-box">
+                      <div class="signature-line"></div>
+                      <p class="signature-name">${selectedPasante.nombre}</p>
+                      <p class="signature-role">Pasante / Practicante</p>
+                      <p class="signature-role" style="font-size: 10px;">C.I: ${selectedPasante.cedula || 'N/A'}</p>
+                  </div>
+              </div> 
+          </div>
+      </body>
+      </html>
 `;
 
         printWindow.document.write(htmlContent);
