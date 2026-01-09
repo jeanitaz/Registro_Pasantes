@@ -156,8 +156,8 @@ const Home = () => {
                             <section className="info-section">
                                 <h3 className="section-title"><Clock size={20} className="icon-purple"/> Cálculo de Horas</h3>
                                 <div className="info-card-simple">
-                                    <p>El tiempo de almuerzo (30 min - 1 hora) <strong>NO</strong> se cuenta como hora laboral.</p>
-                                    <p><em>Ejemplo: Entrada 08:00, Salida Almuerzo 12:00, Retorno 13:00, Salida 17:00 = <strong>8 Horas efectivas</strong>.</em></p>
+                                    <p>El tiempo de almuerzo (30 min) <strong>NO</strong> se cuenta como hora laboral.</p>
+                                    <p><em>Ejemplo: Entrada 12:00, Salida Almuerzo 13:00, Retorno 13:30, Salida 14:30 = <strong>4 Horas efectivas</strong>.</em></p>
                                 </div>
                             </section>
                         </div>

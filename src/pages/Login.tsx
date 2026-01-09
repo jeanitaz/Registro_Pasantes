@@ -103,7 +103,7 @@ const Login = () => {
 
                     // Lista de estados que bloquean el acceso por finalización/sanción
                     const estadosBloqueo = [
-                        'Finalizado',
+                        'Finalizado por cumplimiento de las horas',
                         'Retiro anticipado',
                         'Finalizado por faltas excedidas',
                         'Finalizado por atrasos excedidos',
@@ -208,7 +208,7 @@ const Login = () => {
                     </svg>
                 </div>
                 <h1>SISTEMA DE<br />ACCESO</h1>
-                <div className="brand-tagline">INAMHI sistema de monitoreo</div>
+                <div className="brand-tagline">INAMHI sistema de monitoreo de pasantes</div>
             </div>
 
             <div className="form-section">
