@@ -377,7 +377,7 @@ const RRHHModern = () => {
 
               <div class="title-section">
                   <h3>Acta de Finalización Anticipada</h3>
-                  <div class="doc-number">Ref: INAMHI-GTH-2024-${selectedPasante.cedula ? selectedPasante.cedula.slice(-4) : '0000'}</div>
+                  
               </div>
 
               <div class="content-text">

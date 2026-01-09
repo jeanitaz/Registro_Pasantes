@@ -362,7 +362,6 @@ const PasanteHome = () => {
 
             <div class="title-section">
                 <h3>INFORME FINAL DE CUMPLIMIENTO DE HORAS DE PASANTÍAS</h3>
-                <div class="ref-number">REF: INAMHI-PAS-${new Date().getFullYear()}-${pasante.cedula?.slice(-4) || '0000'}</div>
             </div>
 
              <div class="info-grid">
