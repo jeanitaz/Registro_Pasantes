@@ -43,7 +43,7 @@ db.connect(err => {
             )
         `;
         db.query(createAuditTable, (e) => {
-            if(e) console.error("Error creating audit table:", e);
+            if (e) console.error("Error creating audit table:", e);
         });
     }
 });
@@ -175,7 +175,7 @@ app.get('/asistencia', (req, res) => {
 
 app.get('/asistencia/hoy/:id', (req, res) => {
     const { id } = req.params;
-    const sql = `SELECT tipo_evento, fecha_hora FROM registros_asistencia 
+    const sql = `SELECT tipo_evento, fecha_hora, guardia_responsable FROM registros_asistencia 
                  WHERE pasante_id = ? AND DATE(fecha_hora) = CURDATE()`;
     db.query(sql, [id], (err, results) => {
         if (err) return res.status(500).json({ error: 'Database error' });
@@ -203,7 +203,7 @@ app.post('/timbrar', (req, res) => {
         // Detectar ATRASO (Entrada > 8:15)
         if (tipoEvento === 'entrada') {
             const horaLimite = new Date(ahora);
-            horaLimite.setHours(8, 15, 0); 
+            horaLimite.setHours(8, 15, 0);
             if (ahora > horaLimite) {
                 nuevoAtraso = 1;
                 mensajeAtraso = "Llegada tardía (+15 min)";
@@ -214,7 +214,7 @@ app.post('/timbrar', (req, res) => {
         // Detectar RETIRO ANTICIPADO (Salida < 16:00)
         if (tipoEvento === 'salida') {
             const horaSalidaMinima = new Date(ahora);
-            horaSalidaMinima.setHours(16, 0, 0); 
+            horaSalidaMinima.setHours(16, 0, 0);
             if (ahora < horaSalidaMinima) {
                 registrarAuditoria('Retiro Anticipado', `Pasante ${nombrePasante} salió antes (${ahora.toLocaleTimeString()})`, guardia);
             }
@@ -223,11 +223,11 @@ app.post('/timbrar', (req, res) => {
         const sqlInsert = 'INSERT INTO registros_asistencia (pasante_id, tipo_evento, guardia_responsable, fecha_hora) VALUES (?, ?, ?, ?)';
         db.query(sqlInsert, [pasanteId, tipoEvento, guardia, ahora], (err) => {
             if (err) return res.status(500).json({ error: "Error saving attendance" });
-            
+
             if (nuevoAtraso > 0) {
                 const totalAtrasos = (pasante.atrasos || 0) + 1;
                 let nuevoEstado = pasante.estado;
-                
+
                 // AUDITORIA LLAMADOS ATENCIÓN
                 if (totalAtrasos % 3 === 0) {
                     registrarAuditoria('Llamado de Atención', `Pasante ${nombrePasante} acumula ${totalAtrasos} atrasos.`, 'Sistema');
@@ -236,7 +236,7 @@ app.post('/timbrar', (req, res) => {
                     nuevoEstado = "Finalizado por atrasos excedidos";
                     registrarAuditoria('Pasante Finalizado', `Bloqueo automático: ${nombrePasante} excedió límite de atrasos.`, 'Sistema');
                 }
-                
+
                 db.query('UPDATE pasantes SET atrasos = ?, estado = ? WHERE id = ?', [totalAtrasos, nuevoEstado, pasante.id]);
             }
 
@@ -318,9 +318,9 @@ app.post('/pasantes', upload.single('foto'), (req, res) => {
 
     db.query(sql, values, (err, result) => {
         if (err) return res.status(500).json({ error: err.sqlMessage });
-        
+
         registrarAuditoria('Creación de Pasante', `Se registró al pasante ${body.nombres} ${body.apellidos}`, body.creadoPor);
-        
+
         res.json({ message: 'Pasante creado', id: result.insertId });
     });
 });
@@ -333,18 +333,18 @@ app.patch('/pasantes/:id', (req, res) => {
     // 1. Obtener nombre para auditoría
     db.query('SELECT nombres, apellidos, estado FROM pasantes WHERE id = ?', [id], (e, r) => {
         if (e || r.length === 0) return res.status(404).json({ error: "Pasante no encontrado" });
-        
+
         const pasanteActual = r[0];
         const nombrePasante = `${pasanteActual.nombres} ${pasanteActual.apellidos}`;
-        
+
         // 2. Construcción dinámica de la Query
         let updates = [];
         let values = [];
 
         // Mapeo de campos especiales
-        const dbMap = { 
-            horasCompletadas: 'horas_completadas', 
-            horasRequeridas: 'horas_requeridas', 
+        const dbMap = {
+            horasCompletadas: 'horas_completadas',
+            horasRequeridas: 'horas_requeridas',
             horaEntrada: 'hora_entrada',
             horaSalida: 'hora_salida',
             docHojaVida: 'doc_hoja_vida',
@@ -359,19 +359,19 @@ app.patch('/pasantes/:id', (req, res) => {
             if (['id', 'fotoUrl', 'informeUrl', 'documentacionCompleta'].includes(key)) return;
 
             const dbCol = dbMap[key] || key; // Usar mapeo o el nombre original
-            
+
             // Tratamiento especial para archivos Base64 en docs
             if (['doc_hoja_vida', 'doc_carta_solicitud', 'doc_acuerdo_confidencialidad', 'doc_copia_cedula'].includes(dbCol)) {
-                if (body[key]) { 
+                if (body[key]) {
                     const filename = saveBase64ToFile(body[key], dbCol);
                     updates.push(`${dbCol} = ?`);
                     values.push(filename);
                 }
             } else {
                 // Campos normales (texto, números, estado)
-                if (body[key] !== undefined) { 
-                    updates.push(`${dbCol} = ?`); 
-                    values.push(body[key]); 
+                if (body[key] !== undefined) {
+                    updates.push(`${dbCol} = ?`);
+                    values.push(body[key]);
                 }
             }
         });
@@ -452,7 +452,7 @@ app.put('/usuarios/:id', (req, res) => {
     db.query('SELECT usuario FROM usuarios_admin WHERE id = ?', [id], (err, r) => {
         const user = r.length > 0 ? r[0].usuario : 'Usuario';
         db.query('UPDATE usuarios_admin SET password = ?, estado = ? WHERE id = ?', [password, estado, id], (err) => {
-            if(err) return res.status(500).json(err);
+            if (err) return res.status(500).json(err);
             registrarAuditoria('Actualización Usuario', `Cambio de clave/estado para ${user}`, 'Admin');
             res.json({ message: 'Updated' });
         });
@@ -463,7 +463,7 @@ app.delete('/usuarios/:id', (req, res) => {
     db.query('SELECT usuario FROM usuarios_admin WHERE id = ?', [req.params.id], (err, r) => {
         const user = r.length > 0 ? r[0].usuario : 'Usuario';
         db.query('DELETE FROM usuarios_admin WHERE id = ?', [req.params.id], (err) => {
-            if(err) return res.status(500).json(err);
+            if (err) return res.status(500).json(err);
             registrarAuditoria('Eliminación Usuario', `Se eliminó al usuario ${user}`, 'Admin');
             res.json({ message: 'Deleted' });
         });
@@ -479,9 +479,9 @@ app.get('/auditoria', (req, res) => {
     const limit = req.query.limit ? parseInt(req.query.limit) : 20;
     // Seleccionamos todo de la tabla nueva
     const sql = `SELECT * FROM auditoria_cambios ORDER BY fecha DESC LIMIT ${limit}`;
-    
-    db.query(sql, (err, results) => { 
-        if (err) return res.status(500).json(err); 
+
+    db.query(sql, (err, results) => {
+        if (err) return res.status(500).json(err);
         // Mapeamos para el frontend
         const mapped = results.map(r => ({
             id: r.id,
@@ -490,7 +490,7 @@ app.get('/auditoria', (req, res) => {
             descripcion: r.descripcion, // Detalles
             fecha: r.fecha
         }));
-        res.json(mapped); 
+        res.json(mapped);
     });
 });
 

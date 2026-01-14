@@ -125,7 +125,7 @@ const AdminHome = () => {
                 {/* SIDEBAR FLOTANTE */}
                 <aside className="sidebar-floating">
                     <div className="brand">
-                        INAMHI <span>APP</span>
+                        INAMHI <span>Pasantes</span>
                     </div>
                     <nav className="menu-list">
                         <button className="menu-link active"><LayoutTemplate size={18} /> Panel Principal</button>
@@ -136,8 +136,8 @@ const AdminHome = () => {
                     <div className="user-mini">
                         <div className="user-avatar">AD</div>
                         <div className="user-data">
-                            <div>Admin User</div>
-                            <div>Super Admin</div>
+                            <div>Admin</div>
+                            <div>Diego Gonzalez</div>
                         </div>
                     </div>
                 </aside>

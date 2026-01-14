@@ -23,11 +23,25 @@ const SeguridadHome = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [pasantes, setPasantes] = useState<Pasante[]>([]);
     const [selectedPasante, setSelectedPasante] = useState<Pasante | null>(null);
-    const [eventosHoy, setEventosHoy] = useState<string[]>([]);
+    // Modificamos el estado para guardar el objeto completo del evento
+    const [eventosHoy, setEventosHoy] = useState<{ tipo_evento: string, guardia_responsable?: string }[]>([]);
     const [mensajeSistema, setMensajeSistema] = useState<{ tipo: 'success' | 'error', texto: string } | null>(null);
+    const [guardName, setGuardName] = useState('Guardia de Turno');
 
     // Cargar datos
     useEffect(() => {
+        // Cargar nombre del guardia
+        try {
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                // Intenta obtener nombre o usuario, o fallback. Se agrega user.name que viene del log in
+                setGuardName(user.nombre || user.nombres || user.name || user.usuario || 'Guardia de Turno');
+            }
+        } catch (e) {
+            console.error("Error leyendo usuario del localstorage", e);
+        }
+
         fetch('http://localhost:3001/pasantes')
             .then(res => res.json())
             .then(data => setPasantes(data));
@@ -39,7 +53,8 @@ const SeguridadHome = () => {
             fetch(`http://localhost:3001/asistencia/hoy/${selectedPasante.id}`)
                 .then(res => res.json())
                 .then(data => {
-                    setEventosHoy(data.map((e: any) => e.tipo_evento));
+                    // Guardamos todo el objeto evento
+                    setEventosHoy(data);
                 });
         } else {
             setEventosHoy([]);
@@ -63,14 +78,15 @@ const SeguridadHome = () => {
                 body: JSON.stringify({
                     pasanteId: selectedPasante.id,
                     tipoEvento: tipoEvento,
-                    guardia: 'Guardia Turno'
+                    guardia: guardName // Usa el nombre dinámico del guardia
                 })
             });
             const result = await response.json();
 
             if (response.ok) {
                 setMensajeSistema({ tipo: 'success', texto: result.message });
-                setEventosHoy(prev => [...prev, tipoEvento]);
+                // Agregamos el nuevo evento con el nombre del guardia actual
+                setEventosHoy(prev => [...prev, { tipo_evento: tipoEvento, guardia_responsable: guardName }]);
 
                 // Actualizar contadores
                 const resP = await fetch(`http://localhost:3001/pasantes/${selectedPasante.id}`);
@@ -87,16 +103,19 @@ const SeguridadHome = () => {
 
     const isButtonDisabled = (btnType: string) => {
         if (!selectedPasante?.estado.includes('Activo')) return true;
-        if (eventosHoy.includes(btnType)) return true;
+
+        const tieneEvento = (tipo: string) => eventosHoy.some(e => e.tipo_evento === tipo);
+
+        if (tieneEvento(btnType)) return true;
 
         if (btnType === 'entrada') return false;
-        if (!eventosHoy.includes('entrada')) return true;
+        if (!tieneEvento('entrada')) return true;
 
-        if (btnType === 'salida_almuerzo') return eventosHoy.includes('salida');
-        if (btnType === 'entrada_almuerzo') return !eventosHoy.includes('salida_almuerzo') || eventosHoy.includes('salida');
+        if (btnType === 'salida_almuerzo') return tieneEvento('salida');
+        if (btnType === 'entrada_almuerzo') return !tieneEvento('salida_almuerzo') || tieneEvento('salida');
 
         if (btnType === 'salida') {
-            if (eventosHoy.includes('salida_almuerzo') && !eventosHoy.includes('entrada_almuerzo')) return true;
+            if (tieneEvento('salida_almuerzo') && !tieneEvento('entrada_almuerzo')) return true;
             return false;
         }
         return false;
@@ -112,6 +131,9 @@ const SeguridadHome = () => {
         }
     };
 
+    // Helper para buscar un evento específico
+    const getEvento = (tipo: string) => eventosHoy.find(e => e.tipo_evento === tipo);
+
     return (
         <div className="security-layout">
 
@@ -119,6 +141,10 @@ const SeguridadHome = () => {
             <aside className="security-sidebar">
                 <div className="sidebar-header">
                     <h2>Control de Acceso</h2>
+                    <div className="guard-info" style={{ marginBottom: '15px', color: '#94a3b8', fontSize: '0.9rem' }}>
+                        <ShieldCheck size={16} style={{ display: 'inline', marginRight: '5px', verticalAlign: 'text-bottom' }} />
+                        Guardia: <span style={{ color: '#e2e8f0', fontWeight: 500 }}>{guardName}</span>
+                    </div>
                     <div className="search-wrapper">
                         <Search className="search-icon" />
                         <input
@@ -216,7 +242,7 @@ const SeguridadHome = () => {
                                             <p>Registro de inicio de labores</p>
                                         </div>
                                     </div>
-                                    {eventosHoy.includes('entrada') && <CheckCircle size={24} color="#10b981" />}
+                                    {getEvento('entrada') && <CheckCircle size={24} color="#10b981" />}
                                 </button>
 
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
@@ -255,7 +281,7 @@ const SeguridadHome = () => {
                                             <p>Cierre de jornada laboral</p>
                                         </div>
                                     </div>
-                                    {eventosHoy.includes('salida') && <ShieldCheck size={24} color="#10b981" />}
+                                    {getEvento('salida') && <ShieldCheck size={24} color="#10b981" />}
                                 </button>
                             </div>
 
@@ -264,31 +290,43 @@ const SeguridadHome = () => {
                                 <span className="timeline-header">Resumen del Día</span>
 
                                 <div className="timeline-item">
-                                    <div className={`timeline-dot ${eventosHoy.includes('entrada') ? 'done' : ''}`}></div>
+                                    <div className={`timeline-dot ${getEvento('entrada') ? 'done' : ''}`}></div>
                                     <div className="timeline-content">
                                         <h4>Entrada</h4>
-                                        <span>{eventosHoy.includes('entrada') ? 'Registrado' : 'Pendiente'}</span>
+                                        <span>{getEvento('entrada') ? 'Registrado' : 'Pendiente'}</span>
+                                        {getEvento('entrada')?.guardia_responsable && (
+                                            <div className="timeline-guard">Por: {getEvento('entrada')?.guardia_responsable}</div>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="timeline-item">
-                                    <div className={`timeline-dot ${eventosHoy.includes('salida_almuerzo') ? 'done' : ''}`}></div>
+                                    <div className={`timeline-dot ${getEvento('salida_almuerzo') ? 'done' : ''}`}></div>
                                     <div className="timeline-content">
                                         <h4>Inicio Almuerzo</h4>
-                                        <span>{eventosHoy.includes('salida_almuerzo') ? 'Registrado' : 'Pendiente'}</span>
+                                        <span>{getEvento('salida_almuerzo') ? 'Registrado' : 'Pendiente'}</span>
+                                        {getEvento('salida_almuerzo')?.guardia_responsable && (
+                                            <div className="timeline-guard">Por: {getEvento('salida_almuerzo')?.guardia_responsable}</div>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="timeline-item">
-                                    <div className={`timeline-dot ${eventosHoy.includes('entrada_almuerzo') ? 'done' : ''}`}></div>
+                                    <div className={`timeline-dot ${getEvento('entrada_almuerzo') ? 'done' : ''}`}></div>
                                     <div className="timeline-content">
                                         <h4>Fin Almuerzo</h4>
-                                        <span>{eventosHoy.includes('entrada_almuerzo') ? 'Registrado' : 'Pendiente'}</span>
+                                        <span>{getEvento('entrada_almuerzo') ? 'Registrado' : 'Pendiente'}</span>
+                                        {getEvento('entrada_almuerzo')?.guardia_responsable && (
+                                            <div className="timeline-guard">Por: {getEvento('entrada_almuerzo')?.guardia_responsable}</div>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="timeline-item">
-                                    <div className={`timeline-dot ${eventosHoy.includes('salida') ? 'done' : ''}`}></div>
+                                    <div className={`timeline-dot ${getEvento('salida') ? 'done' : ''}`}></div>
                                     <div className="timeline-content">
                                         <h4>Salida</h4>
-                                        <span>{eventosHoy.includes('salida') ? 'Registrado' : 'Pendiente'}</span>
+                                        <span>{getEvento('salida') ? 'Registrado' : 'Pendiente'}</span>
+                                        {getEvento('salida')?.guardia_responsable && (
+                                            <div className="timeline-guard">Por: {getEvento('salida')?.guardia_responsable}</div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
