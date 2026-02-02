@@ -428,6 +428,7 @@ app.post('/pasantes', upload.single('foto'), (req, res) => {
 app.patch('/pasantes/:id', (req, res) => {
     const { id } = req.params;
     const body = req.body;
+    console.log(`[PATCH] Updating pasante ${id}. Keys received:`, Object.keys(body));
 
     db.query('SELECT nombres, apellidos, estado FROM pasantes WHERE id = ?', [id], (e, r) => {
         if (e || r.length === 0) return res.status(404).json({ error: "Pasante no encontrado" });
@@ -447,14 +448,15 @@ app.patch('/pasantes/:id', (req, res) => {
             docCartaSolicitud: 'doc_carta_solicitud',
             docAcuerdoConfidencialidad: 'doc_acuerdo_confidencialidad',
             docCopiaCedula: 'doc_copia_cedula',
-            docCartaConvenio: 'doc_carta_convenio'
+            docCartaConvenio: 'doc_carta_convenio',
+            informeUrl: 'informe_url'
         };
 
         Object.keys(body).forEach(key => {
-            if (['id', 'fotoUrl', 'informeUrl', 'documentacionCompleta'].includes(key)) return;
+            if (['id', 'fotoUrl', 'documentacionCompleta', 'informeFinalSubido'].includes(key)) return;
             const dbCol = dbMap[key] || key;
 
-            if (['doc_hoja_vida', 'doc_carta_solicitud', 'doc_acuerdo_confidencialidad', 'doc_copia_cedula', 'doc_carta_convenio'].includes(dbCol)) {
+            if (['doc_hoja_vida', 'doc_carta_solicitud', 'doc_acuerdo_confidencialidad', 'doc_copia_cedula', 'doc_carta_convenio', 'informe_url'].includes(dbCol)) {
                 if (body[key]) {
                     const filename = saveBase64ToFile(body[key], dbCol);
                     updates.push(`${dbCol} = ?`);

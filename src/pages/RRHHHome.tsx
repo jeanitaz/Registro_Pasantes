@@ -90,6 +90,7 @@ const RRHHModern = () => {
                         { id: 'd2', nombre: 'Carta de Solicitud', validado: !!p.docCartaSolicitud },
                         { id: 'd3', nombre: 'Acuerdo de Confidencialidad', validado: !!p.docAcuerdoConfidencialidad },
                         { id: 'd4', nombre: 'Copia de Cédula', validado: !!p.docCopiaCedula },
+                        { id: 'd5', nombre: 'Carta de Convenio', validado: !!p.docCartaConvenio },
                     ];
 
                     return {

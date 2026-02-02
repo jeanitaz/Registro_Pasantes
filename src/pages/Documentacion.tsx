@@ -7,7 +7,8 @@ const DOCS_REQUERIDOS = [
     { key: 'docHojaVida', label: 'Hoja de Vida', dbId: 'd1' },
     { key: 'docCartaSolicitud', label: 'Carta de Solicitud', dbId: 'd2' },
     { key: 'docAcuerdoConfidencialidad', label: 'Acuerdo de Confidencialidad', dbId: 'd3' },
-    { key: 'docCopiaCedula', label: 'Copia de Cédula', dbId: 'd4' }
+    { key: 'docCopiaCedula', label: 'Copia de Cédula', dbId: 'd4' },
+    { key: 'docCartaConvenio', label: 'Carta de Convenio', dbId: 'd5' }
 ];
 
 const Documentacion = () => {
@@ -18,7 +19,7 @@ const Documentacion = () => {
     const navigate = useNavigate();
 
     const [files, setFiles] = useState<{ [key: string]: File | null }>({});
-    const [savedDocs, setSavedDocs] = useState<{ [key: string]: string }>({}); 
+    const [savedDocs, setSavedDocs] = useState<{ [key: string]: string }>({});
     const [nombrePasante, setNombrePasante] = useState<string>("");
     const [isUploading, setIsUploading] = useState(false);
     const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -39,12 +40,13 @@ const Documentacion = () => {
                 if (response.ok) {
                     const data = await response.json();
                     setNombrePasante(`${data.nombres} ${data.apellidos}`);
-                    
+
                     setSavedDocs({
                         docHojaVida: data.docHojaVida,
                         docCartaSolicitud: data.docCartaSolicitud,
                         docAcuerdoConfidencialidad: data.docAcuerdoConfidencialidad,
-                        docCopiaCedula: data.docCopiaCedula
+                        docCopiaCedula: data.docCopiaCedula,
+                        docCartaConvenio: data.docCartaConvenio
                     });
 
                     if (data.estado === 'Activo') setUploadStatus('success');
@@ -76,7 +78,7 @@ const Documentacion = () => {
             }
             // Límite de 10MB por archivo individual para no saturar
             if (file.size > 10 * 1024 * 1024) {
-                alert(`⚠️ El archivo es muy pesado (${(file.size/1024/1024).toFixed(1)}MB). Máximo 10MB.`);
+                alert(`⚠️ El archivo es muy pesado (${(file.size / 1024 / 1024).toFixed(1)}MB). Máximo 10MB.`);
                 return;
             }
             setFiles(prev => ({ ...prev, [key]: file }));
@@ -140,7 +142,7 @@ const Documentacion = () => {
             // Construir payload
             const payload: any = {
                 estado: "Activo",
-                documentacionCompleta: true 
+                documentacionCompleta: true
             };
 
             resultados.forEach(item => {
@@ -160,13 +162,13 @@ const Documentacion = () => {
             if (response.ok) {
                 setUploadStatus('success');
                 alert(`✅ ¡Éxito! ${nombrePasante} ha sido activado.`);
-                
+
                 // Actualizar estado local
                 resultados.forEach(item => {
-                    if(item) {
-                        setSavedDocs(prev => ({...prev, [item.key]: item.base64}));
+                    if (item) {
+                        setSavedDocs(prev => ({ ...prev, [item.key]: item.base64 }));
                         setFiles(prev => {
-                            const n = {...prev};
+                            const n = { ...prev };
                             delete n[item.key];
                             return n;
                         });
@@ -176,7 +178,7 @@ const Documentacion = () => {
                 // Manejo de errores detallado
                 const errorText = await response.text(); // Leemos como texto por si es error HTML (413)
                 console.error("Error servidor:", errorText);
-                
+
                 if (response.status === 413) {
                     alert("❌ Error: Los archivos son demasiado grandes para el servidor. Intenta subir de uno en uno o comprimirlos.");
                 } else {
@@ -201,23 +203,23 @@ const Documentacion = () => {
 
     return (
         <div className="docs-container">
-            <button onClick={() => navigate(-1)} style={{border:'none', background:'transparent', cursor:'pointer', marginBottom:'10px', display:'flex', alignItems:'center', gap:'5px', color:'#64748b'}}>
-                <ArrowLeft size={18}/> Volver
+            <button onClick={() => navigate(-1)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '5px', color: '#64748b' }}>
+                <ArrowLeft size={18} /> Volver
             </button>
 
             <header className="docs-header">
                 <div>
                     <h1>Gestión Documental</h1>
-                    <div style={{display:'flex', alignItems:'center', gap:'8px', marginTop:'5px', color:'#2563eb', fontWeight:'500'}}>
-                        <User size={18}/>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '5px', color: '#2563eb', fontWeight: '500' }}>
+                        <User size={18} />
                         <span>Pasante: {nombrePasante || "Cargando..."}</span>
                     </div>
                 </div>
                 <div className="status-indicator">
                     {isCompleted ? (
-                        <span className="badge-success"><CheckCircle size={16}/> Activo</span>
+                        <span className="badge-success"><CheckCircle size={16} /> Activo</span>
                     ) : (
-                        <span className="badge-pending"><AlertCircle size={16}/> Pendiente</span>
+                        <span className="badge-pending"><AlertCircle size={16} /> Pendiente</span>
                     )}
                 </div>
             </header>
@@ -231,24 +233,24 @@ const Documentacion = () => {
                     return (
                         <div key={doc.key} className={`doc-card ${tieneArchivo ? 'uploaded' : ''}`}>
                             <div className="icon-area">
-                                {tieneArchivo ? <FileText size={32} className="text-blue"/> : <Upload size={32} className="text-gray"/>}
+                                {tieneArchivo ? <FileText size={32} className="text-blue" /> : <Upload size={32} className="text-gray" />}
                             </div>
                             <div className="info-area">
                                 <h3>{doc.label}</h3>
                                 {fileLocal ? (
-                                    <p className="filename" style={{color:'#d97706'}}>Nuevo: {fileLocal.name}</p>
+                                    <p className="filename" style={{ color: '#d97706' }}>Nuevo: {fileLocal.name}</p>
                                 ) : fileGuardado ? (
                                     <p className="filename">✅ Guardado en sistema</p>
                                 ) : (
                                     <p className="placeholder">Vacío</p>
                                 )}
                             </div>
-                            <div className="action-area" style={{display:'flex', gap:'5px'}}>
+                            <div className="action-area" style={{ display: 'flex', gap: '5px' }}>
                                 {tieneArchivo && (
-                                    <button 
-                                        className="btn-icon view" 
+                                    <button
+                                        className="btn-icon view"
                                         onClick={() => handleViewFile(doc.key)}
-                                        style={{background:'#e0f2fe', color:'#0284c7', border:'none', width:'36px', height:'36px', borderRadius:'8px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center'}}
+                                        style={{ background: '#e0f2fe', color: '#0284c7', border: 'none', width: '36px', height: '36px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                         title="Ver PDF"
                                     >
                                         <Eye size={18} />
@@ -265,7 +267,7 @@ const Documentacion = () => {
                                             ref={el => { inputRefs.current[doc.key] = el }}
                                             onChange={(e) => handleFileChange(doc.key, e)}
                                         />
-                                        
+
                                         {fileLocal ? (
                                             <button className="btn-icon delete" onClick={() => handleRemoveFile(doc.key)}>
                                                 <Trash2 size={18} />
@@ -287,9 +289,9 @@ const Documentacion = () => {
                 <div className="info-text">
                     {isCompleted ? "Este usuario ya tiene la documentación completa." : "* Esta acción habilitará la cuenta del pasante inmediatamente."}
                 </div>
-                
-                <button 
-                    className={`btn-submit-docs ${isCompleted ? 'completed-btn' : ''}`} 
+
+                <button
+                    className={`btn-submit-docs ${isCompleted ? 'completed-btn' : ''}`}
                     onClick={handleSubmit}
                     disabled={isUploading || isCompleted}
                     style={{
@@ -323,17 +325,17 @@ const Documentacion = () => {
                             padding: '10px 20px', borderBottom: '1px solid #eee',
                             display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                         }}>
-                            <h3 style={{margin:0}}>Vista Previa</h3>
-                            <button onClick={() => setShowModal(false)} style={{border:'none', background:'transparent', cursor:'pointer'}}>
-                                <X size={24}/>
+                            <h3 style={{ margin: 0 }}>Vista Previa</h3>
+                            <button onClick={() => setShowModal(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}>
+                                <X size={24} />
                             </button>
                         </div>
-                        <iframe 
-                            src={pdfPreview} 
-                            width="100%" 
-                            height="100%" 
+                        <iframe
+                            src={pdfPreview}
+                            width="100%"
+                            height="100%"
                             title="PDF Preview"
-                            style={{border:'none', flex:1}}
+                            style={{ border: 'none', flex: 1 }}
                         />
                     </div>
                 </div>
