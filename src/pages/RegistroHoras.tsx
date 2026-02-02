@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import * as XLSX from 'xlsx-js-style'; 
-import { 
-    Clock, Calendar, ArrowLeft, 
+import * as XLSX from 'xlsx-js-style';
+import {
+    Clock, Calendar, ArrowLeft,
     LogIn, LogOut, Coffee, FileSpreadsheet,
     UserCheck, Shield
 } from 'lucide-react';
@@ -33,7 +33,7 @@ const RegistroHoras = () => {
                 setUserName(user.name || 'Pasante');
 
                 const response = await fetch(`http://localhost:3001/asistencia?pasante_id=${user.id}`);
-                
+
                 if (response.ok) {
                     const data = await response.json();
                     setRegistros(data);
@@ -54,7 +54,7 @@ const RegistroHoras = () => {
         const date = new Date(isoString);
         return date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
     };
-    
+
     const formatHora = (isoString: string) => {
         const date = new Date(isoString);
         return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -62,10 +62,10 @@ const RegistroHoras = () => {
 
     const getEventoBadge = (tipo: string) => {
         switch (tipo) {
-            case 'entrada': return <span className="badge-event entrada"><LogIn size={14}/> Entrada</span>;
-            case 'salida': return <span className="badge-event salida"><LogOut size={14}/> Salida</span>;
-            case 'salida_almuerzo': return <span className="badge-event almuerzo"><Coffee size={14}/> Inicio Almuerzo</span>;
-            case 'entrada_almuerzo': return <span className="badge-event almuerzo"><Coffee size={14}/> Fin Almuerzo</span>;
+            case 'entrada': return <span className="badge-event entrada"><LogIn size={14} /> Entrada</span>;
+            case 'salida': return <span className="badge-event salida"><LogOut size={14} /> Salida</span>;
+            case 'salida_almuerzo': return <span className="badge-event almuerzo"><Coffee size={14} /> Inicio Almuerzo</span>;
+            case 'entrada_almuerzo': return <span className="badge-event almuerzo"><Coffee size={14} /> Fin Almuerzo</span>;
             default: return <span className="badge-event">{tipo}</span>;
         }
     };
@@ -91,13 +91,13 @@ const RegistroHoras = () => {
                 <header>
                     <div className="header-actions">
                         <button className="btn-back" onClick={() => navigate(-1)}>
-                            <ArrowLeft size={18} style={{marginRight:'5px'}}/> Volver
+                            <ArrowLeft size={18} style={{ marginRight: '5px' }} /> Volver
                         </button>
                         <button className="btn-export" onClick={handleExportExcel}>
-                            <FileSpreadsheet size={18} style={{marginRight:'8px'}}/> Excel
+                            <FileSpreadsheet size={18} style={{ marginRight: '8px' }} /> Excel
                         </button>
                     </div>
-                    <div style={{textAlign: 'right'}}>
+                    <div style={{ textAlign: 'right' }}>
                         <h1>Historial de Marcaciones</h1>
                         <p className="subtitle">Registro de {userName}</p>
                     </div>
@@ -105,11 +105,11 @@ const RegistroHoras = () => {
 
                 <div className="card">
                     {loading ? (
-                        <div style={{padding:'40px', textAlign:'center', color:'#64748b'}}>Cargando...</div>
+                        <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Cargando...</div>
                     ) : registros.length === 0 ? (
-                        <div style={{padding:'40px', textAlign:'center', color:'#64748b'}}>Sin registros.</div>
+                        <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Sin registros.</div>
                     ) : (
-                        <div style={{overflowX: 'auto'}}>
+                        <div className="table-container">
                             <table>
                                 <thead>
                                     <tr>
@@ -123,27 +123,27 @@ const RegistroHoras = () => {
                                     {registros.map((reg) => (
                                         <tr key={reg.id}>
                                             <td className="date-cell">
-                                                <Calendar size={14} style={{marginRight:'8px', verticalAlign:'text-bottom'}}/>
+                                                <Calendar size={14} style={{ marginRight: '8px', verticalAlign: 'text-bottom' }} />
                                                 {formatFecha(reg.fecha_hora)}
                                             </td>
-                                            <td style={{fontWeight:'bold', color:'#0f172a'}}>
-                                                <Clock size={14} style={{marginRight:'8px', verticalAlign:'text-bottom', color:'#2563eb'}}/>
+                                            <td style={{ fontWeight: 'bold', color: '#0f172a' }}>
+                                                <Clock size={14} style={{ marginRight: '8px', verticalAlign: 'text-bottom', color: '#2563eb' }} />
                                                 {formatHora(reg.fecha_hora)}
                                             </td>
                                             <td>{getEventoBadge(reg.tipo_evento)}</td>
                                             <td className="guardia-text">
-                                                <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                     {reg.guardia && reg.guardia !== 'Sistema' ? (
                                                         <>
-                                                            <UserCheck size={16} color="#2563eb"/>
-                                                            <span style={{fontWeight: 600, color: '#1e293b'}}>
+                                                            <UserCheck size={16} color="#2563eb" />
+                                                            <span style={{ fontWeight: 600, color: '#1e293b' }}>
                                                                 {reg.guardia}
                                                             </span>
                                                         </>
                                                     ) : (
                                                         <>
-                                                            <Shield size={16} color="#94a3b8"/>
-                                                            <span style={{color:'#94a3b8', fontStyle:'italic'}}>Sistema</span>
+                                                            <Shield size={16} color="#94a3b8" />
+                                                            <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Sistema</span>
                                                         </>
                                                     )}
                                                 </div>

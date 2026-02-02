@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import * as XLSX from 'xlsx-js-style'; 
+import * as XLSX from 'xlsx-js-style';
 
-import { 
-    Search, Building, 
-    MapPin, Edit2, 
+import {
+    Search, Building,
+    MapPin, Edit2,
     Trash2, Save, X, Key, User,
-    FileSpreadsheet, ArrowLeft, Plus, Clock
+    FileSpreadsheet, ArrowLeft, Plus, Clock, Phone
 } from 'lucide-react';
 import '../styles/HistorialPasantes.css';
 
@@ -24,10 +24,11 @@ interface Pasante {
     usuario: string;
     password?: string;
     fechaRegistro?: string;
-    fotoUrl?: string; 
+    fotoUrl?: string;
     // NUEVOS CAMPOS
     horaEntrada?: string;
     horaSalida?: string;
+    telefono_emergencia?: string;
 }
 
 const HistorialPasantes = () => {
@@ -58,7 +59,7 @@ const HistorialPasantes = () => {
         fetchPasantes();
     }, []);
 
-    const filteredPasantes = pasantes.filter(p => 
+    const filteredPasantes = pasantes.filter(p =>
         p.nombres.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.apellidos.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.cedula.includes(searchTerm) ||
@@ -91,10 +92,10 @@ const HistorialPasantes = () => {
     };
 
     const handleOpenEdit = (pasante: Pasante) => {
-        setEditingPasante({ 
-            ...pasante, 
+        setEditingPasante({
+            ...pasante,
             horasCompletadas: pasante.horasCompletadas || 0,
-            horaEntrada: pasante.horaEntrada || '', 
+            horaEntrada: pasante.horaEntrada || '',
             horaSalida: pasante.horaSalida || ''
         });
         setIsModalOpen(true);
@@ -118,7 +119,7 @@ const HistorialPasantes = () => {
 
         try {
             const response = await fetch(`http://localhost:3001/pasantes/${editingPasante.id}`, {
-                method: 'PATCH', 
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(datosParaEnviar)
             });
@@ -127,14 +128,14 @@ const HistorialPasantes = () => {
                 // Actualizar estado local
                 setPasantes(prevPasantes => prevPasantes.map(p => {
                     if (p.id === editingPasante.id) {
-                        return { 
-                            ...p, 
+                        return {
+                            ...p,
                             ...datosParaEnviar
                         };
                     }
                     return p;
                 }));
-                
+
                 setIsModalOpen(false);
                 setEditingPasante(null);
                 alert("Pasante actualizado correctamente.");
@@ -142,9 +143,9 @@ const HistorialPasantes = () => {
                 const errorData = await response.json();
                 throw new Error(errorData.message || "Error al actualizar en el servidor");
             }
-        } catch (error) { 
+        } catch (error) {
             console.error(error);
-            alert("Error al conectar con el servidor."); 
+            alert("Error al conectar con el servidor.");
         }
     };
 
@@ -152,7 +153,7 @@ const HistorialPasantes = () => {
         <div className="history-page-wrapper">
             <header className="page-header-modern">
                 <div className="header-info">
-                    <button className="back-btn-modern" onClick={() => navigate(-1)}><ArrowLeft size={20}/></button>
+                    <button className="back-btn-modern" onClick={() => navigate(-1)}><ArrowLeft size={20} /></button>
                     <div>
                         <h1>Historial de Pasantes</h1>
                         <p>{filteredPasantes.length} estudiantes registrados</p>
@@ -189,8 +190,8 @@ const HistorialPasantes = () => {
                                 <div className="card-top-tag">
                                     <span className={`badge ${estadoClass}`}>{p.estado || 'Pendiente'}</span>
                                     <div className="card-quick-actions">
-                                        <button onClick={() => handleOpenEdit(p)} className="action-icon edit"><Edit2 size={14}/></button>
-                                        <button onClick={() => handleDelete(p.id)} className="action-icon delete"><Trash2 size={14}/></button>
+                                        <button onClick={() => handleOpenEdit(p)} className="action-icon edit"><Edit2 size={14} /></button>
+                                        <button onClick={() => handleDelete(p.id)} className="action-icon delete"><Trash2 size={14} /></button>
                                     </div>
                                 </div>
 
@@ -203,12 +204,15 @@ const HistorialPasantes = () => {
                                 </div>
 
                                 <div className="student-meta-info">
-                                    <div className="meta-row"><Building size={14}/> <span>{p.institucion}</span></div>
-                                    <div className="meta-row"><MapPin size={14}/> <span>{p.dependencia}</span></div>
-                                    <div className="meta-row"><User size={14}/> <span className="user-text">{p.usuario}</span></div>
+                                    <div className="meta-row"><Building size={14} /> <span>{p.institucion}</span></div>
+                                    <div className="meta-row"><MapPin size={14} /> <span>{p.dependencia}</span></div>
+                                    <div className="meta-row"><User size={14} /> <span className="user-text">{p.usuario}</span></div>
                                     {/* Mostrar Horario si existe */}
                                     {p.horaEntrada && (
-                                        <div className="meta-row"><Clock size={14}/> <span className="schedule-text">{p.horaEntrada} - {p.horaSalida}</span></div>
+                                        <div className="meta-row"><Clock size={14} /> <span className="schedule-text">{p.horaEntrada} - {p.horaSalida}</span></div>
+                                    )}
+                                    {p.telefono_emergencia && (
+                                        <div className="meta-row"><Phone size={14} /> <span style={{ color: '#ef4444' }}>Emerg: {p.telefono_emergencia}</span></div>
                                     )}
                                 </div>
 
@@ -218,7 +222,7 @@ const HistorialPasantes = () => {
                                         <span>{horasC} / {horasR}h</span>
                                     </div>
                                     <div className="progress-rail">
-                                        <div className="progress-bar" style={{width: `${progress}%`, backgroundColor: progress >= 100 ? '#10b981' : '#2563eb'}}></div>
+                                        <div className="progress-bar" style={{ width: `${progress}%`, backgroundColor: progress >= 100 ? '#10b981' : '#2563eb' }}></div>
                                     </div>
                                 </div>
                             </div>
@@ -233,67 +237,67 @@ const HistorialPasantes = () => {
                     <div className="modal-glass">
                         <div className="modal-header">
                             <h3>Actualizar Pasante</h3>
-                            <button className="close-btn" onClick={() => setIsModalOpen(false)}><X size={20}/></button>
+                            <button className="close-btn" onClick={() => setIsModalOpen(false)}><X size={20} /></button>
                         </div>
                         <div className="modal-body">
-                            <div style={{display:'flex', alignItems:'center', gap:'15px', marginBottom:'20px'}}>
-                                <div className="avatar-student-modal" style={{width:'50px', height:'50px', borderRadius:'50%', background:'#2563eb', color:'white', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.2rem', fontWeight:'bold', overflow:'hidden'}}>
-                                     {editingPasante.fotoUrl && editingPasante.fotoUrl.startsWith('http') ? (
-                                        <img src={editingPasante.fotoUrl} alt="Foto" style={{width:'100%', height:'100%', objectFit:'cover'}} />
-                                     ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
+                                <div className="avatar-student-modal" style={{ width: '50px', height: '50px', borderRadius: '50%', background: '#2563eb', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 'bold', overflow: 'hidden' }}>
+                                    {editingPasante.fotoUrl && editingPasante.fotoUrl.startsWith('http') ? (
+                                        <img src={editingPasante.fotoUrl} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ) : (
                                         <span>{editingPasante.nombres.charAt(0)}</span>
-                                     )}
+                                    )}
                                 </div>
-                                <p className="student-name-modal" style={{margin:0, fontWeight:'bold'}}>{editingPasante.nombres} {editingPasante.apellidos}</p>
+                                <p className="student-name-modal" style={{ margin: 0, fontWeight: 'bold' }}>{editingPasante.nombres} {editingPasante.apellidos}</p>
                             </div>
-                            
+
                             <div className="credentials-box-modal">
                                 <div className="input-group">
-                                    <label><User size={14}/> Usuario</label>
-                                    <input type="text" value={editingPasante.usuario} readOnly className="input-readonly"/>
+                                    <label><User size={14} /> Usuario</label>
+                                    <input type="text" value={editingPasante.usuario} readOnly className="input-readonly" />
                                 </div>
                                 <div className="input-group">
-                                    <label><Key size={14}/> Contraseña</label>
-                                    <input 
-                                        type="text" 
-                                        value={editingPasante.password} 
-                                        onChange={(e) => setEditingPasante({...editingPasante, password: e.target.value})} 
+                                    <label><Key size={14} /> Contraseña</label>
+                                    <input
+                                        type="text"
+                                        value={editingPasante.password}
+                                        onChange={(e) => setEditingPasante({ ...editingPasante, password: e.target.value })}
                                         placeholder="Nueva contraseña (opcional)..."
                                     />
                                 </div>
                             </div>
 
                             {/* SECCIÓN HORARIOS */}
-                            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px'}}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
                                 <div className="input-group">
                                     <label>Hora Entrada</label>
-                                    <input 
-                                        type="time" 
-                                        value={editingPasante.horaEntrada} 
-                                        onChange={(e) => setEditingPasante({...editingPasante, horaEntrada: e.target.value})}
+                                    <input
+                                        type="time"
+                                        value={editingPasante.horaEntrada}
+                                        onChange={(e) => setEditingPasante({ ...editingPasante, horaEntrada: e.target.value })}
                                     />
                                 </div>
                                 <div className="input-group">
                                     <label>Hora Salida</label>
-                                    <input 
-                                        type="time" 
-                                        value={editingPasante.horaSalida} 
-                                        onChange={(e) => setEditingPasante({...editingPasante, horaSalida: e.target.value})}
+                                    <input
+                                        type="time"
+                                        value={editingPasante.horaSalida}
+                                        onChange={(e) => setEditingPasante({ ...editingPasante, horaSalida: e.target.value })}
                                     />
                                 </div>
                             </div>
 
                             <div className="input-group"><label>Horas Completadas</label>
                                 <div className="hours-input-wrapper">
-                                    <input 
-                                        type="number" 
-                                        value={editingPasante.horasCompletadas} 
-                                        onChange={(e) => setEditingPasante({...editingPasante, horasCompletadas: Number(e.target.value)})} 
+                                    <input
+                                        type="number"
+                                        value={editingPasante.horasCompletadas}
+                                        onChange={(e) => setEditingPasante({ ...editingPasante, horasCompletadas: Number(e.target.value) })}
                                     />
                                 </div>
                             </div>
                             <div className="input-group"><label>Estado</label>
-                                <select value={editingPasante.estado} onChange={(e) => setEditingPasante({...editingPasante, estado: e.target.value})}>
+                                <select value={editingPasante.estado} onChange={(e) => setEditingPasante({ ...editingPasante, estado: e.target.value })}>
                                     <option value="No habilitado">No habilitado</option>
                                     <option value="Activo">Activo</option>
                                     <option value="Retiro anticipado">Retiro anticipado</option>
@@ -306,7 +310,7 @@ const HistorialPasantes = () => {
                         </div>
                         <div className="modal-footer">
                             <button className="btn-cancel" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-                            <button className="btn-save" onClick={handleSaveEdit}><Save size={16}/> Guardar</button>
+                            <button className="btn-save" onClick={handleSaveEdit}><Save size={16} /> Guardar</button>
                         </div>
                     </div>
                 </div>

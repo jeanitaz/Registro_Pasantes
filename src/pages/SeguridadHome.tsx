@@ -84,7 +84,12 @@ const SeguridadHome = () => {
             const result = await response.json();
 
             if (response.ok) {
-                setMensajeSistema({ tipo: 'success', texto: result.message });
+                if (result.alerta) {
+                    setMensajeSistema({ tipo: 'error', texto: `⚠️ ${result.message}: ${result.alerta}` });
+                } else {
+                    setMensajeSistema({ tipo: 'success', texto: result.message });
+                }
+
                 // Agregamos el nuevo evento con el nombre del guardia actual
                 setEventosHoy(prev => [...prev, { tipo_evento: tipoEvento, guardia_responsable: guardName }]);
 

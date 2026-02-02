@@ -45,6 +45,7 @@ interface PasanteData {
   fotoUrl?: string;
   cedula?: string;
   institucion?: string;
+  delegado?: string;
 }
 
 const PasanteHome = () => {
@@ -211,6 +212,13 @@ const PasanteHome = () => {
     if (!pasante?.id) {
       alert("Error: No se ha identificado al pasante.");
       return;
+    }
+
+    // 4. LÓGICA HÍBRIDA: Si hay delegado en BD, úsalo. Si no, ¡PREGUNTA!
+    let nombreDelegado = pasante.delegado;
+
+    if (!nombreDelegado) {
+      nombreDelegado = window.prompt("⚠️ El sistema no tiene registrado un Tutor/Delegado para este pasante.\n\nPor favor, ingrese el nombre del Tutor Institucional / Delegado:", "Ing. Nombre Apellido") || "Tutor Institucional";
     }
 
     const printWindow = window.open('', '_blank');
@@ -432,8 +440,8 @@ const PasanteHome = () => {
             <div class="signatures-container">
                 <div class="signature-box">
                     <div class="signature-line"></div>
-                    <p class="signer-name">Tutor Institucional</p>
-                    <p class="signer-role">INAMHI</p>
+                    <p class="signer-name">${nombreDelegado}</p>
+                    <p class="signer-role">Tutor Institucional / Delegado</p>
                 </div>
                 <div class="signature-box">
                     <div class="signature-line"></div>

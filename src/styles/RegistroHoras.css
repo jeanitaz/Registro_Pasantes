@@ -114,6 +114,10 @@
     text-transform: uppercase;
     font-weight: 700;
     border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 1px 0 var(--border); /* Visual separator for sticky state */
 }
 
 .registro-horas-scope td {
@@ -152,4 +156,27 @@
 .registro-horas-scope .guardia-text {
     font-size: 0.85rem;
     color: var(--text-muted);
+}
+
+/* SCROLL CONTAINER */
+.registro-horas-scope .table-container {
+    overflow: auto;
+    max-height: 65vh; /* Ajustable según necesidad */
+    width: 100%;
+}
+
+/* CUSTOM SCROLLBAR */
+.registro-horas-scope .table-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+.registro-horas-scope .table-container::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+.registro-horas-scope .table-container::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+.registro-horas-scope .table-container::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
 }

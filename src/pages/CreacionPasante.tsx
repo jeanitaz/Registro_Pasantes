@@ -14,11 +14,13 @@ const CreacionPasante = () => {
         institucion: '',
         carrera: '',
         dependencia: '',
+        delegado: '',
         horasRequeridas: '',
         discapacidad: 'No',
         tipoDiscapacidad: '',
         email: '',
         telefono: '',
+        telefonoEmergencia: '',
         usuario: '',
         password: '',
         foto: null as File | null,
@@ -29,6 +31,7 @@ const CreacionPasante = () => {
         cedula: '',
         email: '',
         telefono: '',
+        telefonoEmergencia: '',
         password: ''
     });
 
@@ -75,11 +78,12 @@ const CreacionPasante = () => {
     const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
 
-        // Validaciones numéricas inmediatas
-        if (name === 'cedula' || name === 'telefono') {
+        // 3. ACTUALIZAR VALIDACIÓN NUMÉRICA PARA INCLUIR 'telefonoEmergencia'
+        if (name === 'cedula' || name === 'telefono' || name === 'telefonoEmergencia') {
             const soloNumeros = value.replace(/\D/g, '');
             if (soloNumeros.length <= 10) {
                 setFormData(prev => ({ ...prev, [name]: soloNumeros }));
+                // Limpiar error si llega a 10 dígitos
                 if (soloNumeros.length === 10) setErrors(prev => ({ ...prev, [name]: '' }));
             }
             return;
@@ -118,12 +122,17 @@ const CreacionPasante = () => {
 
     const validarFormulario = () => {
         let esValido = true;
-        const nuevosErrores = { cedula: '', email: '', telefono: '', password: '' };
+        // Reiniciamos errores incluyendo el nuevo
+        const nuevosErrores = { cedula: '', email: '', telefono: '', telefonoEmergencia: '', password: '' };
+
         if (formData.cedula.length !== 10) { nuevosErrores.cedula = 'Requerido 10 dígitos'; esValido = false; }
         if (formData.telefono.length !== 10) { nuevosErrores.telefono = 'Requerido 10 dígitos'; esValido = false; }
+        if (formData.telefonoEmergencia.length !== 10) { nuevosErrores.telefonoEmergencia = 'Requerido 10 dígitos'; esValido = false; }
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(formData.email)) { nuevosErrores.email = 'Email inválido'; esValido = false; }
+
         if (formData.password.length < 6) { nuevosErrores.password = 'Mínimo 6 caracteres'; esValido = false; }
+
         setErrors(nuevosErrores);
         return esValido;
     };
@@ -132,17 +141,14 @@ const CreacionPasante = () => {
         e.preventDefault();
         if (!validarFormulario()) return alert("⚠️ Por favor corrija los errores marcados.");
 
-        // Si dice que sí tiene discapacidad pero no escribió cuál, validar
         if (formData.discapacidad === 'Sí' && !formData.tipoDiscapacidad.trim()) {
             return alert("⚠️ Por favor especifique el tipo de discapacidad.");
         }
 
         const rrhhUser = JSON.parse(localStorage.getItem('user') || '{}');
+
         const nuevoPasante = {
             ...formData,
-            // Combinamos la info si es necesario, o la mandamos como campo aparte si tu backend lo soporta
-            // Aquí lo guardo en un campo nuevo "detalle_discapacidad" que deberás tener en tu DB
-            // O concatenamos si prefieres: discapacidad: `Sí - ${formData.tipoDiscapacidad}`
             detalleDiscapacidad: formData.tipoDiscapacidad,
             horasRequeridas: Number(formData.horasRequeridas),
             fotoUrl: formData.fotoBase64 || "",
@@ -153,7 +159,7 @@ const CreacionPasante = () => {
 
         delete (nuevoPasante as any).foto;
         delete (nuevoPasante as any).fotoBase64;
-        delete (nuevoPasante as any).tipoDiscapacidad; // Limpiamos campos temporales del front
+        delete (nuevoPasante as any).tipoDiscapacidad;
 
         try {
             const response = await fetch('http://localhost:3001/pasantes', {
@@ -223,12 +229,17 @@ const CreacionPasante = () => {
                         </div>
 
                         <div style={styles.inputGroup}>
-                            <label style={styles.label}>Teléfono</label>
+                            <label style={styles.label}>Teléfono Personal</label>
                             <input style={{ ...styles.input, borderColor: errors.telefono ? '#EF4444' : '#D1D5DB' }} type="tel" name="telefono" maxLength={10} value={formData.telefono} onChange={handleChange} required />
                             {errors.telefono && <span style={{ color: '#EF4444', fontSize: '0.75rem' }}>{errors.telefono}</span>}
                         </div>
 
-                        {/* --- LÓGICA DE DISCAPACIDAD MEJORADA --- */}
+                        <div style={styles.inputGroup}>
+                            <label style={styles.label}>Teléfono Emergencia</label>
+                            <input style={{ ...styles.input, borderColor: errors.telefonoEmergencia ? '#EF4444' : '#D1D5DB' }} type="tel" name="telefonoEmergencia" maxLength={10} value={formData.telefonoEmergencia} onChange={handleChange} required />
+                            {errors.telefonoEmergencia && <span style={{ color: '#EF4444', fontSize: '0.75rem' }}>{errors.telefonoEmergencia}</span>}
+                        </div>
+
                         <div style={styles.inputGroup}>
                             <label style={styles.label}>Discapacidad</label>
                             <select style={styles.select} name="discapacidad" value={formData.discapacidad} onChange={handleChange}>
@@ -280,6 +291,7 @@ const CreacionPasante = () => {
                     <div style={styles.grid}>
                         <div style={styles.inputGroup}><label style={styles.label}>Institución</label><input style={styles.input} type="text" name="institucion" value={formData.institucion} onChange={handleChange} required /></div>
                         <div style={styles.inputGroup}><label style={styles.label}>Carrera</label><input style={styles.input} type="text" name="carrera" value={formData.carrera} onChange={handleChange} required /></div>
+
                         <div style={styles.inputGroup}>
                             <label style={styles.label}>Dependencia</label>
                             <select style={styles.select} name="dependencia" value={formData.dependencia} onChange={handleChange} required>
@@ -287,6 +299,20 @@ const CreacionPasante = () => {
                                 {dependencias.map(d => <option key={d} value={d}>{d}</option>)}
                             </select>
                         </div>
+
+                        <div style={styles.inputGroup}>
+                            <label style={styles.label}>Delegado Responsable</label>
+                            <input
+                                style={styles.input}
+                                type="text"
+                                name="delegado"
+                                value={formData.delegado}
+                                onChange={handleChange}
+                                placeholder="Ej: Ing. María López"
+                                required
+                            />
+                        </div>
+
                         <div style={styles.inputGroup}><label style={styles.label}>Horas Requeridas</label><input style={styles.input} type="number" name="horasRequeridas" value={formData.horasRequeridas} onChange={handleChange} required /></div>
                     </div>
 

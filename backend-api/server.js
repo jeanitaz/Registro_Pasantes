@@ -25,14 +25,13 @@ const db = mysql.createConnection({
     user: 'root',
     password: '0993643838Jc',
     database: 'sistema_inamhi',
-    multipleStatements: true // Habilitar múltiples sentencias para inicialización
+    multipleStatements: true
 });
 
 db.connect(err => {
     if (err) console.error('❌ Error MySQL:', err);
     else {
         console.log('✅ Connected to MySQL successfully');
-        // Crear tabla de auditoría si no existe
         const createAuditTable = `
             CREATE TABLE IF NOT EXISTS auditoria_cambios (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -45,8 +44,49 @@ db.connect(err => {
         db.query(createAuditTable, (e) => {
             if (e) console.error("Error creating audit table:", e);
         });
+
+        // --- MIGRACIÓN AUTOMÁTICA: AGREGAR COLUMNA DELEGADO ---
+        const checkColumn = "SHOW COLUMNS FROM pasantes LIKE 'delegado'";
+        db.query(checkColumn, (err, result) => {
+            if (!err && result.length === 0) {
+                const alterTable = "ALTER TABLE pasantes ADD COLUMN delegado VARCHAR(150) AFTER dependencia";
+                db.query(alterTable, (e) => {
+                    if (e) console.error("Error adding 'delegado' column:", e);
+                    else console.log("✅ Columna 'delegado' agregada a tabla pasantes.");
+                });
+            }
+        });
+
+
+        // --- MIGRACIÓN AUTOMÁTICA EXTRA: Carta Convenio ---
+        const checkConvenio = "SHOW COLUMNS FROM pasantes LIKE 'doc_carta_convenio'";
+        db.query(checkConvenio, (err, result) => {
+            if (!err && result.length === 0) {
+                // Agregamos la columna si no existe
+                const alter = "ALTER TABLE pasantes ADD COLUMN doc_carta_convenio VARCHAR(255) AFTER doc_copia_cedula";
+                db.query(alter, (e) => {
+                    if (e) console.error("Error adding doc_carta_convenio:", e);
+                    else console.log("✅ Columna 'doc_carta_convenio' agregada.");
+                });
+            }
+        });
+
+        // --- MIGRACIÓN AUTOMÁTICA EXTRA: Telefono Emergencia ---
+        const checkEmergencia = "SHOW COLUMNS FROM pasantes LIKE 'telefono_emergencia'";
+        db.query(checkEmergencia, (err, result) => {
+            if (!err && result.length === 0) {
+                const alter = "ALTER TABLE pasantes ADD COLUMN telefono_emergencia VARCHAR(20) AFTER telefono";
+                db.query(alter, (e) => {
+                    if (e) console.error("Error adding telefono_emergencia:", e);
+                    else console.log("✅ Columna 'telefono_emergencia' agregada.");
+                });
+            }
+        });
     }
 });
+
+
+
 
 // 3. CONFIGURACIÓN DE MULTER Y UTILIDADES
 const storage = multer.diskStorage({
@@ -112,6 +152,7 @@ app.post('/login', (req, res) => {
                     usuario: p.usuario,
                     estado: p.estado,
                     docHojaVida: p.doc_ho_vida,
+                    delegado: p.delegado // <--- Incluir delegado en login
                 });
             }
             return res.status(401).json({ error: 'Credenciales inválidas' });
@@ -183,65 +224,107 @@ app.get('/asistencia/hoy/:id', (req, res) => {
     });
 });
 
-// TIMBRAR (Lógica de Atrasos y Retiros)
+// ✅ TIMBRAR (Lógica ACTUALIZADA para obtener nombre real del guardia)
 app.post('/timbrar', (req, res) => {
-    const { pasanteId, tipoEvento, guardia } = req.body;
+    const { pasanteId, tipoEvento, guardia } = req.body; // 'guardia' trae el usuario (ej: mnaranjo)
 
-    db.query('SELECT * FROM pasantes WHERE id = ?', [pasanteId], (err, results) => {
-        if (err || results.length === 0) return res.status(500).json({ error: 'Pasante no encontrado' });
-        const pasante = results[0];
-        const nombrePasante = `${pasante.nombres} ${pasante.apellidos}`;
+    // 1. PRIMERO: Buscamos el nombre real del guardia en la BD
+    db.query('SELECT nombres, apellidos FROM usuarios_admin WHERE usuario = ?', [guardia], (errGuardia, resGuardia) => {
 
-        if (pasante.estado && (pasante.estado.includes('Finalizado') || pasante.estado === 'No habilitado')) {
-            return res.status(400).json({ error: `Pasante bloqueado: ${pasante.estado}` });
+        // Si encontramos al guardia, usamos su nombre completo. Si no, usamos el usuario como fallback.
+        let nombreResponsable = guardia;
+        if (!errGuardia && resGuardia.length > 0) {
+            nombreResponsable = `${resGuardia[0].nombres} ${resGuardia[0].apellidos}`;
         }
 
-        const ahora = new Date();
-        let nuevoAtraso = 0;
-        let mensajeAtraso = "";
+        // 2. SEGUNDO: Procedemos con la lógica del pasante
+        db.query('SELECT * FROM pasantes WHERE id = ?', [pasanteId], (err, results) => {
+            if (err || results.length === 0) return res.status(500).json({ error: 'Pasante no encontrado' });
+            const pasante = results[0];
+            const nombrePasante = `${pasante.nombres} ${pasante.apellidos}`;
 
-        // Detectar ATRASO (Entrada > 8:15)
-        if (tipoEvento === 'entrada') {
-            const horaLimite = new Date(ahora);
-            horaLimite.setHours(8, 15, 0);
-            if (ahora > horaLimite) {
-                nuevoAtraso = 1;
-                mensajeAtraso = "Llegada tardía (+15 min)";
-                registrarAuditoria('Atraso Registrado', `Pasante ${nombrePasante} llegó a las ${ahora.toLocaleTimeString()}`, guardia);
+            if (pasante.estado && (pasante.estado.includes('Finalizado') || pasante.estado === 'No habilitado')) {
+                return res.status(400).json({ error: `Pasante bloqueado: ${pasante.estado}` });
             }
-        }
 
-        // Detectar RETIRO ANTICIPADO (Salida < 16:00)
-        if (tipoEvento === 'salida') {
-            const horaSalidaMinima = new Date(ahora);
-            horaSalidaMinima.setHours(16, 0, 0);
-            if (ahora < horaSalidaMinima) {
-                registrarAuditoria('Retiro Anticipado', `Pasante ${nombrePasante} salió antes (${ahora.toLocaleTimeString()})`, guardia);
-            }
-        }
+            // ---------------------------------------------------------
+            // LÓGICA DE HORARIOS PERSONALIZADOS
+            // ---------------------------------------------------------
+            const ahora = new Date();
+            let nuevoAtraso = 0;
+            let mensajeAtraso = "";
 
-        const sqlInsert = 'INSERT INTO registros_asistencia (pasante_id, tipo_evento, guardia_responsable, fecha_hora) VALUES (?, ?, ?, ?)';
-        db.query(sqlInsert, [pasanteId, tipoEvento, guardia, ahora], (err) => {
-            if (err) return res.status(500).json({ error: "Error saving attendance" });
+            // Helper para convertir "HH:MM" a Date (hoy)
+            const getFechaConHora = (horaStr) => {
+                if (!horaStr) return null;
+                const [h, m] = horaStr.split(':').map(Number);
+                const fecha = new Date(ahora);
+                fecha.setHours(h, m, 0, 0);
+                return fecha;
+            };
 
-            if (nuevoAtraso > 0) {
-                const totalAtrasos = (pasante.atrasos || 0) + 1;
-                let nuevoEstado = pasante.estado;
+            // 1. Detectar ATRASO (entrada)
+            if (tipoEvento === 'entrada') {
+                // Hora base: Si tiene hora_entrada personalizada, usarla. Si no, default 08:00
+                // GRACE PERIOD: 15 minutos
+                let horaLimite = new Date(ahora);
 
-                // AUDITORIA LLAMADOS ATENCIÓN
-                if (totalAtrasos % 3 === 0) {
-                    registrarAuditoria('Llamado de Atención', `Pasante ${nombrePasante} acumula ${totalAtrasos} atrasos.`, 'Sistema');
-                }
-                if (totalAtrasos > 5) {
-                    nuevoEstado = "Finalizado por atrasos excedidos";
-                    registrarAuditoria('Pasante Finalizado', `Bloqueo automático: ${nombrePasante} excedió límite de atrasos.`, 'Sistema');
+                if (pasante.hora_entrada) {
+                    horaLimite = getFechaConHora(pasante.hora_entrada);
+                } else {
+                    horaLimite.setHours(8, 0, 0, 0); // Default 8:00
                 }
 
-                db.query('UPDATE pasantes SET atrasos = ?, estado = ? WHERE id = ?', [totalAtrasos, nuevoEstado, pasante.id]);
+                // Sumamos 15 minutos de gracia
+                horaLimite.setMinutes(horaLimite.getMinutes() + 15);
+
+                if (ahora > horaLimite) {
+                    nuevoAtraso = 1;
+                    const horaEsperada = pasante.hora_entrada || "08:00";
+                    mensajeAtraso = `Llegada tardía (Hora: ${horaEsperada} + 15m gracia)`;
+                    registrarAuditoria('Atraso Registrado', `Pasante ${nombrePasante} llegó tarde (${ahora.toLocaleTimeString()}). Limite: ${horaLimite.toLocaleTimeString()}`, nombreResponsable);
+                }
             }
 
-            if (tipoEvento === 'salida') calcularHorasDia(pasanteId, ahora, res);
-            else res.json({ message: 'Timbrado exitoso', alerta: mensajeAtraso });
+            // 2. Detectar RETIRO ANTICIPADO (salida)
+            if (tipoEvento === 'salida') {
+                // Hora base salida: Si tiene hora_salida, usarla. Si no, default 16:00
+                let horaSalidaMinima = new Date(ahora);
+
+                if (pasante.hora_salida) {
+                    horaSalidaMinima = getFechaConHora(pasante.hora_salida);
+                } else {
+                    horaSalidaMinima.setHours(16, 0, 0, 0);
+                }
+
+                if (ahora < horaSalidaMinima) {
+                    registrarAuditoria('Retiro Anticipado', `Pasante ${nombrePasante} salió antes de su hora (${horaSalidaMinima.toLocaleTimeString()})`, nombreResponsable);
+                }
+            }
+
+            const sqlInsert = 'INSERT INTO registros_asistencia (pasante_id, tipo_evento, guardia_responsable, fecha_hora) VALUES (?, ?, ?, ?)';
+            db.query(sqlInsert, [pasanteId, tipoEvento, guardia, ahora], (err) => { // Aquí guardamos el usuario (ID) para referencia interna
+                if (err) return res.status(500).json({ error: "Error saving attendance" });
+
+                if (nuevoAtraso > 0) {
+                    const totalAtrasos = (pasante.atrasos || 0) + 1;
+                    let nuevoEstado = pasante.estado;
+
+                    // AUDITORIA LLAMADOS ATENCIÓN
+                    if (totalAtrasos % 3 === 0) {
+                        registrarAuditoria('Llamado de Atención', `Pasante ${nombrePasante} acumula ${totalAtrasos} atrasos.`, 'Sistema');
+                    }
+                    if (totalAtrasos > 5) {
+                        nuevoEstado = "Finalizado por atrasos excedidos";
+                        registrarAuditoria('Pasante Finalizado', `Bloqueo automático: ${nombrePasante} excedió límite de atrasos.`, 'Sistema');
+                    }
+
+                    db.query('UPDATE pasantes SET atrasos = ?, estado = ? WHERE id = ?', [totalAtrasos, nuevoEstado, pasante.id]);
+                }
+
+                if (tipoEvento === 'salida') calcularHorasDia(pasanteId, ahora, res);
+                else res.json({ message: 'Timbrado exitoso', alerta: mensajeAtraso });
+            });
         });
     });
 });
@@ -294,7 +377,10 @@ app.get('/pasantes', (req, res) => {
             docHojaVida: p.doc_hoja_vida ? `http://localhost:3001/uploads/${p.doc_hoja_vida}` : null,
             docCartaSolicitud: p.doc_carta_solicitud ? `http://localhost:3001/uploads/${p.doc_carta_solicitud}` : null,
             docAcuerdoConfidencialidad: p.doc_acuerdo_confidencialidad ? `http://localhost:3001/uploads/${p.doc_acuerdo_confidencialidad}` : null,
-            docCopiaCedula: p.doc_copia_cedula ? `http://localhost:3001/uploads/${p.doc_copia_cedula}` : null
+            docCopiaCedula: p.doc_copia_cedula ? `http://localhost:3001/uploads/${p.doc_copia_cedula}` : null,
+            docCartaConvenio: p.doc_carta_convenio ? `http://localhost:3001/uploads/${p.doc_carta_convenio}` : null,
+            horaEntrada: p.hora_entrada,
+            horaSalida: p.hora_salida
         }));
         res.json(formateados);
     });
@@ -304,7 +390,21 @@ app.get('/pasantes/:id', (req, res) => {
     db.query('SELECT * FROM pasantes WHERE id = ?', [req.params.id], (err, results) => {
         if (err || results.length === 0) return res.status(404).json({ message: 'No encontrado' });
         const p = results[0];
-        res.json({ ...p, horasCompletadas: p.horas_completadas || 0, horasRequeridas: p.horas_requeridas || 0, fotoUrl: p.foto_url ? `http://localhost:3001/uploads/${p.foto_url}` : null });
+        res.json({
+            ...p,
+            horasCompletadas: p.horas_completadas || 0,
+            horasRequeridas: p.horas_requeridas || 0,
+            fotoUrl: p.foto_url ? `http://localhost:3001/uploads/${p.foto_url}` : null,
+            informeUrl: p.informe_url ? `http://localhost:3001/uploads/${p.informe_url}` : null,
+            docHojaVida: p.doc_hoja_vida ? `http://localhost:3001/uploads/${p.doc_hoja_vida}` : null,
+            docCartaSolicitud: p.doc_carta_solicitud ? `http://localhost:3001/uploads/${p.doc_carta_solicitud}` : null,
+            docAcuerdoConfidencialidad: p.doc_acuerdo_confidencialidad ? `http://localhost:3001/uploads/${p.doc_acuerdo_confidencialidad}` : null,
+            docCopiaCedula: p.doc_copia_cedula ? `http://localhost:3001/uploads/${p.doc_copia_cedula}` : null,
+            docCopiaCedula: p.doc_copia_cedula ? `http://localhost:3001/uploads/${p.doc_copia_cedula}` : null,
+            docCartaConvenio: p.doc_carta_convenio ? `http://localhost:3001/uploads/${p.doc_carta_convenio}` : null,
+            horaEntrada: p.hora_entrada,
+            horaSalida: p.hora_salida
+        });
     });
 });
 
@@ -313,8 +413,8 @@ app.post('/pasantes', upload.single('foto'), (req, res) => {
     let filename = req.file ? req.file.filename : null;
     if (!filename && body.fotoUrl && body.fotoUrl.startsWith('data:')) filename = saveBase64ToFile(body.fotoUrl, 'foto_perfil');
 
-    const sql = `INSERT INTO pasantes (nombres, apellidos, cedula, fecha_nacimiento, institucion, carrera, dependencia, horas_requeridas, discapacidad, email, telefono, usuario, password, foto_url, fecha_registro, creado_por) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-    const values = [body.nombres, body.apellidos, body.cedula, body.fechaNacimiento, body.institucion, body.carrera, body.dependencia, body.horasRequeridas, body.discapacidad, body.email, body.telefono, body.usuario, body.password, filename, new Date(), body.creadoPor || 'Sistema'];
+    const sql = `INSERT INTO pasantes (nombres, apellidos, cedula, fecha_nacimiento, institucion, carrera, dependencia, delegado, horas_requeridas, discapacidad, email, telefono, telefono_emergencia, usuario, password, foto_url, fecha_registro, creado_por) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    const values = [body.nombres, body.apellidos, body.cedula, body.fechaNacimiento, body.institucion, body.carrera, body.dependencia, body.delegado, body.horasRequeridas, body.discapacidad, body.email, body.telefono, body.telefonoEmergencia, body.usuario, body.password, filename, new Date(), body.creadoPor || 'Sistema'];
 
     db.query(sql, values, (err, result) => {
         if (err) return res.status(500).json({ error: err.sqlMessage });
@@ -325,23 +425,19 @@ app.post('/pasantes', upload.single('foto'), (req, res) => {
     });
 });
 
-// ✅ CORRECCIÓN EN RUTA PATCH PARA PASANTES (UPDATE UNIFICADO)
 app.patch('/pasantes/:id', (req, res) => {
     const { id } = req.params;
     const body = req.body;
 
-    // 1. Obtener nombre para auditoría
     db.query('SELECT nombres, apellidos, estado FROM pasantes WHERE id = ?', [id], (e, r) => {
         if (e || r.length === 0) return res.status(404).json({ error: "Pasante no encontrado" });
 
         const pasanteActual = r[0];
         const nombrePasante = `${pasanteActual.nombres} ${pasanteActual.apellidos}`;
 
-        // 2. Construcción dinámica de la Query
         let updates = [];
         let values = [];
 
-        // Mapeo de campos especiales
         const dbMap = {
             horasCompletadas: 'horas_completadas',
             horasRequeridas: 'horas_requeridas',
@@ -350,25 +446,21 @@ app.patch('/pasantes/:id', (req, res) => {
             docHojaVida: 'doc_hoja_vida',
             docCartaSolicitud: 'doc_carta_solicitud',
             docAcuerdoConfidencialidad: 'doc_acuerdo_confidencialidad',
-            docCopiaCedula: 'doc_copia_cedula'
+            docCopiaCedula: 'doc_copia_cedula',
+            docCartaConvenio: 'doc_carta_convenio'
         };
 
-        // Procesar campos enviados
         Object.keys(body).forEach(key => {
-            // Ignorar campos que no son columnas o se tratan aparte
             if (['id', 'fotoUrl', 'informeUrl', 'documentacionCompleta'].includes(key)) return;
+            const dbCol = dbMap[key] || key;
 
-            const dbCol = dbMap[key] || key; // Usar mapeo o el nombre original
-
-            // Tratamiento especial para archivos Base64 en docs
-            if (['doc_hoja_vida', 'doc_carta_solicitud', 'doc_acuerdo_confidencialidad', 'doc_copia_cedula'].includes(dbCol)) {
+            if (['doc_hoja_vida', 'doc_carta_solicitud', 'doc_acuerdo_confidencialidad', 'doc_copia_cedula', 'doc_carta_convenio'].includes(dbCol)) {
                 if (body[key]) {
                     const filename = saveBase64ToFile(body[key], dbCol);
                     updates.push(`${dbCol} = ?`);
                     values.push(filename);
                 }
             } else {
-                // Campos normales (texto, números, estado)
                 if (body[key] !== undefined) {
                     updates.push(`${dbCol} = ?`);
                     values.push(body[key]);
@@ -376,17 +468,14 @@ app.patch('/pasantes/:id', (req, res) => {
             }
         });
 
-        // Lógica especial: Documentación completa
         if (body.documentacionCompleta) {
             updates.push("documentacion_completa = 1");
-            // Si no se envió estado explícito, forzar "Activo"
             if (!body.estado) {
                 updates.push("estado = 'Activo'");
                 registrarAuditoria('Documentación Completa', `Pasante ${nombrePasante} activado.`, 'RRHH');
             }
         }
 
-        // Lógica especial: Informe final
         if (body.informeUrl && body.informeUrl.startsWith('data:')) {
             const filename = saveBase64ToFile(body.informeUrl, 'informe_final');
             updates.push("informe_url = ?");
@@ -394,18 +483,13 @@ app.patch('/pasantes/:id', (req, res) => {
             registrarAuditoria('Informe Final', `Pasante ${nombrePasante} subió informe.`, 'Pasante');
         }
 
-        // 3. Ejecutar Update si hay cambios
         if (updates.length > 0) {
             values.push(id);
             const sql = `UPDATE pasantes SET ${updates.join(', ')} WHERE id = ?`;
 
             db.query(sql, values, (err) => {
-                if (err) {
-                    console.error("Error updating:", err);
-                    return res.status(500).json({ error: err.sqlMessage });
-                }
+                if (err) return res.status(500).json({ error: err.sqlMessage });
 
-                // Auditoría de cambio de estado
                 if (body.estado && body.estado !== pasanteActual.estado) {
                     registrarAuditoria('Cambio de Estado', `Estado de ${nombrePasante} cambió de '${pasanteActual.estado}' a '${body.estado}'`, 'Admin');
                 }
@@ -474,20 +558,17 @@ app.delete('/usuarios/:id', (req, res) => {
 // 📋 AUDITORÍA Y REPORTES
 // ==========================================
 
-// Esta ruta ahora lee de la tabla REAL de auditoría
 app.get('/auditoria', (req, res) => {
     const limit = req.query.limit ? parseInt(req.query.limit) : 20;
-    // Seleccionamos todo de la tabla nueva
     const sql = `SELECT * FROM auditoria_cambios ORDER BY fecha DESC LIMIT ${limit}`;
 
     db.query(sql, (err, results) => {
         if (err) return res.status(500).json(err);
-        // Mapeamos para el frontend
         const mapped = results.map(r => ({
             id: r.id,
-            nombre: r.responsable, // Quién lo hizo
-            rol: r.accion,         // Qué pasó (ej: "Atraso")
-            descripcion: r.descripcion, // Detalles
+            nombre: r.responsable,
+            rol: r.accion,
+            descripcion: r.descripcion,
             fecha: r.fecha
         }));
         res.json(mapped);

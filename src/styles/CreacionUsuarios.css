@@ -14,11 +14,11 @@
     --cu-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.05);
 
     background-color: var(--cu-bg-app);
-    min-height: 100vh;
+    height: 100vh;
+    overflow-y: auto;
     font-family: 'Plus Jakarta Sans', sans-serif;
     color: var(--cu-text-main);
-    display: flex;
-    justify-content: center;
+    display: block; /* Remove flex to avoid centering issues locking scroll, rely on margin auto for child */
     padding: 2rem;
     box-sizing: border-box;
     width: 100%;
@@ -34,6 +34,7 @@
 .creacion-usuarios-scope .cu-main-view {
     width: 100%;
     max-width: 800px;
+    margin: 0 auto;
 }
 
 /* HEADER */

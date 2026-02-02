@@ -27,7 +27,6 @@ const AppRoutes = () => {
                 <Route path="/admin" element={<AdminHome />} />
                 <Route path="/usuarios" element={<CreacionUsuarios />} />
                 <Route path="/historial" element={<HistorialUsuarios />} />
-                <Route path="/historialAlertas" element={<HistorialAlertas />} />
             </Route>
 
             {/* Rutas Protegidas - RR.HH. / Talento Humano */}
@@ -35,6 +34,7 @@ const AppRoutes = () => {
                 <Route path="/rrhh" element={<RRHHHome />} />
                 <Route path="/historialP" element={<HistorialPasantes />} />
                 <Route path="/documentacion/:idPasante" element={<Documentacion />} />
+                <Route path="/historialAlertas" element={<HistorialAlertas />} />
             </Route>
 
             {/* Rutas Protegidas - Seguridad */}
