@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx-js-style';
 import {
     LayoutTemplate, Users, FileText,
-    Settings, LogOut, Download, Briefcase,
+    LogOut, Download, Briefcase,
     ShieldCheck, Clock, AlertTriangle, Key, UserPlus, Trash2, CheckCircle
 } from 'lucide-react';
 import '../styles/AdminHome.css';
@@ -182,15 +182,6 @@ const AdminHome = () => {
                                 <p>Descarga en Excel</p>
                             </div>
                             <div className="card-icon-float icon-green"><Download size={24} /></div>
-                        </div>
-
-                        <div className="fancy-card config">
-                            <div className="card-text">
-                                <h3>Sistema</h3>
-                                <h2>Ajustes</h2>
-                                <p>Configuración global</p>
-                            </div>
-                            <div className="card-icon-float icon-orange"><Settings size={24} /></div>
                         </div>
                     </div>
 
