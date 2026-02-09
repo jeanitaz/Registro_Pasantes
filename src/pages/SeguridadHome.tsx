@@ -62,9 +62,9 @@ const SeguridadHome = () => {
     }, [selectedPasante]);
 
     const filteredPasantes = pasantes.filter(p =>
-        p.cedula.includes(searchTerm) ||
-        p.nombres.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.apellidos.toLowerCase().includes(searchTerm.toLowerCase())
+        (p.cedula || '').includes(searchTerm) ||
+        (p.nombres || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.apellidos || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const handleTimbrar = async (tipoEvento: string) => {
@@ -107,7 +107,7 @@ const SeguridadHome = () => {
     };
 
     const isButtonDisabled = (btnType: string) => {
-        if (!selectedPasante?.estado.includes('Activo')) return true;
+        if (!selectedPasante?.estado?.includes('Activo')) return true;
 
         const tieneEvento = (tipo: string) => eventosHoy.some(e => e.tipo_evento === tipo);
 
@@ -213,8 +213,8 @@ const SeguridadHome = () => {
                                     <h1>{selectedPasante.nombres} {selectedPasante.apellidos}</h1>
                                     <div className="user-meta">
                                         <span className="badge career">{selectedPasante.carrera}</span>
-                                        <span className={`badge ${selectedPasante.estado.includes('Activo') ? 'status-ok' : 'status-bad'}`}>
-                                            {selectedPasante.estado}
+                                        <span className={`badge ${selectedPasante.estado?.includes('Activo') ? 'status-ok' : 'status-bad'}`}>
+                                            {selectedPasante.estado || 'Sin Estado'}
                                         </span>
                                     </div>
                                 </div>
@@ -337,7 +337,7 @@ const SeguridadHome = () => {
                             </div>
                         </div>
 
-                        {!selectedPasante.estado.includes('Activo') && (
+                        {!selectedPasante.estado?.includes('Activo') && (
                             <div style={{ background: '#fef2f2', padding: '15px', textAlign: 'center', color: '#991b1b', fontWeight: 'bold', borderTop: '1px solid #fee2e2' }}>
                                 <XCircle style={{ display: 'inline', marginBottom: '-4px', marginRight: '8px' }} />
                                 USUARIO BLOQUEADO: No es posible registrar asistencia.
