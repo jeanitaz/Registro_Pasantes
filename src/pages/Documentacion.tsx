@@ -36,7 +36,7 @@ const Documentacion = () => {
 
         const cargarDatosPasante = async () => {
             try {
-                const response = await fetch(`http://localhost:3001/pasantes/${idPasante}`);
+                const response = await fetch(`/api/pasantes/${idPasante}`);
                 if (response.ok) {
                     const data = await response.json();
                     setNombrePasante(`${data.nombres} ${data.apellidos}`);
@@ -153,7 +153,7 @@ const Documentacion = () => {
 
             console.log("Enviando...", payload);
 
-            const response = await fetch(`http://localhost:3001/pasantes/${idPasante}`, {
+            const response = await fetch(`/api/pasantes/${idPasante}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),

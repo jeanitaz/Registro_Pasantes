@@ -27,7 +27,7 @@ const Login = () => {
     const roles = [
         { id: 'admin', label: 'Administrador' },
         { id: 'human_resources', label: 'RR.HH.' },
-        { id: 'security', label: 'Seguridad' }, 
+        { id: 'security', label: 'Seguridad' },
         { id: 'pasante', label: 'Pasante' }
     ];
 
@@ -64,14 +64,14 @@ const Login = () => {
     const handleConfirmAttended = async () => {
         if (!tempUser) return;
         const endpoint = tempUser.role === 'Pasante' ? 'pasantes' : 'usuarios';
-        
+
         try {
-            await fetch(`http://localhost:3001/${endpoint}/${tempUser.id}`, {
+            await fetch(`/api/${endpoint}/${tempUser.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ estadoRecuperacion: 'Completado' })
             });
-            
+
             saveSessionData(tempUser);
             setShowAttendedModal(false);
             redirectBasedOnRole(tempUser.role || tempUser.rol);
@@ -87,7 +87,7 @@ const Login = () => {
 
         console.log(`🔄 Redirecting user with role: ${role}`);
 
-        switch(role) {
+        switch (role) {
             case 'Seguridad':
                 navigate('/seguridad');
                 break;
@@ -95,7 +95,7 @@ const Login = () => {
                 navigate('/rrhh');
                 break;
             case 'Administrador':
-                navigate('/dashboard'); 
+                navigate('/dashboard');
                 break;
             case 'Pasante':
                 if (userData) {
@@ -142,7 +142,7 @@ const Login = () => {
         }
 
         try {
-            const response = await fetch('http://localhost:3001/login', {
+            const response = await fetch('/api/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -185,7 +185,7 @@ const Login = () => {
         try {
             localStorage.setItem('user', JSON.stringify(userSafe));
             localStorage.setItem('role', userSafe.role || userSafe.rol);
-            localStorage.setItem('token', 'dummy-token'); 
+            localStorage.setItem('token', 'dummy-token');
 
             if (rememberMe) localStorage.setItem('savedEmail', email);
             else localStorage.removeItem('savedEmail');
@@ -218,7 +218,7 @@ const Login = () => {
                         <h2>Iniciar Sesión</h2>
                         <p>Selecciona tu rol de acceso</p>
                     </div>
-                    
+
                     <div className="role-selector-wide">
                         {roles.map((role) => (
                             <button
@@ -273,7 +273,7 @@ const Login = () => {
             </div>
 
             {/* MODALS */}
-            
+
             {/* Modal para No Habilitado (Aún no activo) */}
             {showStatusModal && (
                 <div className="modal-overlay">
@@ -290,19 +290,19 @@ const Login = () => {
             {/* Modal para FINALIZADO / BLOQUEADO (Lógica Nueva) */}
             {showFinishedModal && (
                 <div className="modal-overlay">
-                    <div className="modal-content-finished" style={{borderTop: '5px solid #ef4444'}}>
+                    <div className="modal-content-finished" style={{ borderTop: '5px solid #ef4444' }}>
                         <button className="close-modal-btn" onClick={() => setShowFinishedModal(false)}><X size={20} /></button>
-                        <div className="modal-icon-finished" style={{background: '#fef2f2'}}>
+                        <div className="modal-icon-finished" style={{ background: '#fef2f2' }}>
                             <ShieldAlert size={48} color="#ef4444" />
                         </div>
-                        <h3 style={{color: '#ef4444'}}>Acceso Denegado</h3>
-                        <p className="modal-message" style={{marginBottom:'5px'}}>
+                        <h3 style={{ color: '#ef4444' }}>Acceso Denegado</h3>
+                        <p className="modal-message" style={{ marginBottom: '5px' }}>
                             Tu periodo de pasantías ha concluido.
                         </p>
                         <div style={{
-                            background: '#f8fafc', 
-                            padding: '10px', 
-                            borderRadius: '8px', 
+                            background: '#f8fafc',
+                            padding: '10px',
+                            borderRadius: '8px',
                             margin: '10px 0',
                             border: '1px solid #e2e8f0',
                             fontSize: '0.9rem',
@@ -310,10 +310,10 @@ const Login = () => {
                         }}>
                             <strong>Motivo:</strong> {blockReason || 'Finalizado'}
                         </div>
-                        <p style={{fontSize: '0.8rem', color:'#64748b'}}>
+                        <p style={{ fontSize: '0.8rem', color: '#64748b' }}>
                             Si crees que esto es un error, contacta a Talento Humano.
                         </p>
-                        <button className="btn-modal-action-blue" style={{background:'#ef4444', border:'none'}} onClick={() => setShowFinishedModal(false)}>Cerrar</button>
+                        <button className="btn-modal-action-blue" style={{ background: '#ef4444', border: 'none' }} onClick={() => setShowFinishedModal(false)}>Cerrar</button>
                     </div>
                 </div>
             )}

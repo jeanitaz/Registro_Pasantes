@@ -26,14 +26,14 @@ const AdminHome = () => {
         const fetchLogs = async () => {
             try {
                 // Fetch latest 20 audit logs
-                const response = await fetch('http://localhost:3001/auditoria?limit=20', { cache: 'no-store' });
+                const response = await fetch('/api/auditoria?limit=20', { cache: 'no-store' });
                 if (response.ok) {
                     const data = await response.json();
                     setLogs(data);
                 }
             } catch (error) { console.error(error); }
         };
-        
+
         fetchLogs();
         const interval = setInterval(fetchLogs, 5000); // Live update
         return () => clearInterval(interval);
@@ -63,7 +63,7 @@ const AdminHome = () => {
                 filename = 'Reporte_Auditoria_Completa';
             }
 
-            const res = await fetch(`http://localhost:3001${endpoint}`);
+            const res = await fetch(`/api${endpoint}`);
             const rawData = await res.json();
 
             // Format data for Excel based on type
@@ -78,20 +78,20 @@ const AdminHome = () => {
             } else {
                 dataToExport = rawData; // Default for others
             }
-            
+
             const wb = XLSX.utils.book_new();
             const ws = XLSX.utils.json_to_sheet(dataToExport);
-            
+
             // Auto-width columns (simple estimation)
             const wscols = Object.keys(dataToExport[0] || {}).map(() => ({ wch: 25 }));
             ws['!cols'] = wscols;
 
             XLSX.utils.book_append_sheet(wb, ws, "Reporte");
             XLSX.writeFile(wb, `${filename}_${new Date().toISOString().split('T')[0]}.xlsx`);
-            
+
             setShowModal(false);
-        } catch (e) { 
-            alert("Error generando reporte. Verifique la conexión."); 
+        } catch (e) {
+            alert("Error generando reporte. Verifique la conexión.");
         }
     };
 
@@ -215,7 +215,7 @@ const AdminHome = () => {
                                             <div className="log-avatar" style={{ background: '#F8FAFC' }}>
                                                 {getActionIcon(log.rol)}
                                             </div>
-                                            
+
                                             <div className="log-details">
                                                 <div style={{ fontWeight: '700', color: '#1e293b' }}>{log.rol}</div>
                                                 <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '2px' }}>
@@ -226,12 +226,12 @@ const AdminHome = () => {
                                                 </div>
                                             </div>
                                         </div>
-                                        
+
                                         <div className="log-meta">
-                                            <span 
-                                                className="badge-pill" 
-                                                style={{ 
-                                                    backgroundColor: style.bg, 
+                                            <span
+                                                className="badge-pill"
+                                                style={{
+                                                    backgroundColor: style.bg,
                                                     color: style.text,
                                                     border: (style as any).border || 'none'
                                                 }}
@@ -242,7 +242,7 @@ const AdminHome = () => {
                                                 <Clock size={12} style={{ marginRight: '4px', marginBottom: '-2px' }} />
                                                 {new Date(log.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 <br />
-                                                <span style={{fontSize:'0.7em'}}>{new Date(log.fecha).toLocaleDateString()}</span>
+                                                <span style={{ fontSize: '0.7em' }}>{new Date(log.fecha).toLocaleDateString()}</span>
                                             </span>
                                         </div>
                                     </div>
@@ -273,7 +273,7 @@ const AdminHome = () => {
                                     <Users size={32} />
                                     <span>Personal</span>
                                 </div>
-                                <div className="modal-option" onClick={() => handleDownload('auditoria')} style={{gridColumn: 'span 2'}}>
+                                <div className="modal-option" onClick={() => handleDownload('auditoria')} style={{ gridColumn: 'span 2' }}>
                                     <ShieldCheck size={32} />
                                     <span>Auditoría Completa</span>
                                 </div>

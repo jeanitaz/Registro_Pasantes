@@ -80,7 +80,7 @@ const PasanteHome = () => {
 
         // 2. CONSULTAR AL SERVIDOR (Datos frescos y FOTO URL)
         try {
-          const response = await fetch(`http://localhost:3001/pasantes/${localUser.id}`);
+          const response = await fetch(`/api/pasantes/${localUser.id}`);
           if (response.ok) {
             const dataDB = await response.json();
 
@@ -188,7 +188,7 @@ const PasanteHome = () => {
       setIsUploading(true);
       try {
         const base64Pdf = await convertToBase64(file);
-        const response = await fetch(`http://localhost:3001/pasantes/${pasante.id}`, {
+        const response = await fetch(`/api/pasantes/${pasante.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ informeFinalSubido: true, informeUrl: base64Pdf })
@@ -196,7 +196,7 @@ const PasanteHome = () => {
 
         if (response.ok) {
           alert(`✅ Archivo subido correctamente.`);
-          const refreshResponse = await fetch(`http://localhost:3001/pasantes/${pasante.id}`);
+          const refreshResponse = await fetch(`/api/pasantes/${pasante.id}`);
           if (refreshResponse.ok) {
             const freshData = await refreshResponse.json();
             setPasante(prev => prev ? ({ ...prev, informeSubido: true, informeUrl: freshData.informeUrl }) : null);
@@ -250,7 +250,7 @@ const PasanteHome = () => {
     let fullHistory: any[] = [];
     try {
       console.log("Iniciando fetch de historial para:", pasante.id);
-      const res = await fetch(`http://localhost:3001/asistencia?pasante_id=${pasante.id}`);
+      const res = await fetch(`/api/asistencia?pasante_id=${pasante.id}`);
 
       if (!res.ok) throw new Error(`Error del servidor: ${res.status}`);
 

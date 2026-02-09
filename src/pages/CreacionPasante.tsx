@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type FormEvent, type ChangeEvent } from 'react';
+﻿import { useState, useEffect, useRef, type FormEvent, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UploadCloud, ArrowLeft, User, Briefcase, Lock, Save } from 'lucide-react';
 
@@ -27,23 +27,31 @@ const CreacionPasante = () => {
         fotoBase64: ''
     });
 
+    // 1. CAMBIO: Agregamos 'foto' al estado de errores
     const [errors, setErrors] = useState({
         cedula: '',
         email: '',
         telefono: '',
         telefonoEmergencia: '',
-        password: ''
+        password: '',
+        foto: '' 
     });
 
     const [isConverting, setIsConverting] = useState(false);
 
     const dependencias = [
         "Dirección Ejecutiva",
-        "Gestión Meteorológica",
-        "Gestión Hidrológica",
-        "Tecnologías de la Información",
-        "Administrativo Financiero"
+        "Coordinación General Técnica",
+        "Dirección Meteorológica",
+        "Dirección Hidrológica",
+        "Dirección Administrativa Financiera",
+        "Dirección Jurídica",
+        "Tecnologías de la Información (TICS)",
+        "Dirección Administrativo Financiera",
+        "Comunicación Social",
+        "Planificación"
     ];
+
 
     // --- MANEJADORES ---
     const handleBrowseClick = () => fileInputRef.current?.click();
@@ -78,18 +86,15 @@ const CreacionPasante = () => {
     const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
 
-        // 3. ACTUALIZAR VALIDACIÓN NUMÉRICA PARA INCLUIR 'telefonoEmergencia'
         if (name === 'cedula' || name === 'telefono' || name === 'telefonoEmergencia') {
             const soloNumeros = value.replace(/\D/g, '');
             if (soloNumeros.length <= 10) {
                 setFormData(prev => ({ ...prev, [name]: soloNumeros }));
-                // Limpiar error si llega a 10 dígitos
                 if (soloNumeros.length === 10) setErrors(prev => ({ ...prev, [name]: '' }));
             }
             return;
         }
 
-        // Limpiar campo tipoDiscapacidad si cambia a "No"
         if (name === 'discapacidad' && value === 'No') {
             setFormData(prev => ({ ...prev, discapacidad: value, tipoDiscapacidad: '' }));
             return;
@@ -112,6 +117,8 @@ const CreacionPasante = () => {
             try {
                 const base64 = await convertToBase64(file);
                 setFormData(prev => ({ ...prev, foto: file, fotoBase64: base64 }));
+                // 2. CAMBIO: Limpiamos el error de foto si la subida es exitosa
+                setErrors(prev => ({ ...prev, foto: '' }));
             } catch (error) {
                 alert("Hubo un error al leer la imagen.");
             } finally {
@@ -122,8 +129,8 @@ const CreacionPasante = () => {
 
     const validarFormulario = () => {
         let esValido = true;
-        // Reiniciamos errores incluyendo el nuevo
-        const nuevosErrores = { cedula: '', email: '', telefono: '', telefonoEmergencia: '', password: '' };
+        // 3. CAMBIO: Reiniciamos errores incluyendo 'foto'
+        const nuevosErrores = { cedula: '', email: '', telefono: '', telefonoEmergencia: '', password: '', foto: '' };
 
         if (formData.cedula.length !== 10) { nuevosErrores.cedula = 'Requerido 10 dígitos'; esValido = false; }
         if (formData.telefono.length !== 10) { nuevosErrores.telefono = 'Requerido 10 dígitos'; esValido = false; }
@@ -132,6 +139,12 @@ const CreacionPasante = () => {
         if (!emailRegex.test(formData.email)) { nuevosErrores.email = 'Email inválido'; esValido = false; }
 
         if (formData.password.length < 6) { nuevosErrores.password = 'Mínimo 6 caracteres'; esValido = false; }
+
+        // 4. CAMBIO: Validación de la foto
+        if (!formData.foto) {
+            nuevosErrores.foto = 'La fotografía es obligatoria';
+            esValido = false;
+        }
 
         setErrors(nuevosErrores);
         return esValido;
@@ -162,7 +175,7 @@ const CreacionPasante = () => {
         delete (nuevoPasante as any).tipoDiscapacidad;
 
         try {
-            const response = await fetch('http://localhost:3001/pasantes', {
+            const response = await fetch('/api/pasantes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(nuevoPasante),
@@ -266,8 +279,16 @@ const CreacionPasante = () => {
 
                         {/* FOTO */}
                         <div style={{ gridColumn: '1 / -1' }}>
-                            <label style={styles.label}>Fotografía</label>
-                            <div style={styles.uploadBox} onClick={handleBrowseClick}>
+                            <label style={styles.label}>Fotografía (Obligatoria)</label>
+                            {/* 5. CAMBIO: Estilo condicional para borde rojo si hay error */}
+                            <div 
+                                style={{ 
+                                    ...styles.uploadBox, 
+                                    borderColor: errors.foto ? '#EF4444' : '#D1D5DB',
+                                    backgroundColor: errors.foto ? '#FEF2F2' : '#F9FAFB'
+                                }} 
+                                onClick={handleBrowseClick}
+                            >
                                 <input type="file" accept="image/*" onChange={handleFileChange} ref={fileInputRef} style={{ display: 'none' }} />
                                 {formData.fotoBase64 ? (
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
@@ -276,11 +297,16 @@ const CreacionPasante = () => {
                                     </div>
                                 ) : (
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                                        <UploadCloud size={40} color="#9CA3AF" />
-                                        <span style={{ color: '#4B5563', fontWeight: '500' }}>Subir foto (Máx 10MB)</span>
+                                        {/* Icono cambia a rojo si hay error */}
+                                        <UploadCloud size={40} color={errors.foto ? "#EF4444" : "#9CA3AF"} />
+                                        <span style={{ color: errors.foto ? "#EF4444" : "#4B5563", fontWeight: '500' }}>
+                                            {errors.foto ? "¡La foto es requerida!" : "Subir foto (Máx 10MB)"}
+                                        </span>
                                     </div>
                                 )}
                             </div>
+                            {/* 6. CAMBIO: Mensaje de error debajo del box */}
+                            {errors.foto && <span style={{ color: '#EF4444', fontSize: '0.75rem', marginTop: '5px', display: 'block' }}>{errors.foto}</span>}
                         </div>
                     </div>
 

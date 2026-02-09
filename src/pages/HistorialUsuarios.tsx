@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-    Search, User, Key, 
-    Fingerprint, Trash2, X, Save 
+import {
+    Search, User, Key,
+    Fingerprint, Trash2, X, Save
 } from 'lucide-react';
 import '../styles/HistorialUsuarios.css';
 
@@ -33,7 +33,7 @@ const HistorialUsuarios = () => {
     useEffect(() => {
         const fetchUsuarios = async () => {
             try {
-                const response = await fetch('http://localhost:3001/usuarios');
+                const response = await fetch('/api/usuarios');
                 if (response.ok) {
                     const data = await response.json();
                     setUsuarios(data);
@@ -47,7 +47,7 @@ const HistorialUsuarios = () => {
         fetchUsuarios();
     }, []);
 
-    const filteredUsuarios = usuarios.filter(u => 
+    const filteredUsuarios = usuarios.filter(u =>
         u.nombres.toLowerCase().includes(searchTerm.toLowerCase()) ||
         u.cedula.includes(searchTerm) ||
         u.usuario.toLowerCase().includes(searchTerm.toLowerCase())
@@ -56,7 +56,7 @@ const HistorialUsuarios = () => {
     const handleDelete = async (id: string) => {
         if (window.confirm("¿Eliminar este usuario permanentemente?")) {
             try {
-                await fetch(`http://localhost:3001/usuarios/${id}`, { method: 'DELETE' });
+                await fetch(`/api/usuarios/${id}`, { method: 'DELETE' });
                 setUsuarios(usuarios.filter(u => u.id !== id));
             } catch (error) {
                 alert("Error al eliminar");
@@ -75,14 +75,14 @@ const HistorialUsuarios = () => {
     const handleSaveChanges = async () => {
         if (!editingUser) return;
 
-        const updatedUser = { 
-            ...editingUser, 
-            password: newPassword, 
-            estado: newStatus 
+        const updatedUser = {
+            ...editingUser,
+            password: newPassword,
+            estado: newStatus
         };
 
         try {
-            const response = await fetch(`http://localhost:3001/usuarios/${editingUser.id}`, {
+            const response = await fetch(`/api/usuarios/${editingUser.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updatedUser)
@@ -104,7 +104,7 @@ const HistorialUsuarios = () => {
     };
 
     return (
-        
+
         <div className="sophisticated-wrapper">
             <div className="ambient-light light-1"></div>
             <div className="ambient-light light-2"></div>
@@ -119,16 +119,16 @@ const HistorialUsuarios = () => {
                     <div className="header-actions">
                         <div className="search-pill">
                             <Search size={18} />
-                            <input 
-                                type="text" 
-                                placeholder="Buscar funcionario..." 
+                            <input
+                                type="text"
+                                placeholder="Buscar funcionario..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
                     </div>
                 </header>
-                
+
 
                 {/* --- GRID DE TARJETAS --- */}
                 <div className="cards-grid">
@@ -139,7 +139,7 @@ const HistorialUsuarios = () => {
                     ) : (
                         filteredUsuarios.map((user) => (
                             <div key={user.id} className="user-card-glass">
-                                
+
                                 <div className="card-top">
                                     <div className={`role-badge ${user.rol === 'Seguridad' ? 'badge-blue' : 'badge-purple'}`}>
                                         {user.rol}
@@ -164,17 +164,17 @@ const HistorialUsuarios = () => {
 
                                 <div className="card-details">
                                     <div className="detail-row">
-                                        <Fingerprint size={16} className="icon-gray"/>
+                                        <Fingerprint size={16} className="icon-gray" />
                                         <span>{user.cedula}</span>
                                     </div>
-                                    
+
                                     <div className="credentials-container">
                                         <div className="cred-row">
-                                            <User size={14} /> 
+                                            <User size={14} />
                                             <span className="mono">{user.usuario}</span>
                                         </div>
                                         <div className="cred-row">
-                                            <Key size={14} /> 
+                                            <Key size={14} />
                                             <span className="mono pass">••••••••</span>
                                         </div>
                                     </div>
@@ -201,7 +201,7 @@ const HistorialUsuarios = () => {
                                 <X size={20} />
                             </button>
                         </div>
-                        
+
                         <div className="modal-body">
                             <div className="user-summary">
                                 <strong>{editingUser.nombres} {editingUser.apellidos}</strong>
@@ -210,8 +210,8 @@ const HistorialUsuarios = () => {
 
                             <div className="input-group">
                                 <label>Nueva Contraseña</label>
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     value={newPassword}
                                     onChange={(e) => setNewPassword(e.target.value)}
                                     placeholder="Escriba nueva clave..."
@@ -220,8 +220,8 @@ const HistorialUsuarios = () => {
 
                             <div className="input-group">
                                 <label>Estado</label>
-                                <select 
-                                    value={newStatus} 
+                                <select
+                                    value={newStatus}
                                     onChange={(e) => setNewStatus(e.target.value)}
                                 >
                                     <option value="Activo">Activo</option>

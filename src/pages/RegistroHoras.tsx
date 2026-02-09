@@ -32,7 +32,7 @@ const RegistroHoras = () => {
                 const user = JSON.parse(userStr);
                 setUserName(user.name || 'Pasante');
 
-                const response = await fetch(`http://localhost:3001/asistencia?pasante_id=${user.id}`);
+                const response = await fetch(`/api/asistencia?pasante_id=${user.id}`);
 
                 if (response.ok) {
                     const data = await response.json();

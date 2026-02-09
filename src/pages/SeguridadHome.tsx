@@ -42,7 +42,7 @@ const SeguridadHome = () => {
             console.error("Error leyendo usuario del localstorage", e);
         }
 
-        fetch('http://localhost:3001/pasantes')
+        fetch('/api/pasantes')
             .then(res => res.json())
             .then(data => setPasantes(data));
     }, []);
@@ -50,7 +50,7 @@ const SeguridadHome = () => {
     // Buscar historial de hoy
     useEffect(() => {
         if (selectedPasante) {
-            fetch(`http://localhost:3001/asistencia/hoy/${selectedPasante.id}`)
+            fetch(`/api/asistencia/hoy/${selectedPasante.id}`)
                 .then(res => res.json())
                 .then(data => {
                     // Guardamos todo el objeto evento
@@ -72,7 +72,7 @@ const SeguridadHome = () => {
         if (!window.confirm(`¿Registrar evento: ${tipoEvento.replace('_', ' ').toUpperCase()}?`)) return;
 
         try {
-            const response = await fetch('http://localhost:3001/timbrar', {
+            const response = await fetch('/api/timbrar', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -94,7 +94,7 @@ const SeguridadHome = () => {
                 setEventosHoy(prev => [...prev, { tipo_evento: tipoEvento, guardia_responsable: guardName }]);
 
                 // Actualizar contadores
-                const resP = await fetch(`http://localhost:3001/pasantes/${selectedPasante.id}`);
+                const resP = await fetch(`/api/pasantes/${selectedPasante.id}`);
                 const dataP = await resP.json();
                 setSelectedPasante(dataP);
             } else {

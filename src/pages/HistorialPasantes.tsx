@@ -43,7 +43,7 @@ const HistorialPasantes = () => {
     // Fetch inicial
     const fetchPasantes = async () => {
         try {
-            const response = await fetch('http://localhost:3001/pasantes');
+            const response = await fetch('/api/pasantes');
             if (response.ok) {
                 const data = await response.json();
                 setPasantes(data);
@@ -85,7 +85,7 @@ const HistorialPasantes = () => {
     const handleDelete = async (id: string) => {
         if (window.confirm("¿Eliminar este registro?")) {
             try {
-                await fetch(`http://localhost:3001/pasantes/${id}`, { method: 'DELETE' });
+                await fetch(`/api/pasantes/${id}`, { method: 'DELETE' });
                 setPasantes(pasantes.filter(p => p.id !== id));
             } catch (error) { alert("Error al eliminar"); }
         }
@@ -118,7 +118,7 @@ const HistorialPasantes = () => {
         }
 
         try {
-            const response = await fetch(`http://localhost:3001/pasantes/${editingPasante.id}`, {
+            const response = await fetch(`/api/pasantes/${editingPasante.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(datosParaEnviar)

@@ -80,7 +80,7 @@ const RRHHModern = () => {
     // --- CARGA DE DATOS (POLLING + MAPEO SEGURO) ---
     const fetchPasantes = async () => {
         try {
-            const response = await fetch('http://localhost:3001/pasantes');
+            const response = await fetch('/api/pasantes');
             if (response.ok) {
                 const data = await response.json();
 
@@ -172,7 +172,7 @@ const RRHHModern = () => {
         };
 
         try {
-            await fetch(`http://localhost:3001/pasantes/${selectedPasante.id}`, {
+            await fetch(`/api/pasantes/${selectedPasante.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(bodyToSend)
@@ -236,7 +236,7 @@ const RRHHModern = () => {
 
         try {
             const bodyToSend = { estado: "Retirado" };
-            await fetch(`http://localhost:3001/pasantes/${selectedPasante.id}`, {
+            await fetch(`/api/pasantes/${selectedPasante.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(bodyToSend)

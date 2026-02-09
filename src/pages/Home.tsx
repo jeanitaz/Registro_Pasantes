@@ -81,7 +81,6 @@ const Home = () => {
                         
                         <div className="modal-header">
                             <h2>Guía del Pasante</h2>
-                            <p>Requisitos de activación y normativa interna</p>
                         </div>
 
                         <div className="modal-scroll-body">
@@ -157,7 +156,7 @@ const Home = () => {
                                 <h3 className="section-title"><Clock size={20} className="icon-purple"/> Cálculo de Horas</h3>
                                 <div className="info-card-simple">
                                     <p>El tiempo de almuerzo (30 min) <strong>NO</strong> se cuenta como hora laboral.</p>
-                                    <p><em>Ejemplo: Entrada 12:00, Salida Almuerzo 13:00, Retorno 13:30, Salida 14:30 = <strong>4 Horas efectivas</strong>.</em></p>
+                                    <p><em>Ejemplo: Entrada 12:00, Salida Almuerzo 13:00, Retorno 13:30, Salida 16:30 = <strong>4 Horas efectivas</strong>.</em></p>
                                 </div>
                             </section>
                         </div>
