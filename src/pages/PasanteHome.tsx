@@ -496,13 +496,26 @@ const PasanteHome = () => {
           <div className="profile-pill">
             <div className={`status-dot ${estaFinalizadoMal ? 'dot-red' : 'dot-green'}`}></div>
             <span>{pasante.estado || "Activo"}</span>
-            <div className="avatar-circle" style={{ overflow: 'hidden', padding: tieneFoto ? 0 : undefined, border: tieneFoto ? '2px solid #e2e8f0' : 'none' }}>
-              {tieneFoto ? (
-                <img src={pasante.fotoUrl} alt="Perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            {/* --- IMAGEN CON FALLBACK A TEXTO --- */}
+            <div className="avatar-circle" style={{ overflow: 'hidden', padding: 0, border: '2px solid #e2e8f0', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              {pasante.fotoUrl ? (
+                <img 
+                    src={pasante.fotoUrl} 
+                    alt="Perfil" 
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                        if (e.currentTarget.parentElement) {
+                            e.currentTarget.parentElement.innerText = pasante.nombre.charAt(0);
+                            e.currentTarget.parentElement.style.padding = '8px'; // Restaurar padding para texto
+                        }
+                    }}
+                />
               ) : (
-                pasante.nombre.charAt(0)
+                <span style={{ padding: '8px' }}>{pasante.nombre.charAt(0)}</span>
               )}
             </div>
+            {/* ----------------------------------- */}
           </div>
         </header>
 

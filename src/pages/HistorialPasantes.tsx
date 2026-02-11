@@ -25,7 +25,6 @@ interface Pasante {
     password?: string;
     fechaRegistro?: string;
     fotoUrl?: string;
-    // NUEVOS CAMPOS
     horaEntrada?: string;
     horaSalida?: string;
     telefono_emergencia?: string;
@@ -39,6 +38,10 @@ const HistorialPasantes = () => {
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingPasante, setEditingPasante] = useState<Pasante | null>(null);
+
+    const [selectedCarrera, setSelectedCarrera] = useState('');
+    const [selectedInstitucion, setSelectedInstitucion] = useState('');
+    const [selectedEstado, setSelectedEstado] = useState('');
 
     // Fetch inicial
     const fetchPasantes = async () => {
@@ -59,12 +62,23 @@ const HistorialPasantes = () => {
         fetchPasantes();
     }, []);
 
-    const filteredPasantes = pasantes.filter(p =>
-        p.nombres.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.apellidos.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.cedula.includes(searchTerm) ||
-        p.usuario?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredPasantes = pasantes.filter(p => {
+        const matchesSearch = p.nombres.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            p.apellidos.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            p.cedula.includes(searchTerm) ||
+            p.usuario?.toLowerCase().includes(searchTerm.toLowerCase());
+
+        const matchesCarrera = selectedCarrera ? p.carrera === selectedCarrera : true;
+        const matchesInstitucion = selectedInstitucion ? p.institucion === selectedInstitucion : true;
+        const matchesEstado = selectedEstado ? p.estado === selectedEstado : true;
+
+        return matchesSearch && matchesCarrera && matchesInstitucion && matchesEstado;
+    });
+
+    // Obtener listas únicas para los select
+    const carreras = Array.from(new Set(pasantes.map(p => p.carrera).filter(Boolean)));
+    const instituciones = Array.from(new Set(pasantes.map(p => p.institucion).filter(Boolean)));
+    const estados = Array.from(new Set(pasantes.map(p => p.estado).filter(Boolean)));
 
     const handleExportExcel = () => {
         if (filteredPasantes.length === 0) return;
@@ -101,15 +115,23 @@ const HistorialPasantes = () => {
         setIsModalOpen(true);
     };
 
-    // --- CORRECCIÓN EN EL GUARDADO ---
+    // --- GUARDADO ---
     const handleSaveEdit = async () => {
         if (!editingPasante) return;
 
         // Preparamos los datos a enviar EXPLICITAMENTE
         const datosParaEnviar: any = {
+            nombres: editingPasante.nombres,
+            apellidos: editingPasante.apellidos,
+            cedula: editingPasante.cedula,
+            institucion: editingPasante.institucion,
+            carrera: editingPasante.carrera,
+            dependencia: editingPasante.dependencia,
+            usuario: editingPasante.usuario,
+            telefono_emergencia: editingPasante.telefono_emergencia,
             horasCompletadas: Number(editingPasante.horasCompletadas),
-            estado: editingPasante.estado, // <--- AHORA SE ENVÍA CORRECTAMENTE
-            horaEntrada: editingPasante.horaEntrada || null, // Null si está vacío
+            estado: editingPasante.estado,
+            horaEntrada: editingPasante.horaEntrada || null,
             horaSalida: editingPasante.horaSalida || null
         };
 
@@ -155,7 +177,7 @@ const HistorialPasantes = () => {
                 <div className="header-info">
                     <button className="back-btn-modern" onClick={() => navigate(-1)}><ArrowLeft size={20} /></button>
                     <div>
-                        <h1>Historial de Pasantes</h1>
+                        <h1>Administración de Pasantes</h1>
                         <p>{filteredPasantes.length} estudiantes registrados</p>
                     </div>
                 </div>
@@ -172,6 +194,46 @@ const HistorialPasantes = () => {
                         <Plus size={18} /> <span>Nuevo</span>
                     </button>
                 </div>
+
+                {/* BARRA DE FILTROS */}
+                <div className="filters-bar-modern">
+                    <select
+                        className="filter-select-modern"
+                        value={selectedCarrera}
+                        onChange={(e) => setSelectedCarrera(e.target.value)}
+                    >
+                        <option value="">Todas las Carreras</option>
+                        {carreras.map((c, i) => <option key={i} value={c}>{c}</option>)}
+                    </select>
+
+                    <select
+                        className="filter-select-modern"
+                        value={selectedInstitucion}
+                        onChange={(e) => setSelectedInstitucion(e.target.value)}
+                    >
+                        <option value="">Todas las Instituciones</option>
+                        {instituciones.map((i, idx) => <option key={idx} value={i}>{i}</option>)}
+                    </select>
+
+                    <select
+                        className="filter-select-modern"
+                        value={selectedEstado}
+                        onChange={(e) => setSelectedEstado(e.target.value)}
+                    >
+                        <option value="">Todos los Estados</option>
+                        {estados.map((e, i) => <option key={i} value={e}>{e}</option>)}
+                    </select>
+
+                    {(selectedCarrera || selectedInstitucion || selectedEstado) && (
+                        <button className="btn-modern clear-filters" onClick={() => {
+                            setSelectedCarrera('');
+                            setSelectedInstitucion('');
+                            setSelectedEstado('');
+                        }}>
+                            Limpiar
+                        </button>
+                    )}
+                </div>
             </header>
 
             <section className="cards-grid-modern">
@@ -182,7 +244,6 @@ const HistorialPasantes = () => {
                         const horasC = Number(p.horasCompletadas) || 0;
                         const horasR = Number(p.horasRequeridas) || 1;
                         const progress = Math.min((horasC / horasR) * 100, 100);
-                        const tieneFoto = p.fotoUrl && p.fotoUrl.startsWith('http');
                         const estadoClass = (p.estado || 'pendiente').toLowerCase().replace(/\s+/g, '-');
 
                         return (
@@ -196,9 +257,28 @@ const HistorialPasantes = () => {
                                 </div>
 
                                 <div className="student-hero">
-                                    <div className="avatar-large">
-                                        {tieneFoto ? <img src={p.fotoUrl} alt="p" /> : p.nombres.charAt(0)}
+                                    {/* --- FOTO DEL PASANTE --- */}
+                                    <div className="avatar-large" style={{ overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                        {p.fotoUrl ? (
+                                            <img
+                                                src={p.fotoUrl}
+                                                alt="Foto"
+                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                onError={(e) => {
+                                                    const target = e.target as HTMLImageElement;
+                                                    target.style.display = 'none';
+                                                    if (target.parentElement) {
+                                                        target.parentElement.innerText = p.nombres.charAt(0);
+                                                        target.parentElement.style.backgroundColor = '#2563eb';
+                                                        target.parentElement.style.color = 'white';
+                                                    }
+                                                }}
+                                            />
+                                        ) : (
+                                            p.nombres.charAt(0)
+                                        )}
                                     </div>
+
                                     <h3>{p.nombres} {p.apellidos}</h3>
                                     <span className="student-career">{p.carrera}</span>
                                 </div>
@@ -207,7 +287,6 @@ const HistorialPasantes = () => {
                                     <div className="meta-row"><Building size={14} /> <span>{p.institucion}</span></div>
                                     <div className="meta-row"><MapPin size={14} /> <span>{p.dependencia}</span></div>
                                     <div className="meta-row"><User size={14} /> <span className="user-text">{p.usuario}</span></div>
-                                    {/* Mostrar Horario si existe */}
                                     {p.horaEntrada && (
                                         <div className="meta-row"><Clock size={14} /> <span className="schedule-text">{p.horaEntrada} - {p.horaSalida}</span></div>
                                     )}
@@ -231,49 +310,114 @@ const HistorialPasantes = () => {
                 )}
             </section>
 
-            {/* MODAL DE EDICIÓN */}
+            {/* --- MODAL DE EDICIÓN COMPLETO --- */}
             {isModalOpen && editingPasante && (
                 <div className="modal-overlay">
-                    <div className="modal-glass">
+                    {/* Agregado scroll y tamaño máximo para que quepan todos los campos */}
+                    <div className="modal-glass" style={{ maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
                         <div className="modal-header">
                             <h3>Actualizar Pasante</h3>
                             <button className="close-btn" onClick={() => setIsModalOpen(false)}><X size={20} /></button>
                         </div>
                         <div className="modal-body">
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
-                                <div className="avatar-student-modal" style={{ width: '50px', height: '50px', borderRadius: '50%', background: '#2563eb', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 'bold', overflow: 'hidden' }}>
-                                    {editingPasante.fotoUrl && editingPasante.fotoUrl.startsWith('http') ? (
-                                        <img src={editingPasante.fotoUrl} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    ) : (
-                                        <span>{editingPasante.nombres.charAt(0)}</span>
-                                    )}
+                            
+                            {/* 1. SECCIÓN: DATOS PERSONALES */}
+                            <h4 style={{ fontSize: '14px', color: '#64748b', marginBottom: '10px', marginTop: '0', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>Datos Personales</h4>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+                                <div className="input-group">
+                                    <label>Nombres</label>
+                                    <input
+                                        type="text"
+                                        value={editingPasante.nombres}
+                                        onChange={(e) => setEditingPasante({ ...editingPasante, nombres: e.target.value })}
+                                    />
                                 </div>
-                                <p className="student-name-modal" style={{ margin: 0, fontWeight: 'bold' }}>{editingPasante.nombres} {editingPasante.apellidos}</p>
+                                <div className="input-group">
+                                    <label>Apellidos</label>
+                                    <input
+                                        type="text"
+                                        value={editingPasante.apellidos}
+                                        onChange={(e) => setEditingPasante({ ...editingPasante, apellidos: e.target.value })}
+                                    />
+                                </div>
+                                <div className="input-group">
+                                    <label>Cédula</label>
+                                    <input
+                                        type="text"
+                                        value={editingPasante.cedula}
+                                        onChange={(e) => setEditingPasante({ ...editingPasante, cedula: e.target.value })}
+                                    />
+                                </div>
+                                <div className="input-group">
+                                    <label>Teléfono Emergencia</label>
+                                    <input
+                                        type="text"
+                                        value={editingPasante.telefono_emergencia || ''}
+                                        onChange={(e) => setEditingPasante({ ...editingPasante, telefono_emergencia: e.target.value })}
+                                    />
+                                </div>
                             </div>
 
-                            <div className="credentials-box-modal">
+                            {/* 2. SECCIÓN: DATOS ACADÉMICOS */}
+                            <h4 style={{ fontSize: '14px', color: '#64748b', marginBottom: '10px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>Datos Académicos</h4>
+                            <div style={{ marginBottom: '15px' }}>
+                                <div className="input-group" style={{ marginBottom: '10px' }}>
+                                    <label>Institución</label>
+                                    <input
+                                        type="text"
+                                        value={editingPasante.institucion}
+                                        onChange={(e) => setEditingPasante({ ...editingPasante, institucion: e.target.value })}
+                                    />
+                                </div>
+                                <div className="input-group" style={{ marginBottom: '10px' }}>
+                                    <label>Carrera</label>
+                                    <input
+                                        type="text"
+                                        value={editingPasante.carrera}
+                                        onChange={(e) => setEditingPasante({ ...editingPasante, carrera: e.target.value })}
+                                    />
+                                </div>
+                                <div className="input-group">
+                                    <label>Dependencia (Área)</label>
+                                    <input
+                                        type="text"
+                                        value={editingPasante.dependencia}
+                                        onChange={(e) => setEditingPasante({ ...editingPasante, dependencia: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* 3. SECCIÓN: CREDENCIALES */}
+                            <h4 style={{ fontSize: '14px', color: '#64748b', marginBottom: '10px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>Credenciales</h4>
+                            <div className="credentials-box-modal" style={{ marginBottom: '15px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                                 <div className="input-group">
                                     <label><User size={14} /> Usuario</label>
-                                    <input type="text" value={editingPasante.usuario} readOnly className="input-readonly" />
+                                    {/* Ya no es readOnly, se puede editar */}
+                                    <input
+                                        type="text"
+                                        value={editingPasante.usuario}
+                                        onChange={(e) => setEditingPasante({ ...editingPasante, usuario: e.target.value })}
+                                    />
                                 </div>
                                 <div className="input-group">
                                     <label><Key size={14} /> Contraseña</label>
                                     <input
                                         type="text"
-                                        value={editingPasante.password}
+                                        value={editingPasante.password || ''}
                                         onChange={(e) => setEditingPasante({ ...editingPasante, password: e.target.value })}
-                                        placeholder="Nueva contraseña (opcional)..."
+                                        placeholder="Dejar vacío para no cambiar"
                                     />
                                 </div>
                             </div>
 
-                            {/* SECCIÓN HORARIOS */}
+                            {/* 4. SECCIÓN: CONTROL Y HORARIOS */}
+                            <h4 style={{ fontSize: '14px', color: '#64748b', marginBottom: '10px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>Control de Asistencia</h4>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
                                 <div className="input-group">
                                     <label>Hora Entrada</label>
                                     <input
                                         type="time"
-                                        value={editingPasante.horaEntrada}
+                                        value={editingPasante.horaEntrada || ''}
                                         onChange={(e) => setEditingPasante({ ...editingPasante, horaEntrada: e.target.value })}
                                     />
                                 </div>
@@ -281,32 +425,35 @@ const HistorialPasantes = () => {
                                     <label>Hora Salida</label>
                                     <input
                                         type="time"
-                                        value={editingPasante.horaSalida}
+                                        value={editingPasante.horaSalida || ''}
                                         onChange={(e) => setEditingPasante({ ...editingPasante, horaSalida: e.target.value })}
                                     />
                                 </div>
                             </div>
 
-                            <div className="input-group"><label>Horas Completadas</label>
-                                <div className="hours-input-wrapper">
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                                <div className="input-group">
+                                    <label>Horas Completadas</label>
                                     <input
                                         type="number"
                                         value={editingPasante.horasCompletadas}
                                         onChange={(e) => setEditingPasante({ ...editingPasante, horasCompletadas: Number(e.target.value) })}
                                     />
                                 </div>
+                                <div className="input-group">
+                                    <label>Estado</label>
+                                    <select value={editingPasante.estado} onChange={(e) => setEditingPasante({ ...editingPasante, estado: e.target.value })}>
+                                        <option value="No habilitado">No habilitado</option>
+                                        <option value="Activo">Activo</option>
+                                        <option value="Retiro anticipado">Retiro anticipado</option>
+                                        <option value="Finalizado por faltas excedidas">Finalizado por faltas excedidas</option>
+                                        <option value="Finalizado por atrasos excedidos">Finalizado por atrasos excedidos</option>
+                                        <option value="Finalizado por llamado de atención">Finalizado por llamado de atención</option>
+                                        <option value="Finalizado">Finalizado</option>
+                                    </select>
+                                </div>
                             </div>
-                            <div className="input-group"><label>Estado</label>
-                                <select value={editingPasante.estado} onChange={(e) => setEditingPasante({ ...editingPasante, estado: e.target.value })}>
-                                    <option value="No habilitado">No habilitado</option>
-                                    <option value="Activo">Activo</option>
-                                    <option value="Retiro anticipado">Retiro anticipado</option>
-                                    <option value="Finalizado por faltas excedidas">Finalizado por faltas excedidas</option>
-                                    <option value="Finalizado por atrasos excedidos">Finalizado por atrasos excedidos</option>
-                                    <option value="Finalizado por llamado de atención">Finalizado por llamado de atención</option>
-                                    <option value="Finalizado">Finalizado</option>
-                                </select>
-                            </div>
+
                         </div>
                         <div className="modal-footer">
                             <button className="btn-cancel" onClick={() => setIsModalOpen(false)}>Cancelar</button>

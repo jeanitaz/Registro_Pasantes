@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    Search, FileCheck,
+    Search,
     Users,
     LogOut, LayoutGrid, Bell,
     CheckCircle2,
@@ -451,7 +451,7 @@ const RRHHModern = () => {
             <aside className="modern-sidebar">
                 <div className="sidebar-header">
                     <div className="logo-box"><Users size={24} /></div>
-                    <span className="logo-text">HR Portal</span>
+                    <span className="logo-text">RRHH INAMHI</span>
                 </div>
                 <div className="nav-links">
                     <button className="nav-item active">
@@ -471,7 +471,7 @@ const RRHHModern = () => {
                     </button>
                     <button className="nav-item" onClick={() => navigate('/historialP')}>
                         <div className="nav-icon"><History size={20} /></div>
-                        <span>Historial Pasante</span>
+                        <span>Admin. de Pasantes</span>
                     </button>
                     <div className="nav-separator"></div>
                     <button onClick={handleLogout} className="nav-item logout-item">
@@ -541,7 +541,6 @@ const RRHHModern = () => {
                                             <span className="card-label" style={{ color: '#2563eb' }}>Documentación</span>
                                             <ExternalLink size={14} className="text-blue-500" />
                                         </div>
-                                        <FileCheck size={18} className="text-blue-500" />
                                     </div>
                                     <div className="progress-circular">
                                         <div className="progress-text">{calcularProgresoDocs().toFixed(0)}%</div>
@@ -693,7 +692,7 @@ const RRHHModern = () => {
                                     <div className="info-notes">
                                         <h4>Notas del sistema:</h4>
                                         <ul>
-                                            <li>Horas laborales: 8am-12pm y 12:30pm-4:30pm (No cuenta almuerzo).</li>
+                                            <li>Horas laborales: 12pm-13pm y 13:30pm-16:30pm (No cuenta almuerzo).</li>
                                             <li>Checklist 100% → <strong>Habilitado</strong>.</li>
                                             <li>Horas 100% → <strong>Aprobado</strong>.</li>
                                             <li>Exceder límites → <strong>Finalizado automáticamente</strong>.</li>

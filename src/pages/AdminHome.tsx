@@ -161,7 +161,7 @@ const AdminHome = () => {
                             <div className="card-text">
                                 <h3>Gestión</h3>
                                 <h2>Usuarios</h2>
-                                <p>Crear, editar, eliminar roles</p>
+                                <p>Creación de Talento Humano y Seguridad</p>
                             </div>
                             <div className="card-icon-float icon-indigo"><Users size={24} /></div>
                         </div>

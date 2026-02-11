@@ -19,19 +19,28 @@ if (!fs.existsSync(uploadDirGlobal)) {
 }
 app.use('/uploads', express.static(uploadDirGlobal));
 
-// 2. CONEXIÓN A LA BASE DE DATOS
-const db = mysql.createConnection({
+// 2. CONEXIÓN A LA BASE DE DATOS (MODO POOL - ANTI DESCONEXIÓN)
+const db = mysql.createPool({
     host: 'localhost',
-    user: 'root',
-    password: '0993643838Jc',
-    database: 'sistema_inamhi',
+    user: 'inamhi_user',       // <--- Usuario del servidor
+    password: 'Inamhi2026!',   // <--- Contraseña del servidor
+    database: 'sistema',       // <--- La base de datos que está viva
+    waitForConnections: true,
+    connectionLimit: 10,       // Permite hasta 10 conexiones simultáneas
+    queueLimit: 0,
     multipleStatements: true
 });
 
-db.connect(err => {
-    if (err) console.error('❌ Error MySQL:', err);
-    else {
-        console.log('✅ Connected to MySQL successfully');
+// Verificación inicial de conexión (Solo para comprobar al inicio)
+db.getConnection((err, connection) => {
+    if (err) {
+        console.error('❌ Error conectando al Pool de MySQL:', err);
+    } else {
+        console.log('✅ Conectado a MySQL exitosamente (Modo Pool)');
+        connection.release(); // Importante: Liberar la conexión para que otros la usen
+
+        // --- INICIALIZACIÓN DE TABLAS ---
+        // Se ejecuta una vez al arrancar para asegurar que existan las tablas
         const createAuditTable = `
             CREATE TABLE IF NOT EXISTS auditoria_cambios (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -57,12 +66,10 @@ db.connect(err => {
             }
         });
 
-
         // --- MIGRACIÓN AUTOMÁTICA EXTRA: Carta Convenio ---
         const checkConvenio = "SHOW COLUMNS FROM pasantes LIKE 'doc_carta_convenio'";
         db.query(checkConvenio, (err, result) => {
             if (!err && result.length === 0) {
-                // Agregamos la columna si no existe
                 const alter = "ALTER TABLE pasantes ADD COLUMN doc_carta_convenio VARCHAR(255) AFTER doc_copia_cedula";
                 db.query(alter, (e) => {
                     if (e) console.error("Error adding doc_carta_convenio:", e);
@@ -84,8 +91,6 @@ db.connect(err => {
         });
     }
 });
-
-
 
 
 // 3. CONFIGURACIÓN DE MULTER Y UTILIDADES
@@ -152,7 +157,7 @@ app.post('/login', (req, res) => {
                     usuario: p.usuario,
                     estado: p.estado,
                     docHojaVida: p.doc_ho_vida,
-                    delegado: p.delegado // <--- Incluir delegado en login
+                    delegado: p.delegado
                 });
             }
             return res.status(401).json({ error: 'Credenciales inválidas' });
@@ -176,7 +181,8 @@ app.get('/asistencia', (req, res) => {
             p.nombres AS pasante_nombres, 
             p.apellidos AS pasante_apellidos, 
             p.cedula, 
-            p.carrera
+            p.carrera,
+            p.foto_url
         FROM registros_asistencia r
         JOIN pasantes p ON r.pasante_id = p.id
         LEFT JOIN usuarios_admin u ON r.guardia_responsable = u.usuario
@@ -207,7 +213,9 @@ app.get('/asistencia', (req, res) => {
                 nombres: row.pasante_nombres,
                 apellidos: row.pasante_apellidos,
                 cedula: row.cedula,
-                carrera: row.carrera
+                carrera: row.carrera,
+                // URL corregida para el servidor
+                fotoUrl: row.foto_url ? `/api/uploads/${row.foto_url}` : null
             }
         }));
         res.json(response);
@@ -224,20 +232,19 @@ app.get('/asistencia/hoy/:id', (req, res) => {
     });
 });
 
-// ✅ TIMBRAR (Lógica ACTUALIZADA para obtener nombre real del guardia)
+// ✅ TIMBRAR
 app.post('/timbrar', (req, res) => {
-    const { pasanteId, tipoEvento, guardia } = req.body; // 'guardia' trae el usuario (ej: mnaranjo)
+    const { pasanteId, tipoEvento, guardia } = req.body;
 
     // 1. PRIMERO: Buscamos el nombre real del guardia en la BD
     db.query('SELECT nombres, apellidos FROM usuarios_admin WHERE usuario = ?', [guardia], (errGuardia, resGuardia) => {
 
-        // Si encontramos al guardia, usamos su nombre completo. Si no, usamos el usuario como fallback.
         let nombreResponsable = guardia;
         if (!errGuardia && resGuardia.length > 0) {
             nombreResponsable = `${resGuardia[0].nombres} ${resGuardia[0].apellidos}`;
         }
 
-        // 2. SEGUNDO: Procedemos con la lógica del pasante
+        // 2. SEGUNDO: Lógica del pasante
         db.query('SELECT * FROM pasantes WHERE id = ?', [pasanteId], (err, results) => {
             if (err || results.length === 0) return res.status(500).json({ error: 'Pasante no encontrado' });
             const pasante = results[0];
@@ -247,14 +254,10 @@ app.post('/timbrar', (req, res) => {
                 return res.status(400).json({ error: `Pasante bloqueado: ${pasante.estado}` });
             }
 
-            // ---------------------------------------------------------
-            // LÓGICA DE HORARIOS PERSONALIZADOS
-            // ---------------------------------------------------------
             const ahora = new Date();
             let nuevoAtraso = 0;
             let mensajeAtraso = "";
 
-            // Helper para convertir "HH:MM" a Date (hoy)
             const getFechaConHora = (horaStr) => {
                 if (!horaStr) return null;
                 const [h, m] = horaStr.split(':').map(Number);
@@ -263,19 +266,13 @@ app.post('/timbrar', (req, res) => {
                 return fecha;
             };
 
-            // 1. Detectar ATRASO (entrada)
             if (tipoEvento === 'entrada') {
-                // Hora base: Si tiene hora_entrada personalizada, usarla. Si no, default 08:00
-                // GRACE PERIOD: 15 minutos
                 let horaLimite = new Date(ahora);
-
                 if (pasante.hora_entrada) {
                     horaLimite = getFechaConHora(pasante.hora_entrada);
                 } else {
-                    horaLimite.setHours(8, 0, 0, 0); // Default 8:00
+                    horaLimite.setHours(8, 0, 0, 0);
                 }
-
-                // Sumamos 15 minutos de gracia
                 horaLimite.setMinutes(horaLimite.getMinutes() + 15);
 
                 if (ahora > horaLimite) {
@@ -286,31 +283,25 @@ app.post('/timbrar', (req, res) => {
                 }
             }
 
-            // 2. Detectar RETIRO ANTICIPADO (salida)
             if (tipoEvento === 'salida') {
-                // Hora base salida: Si tiene hora_salida, usarla. Si no, default 16:00
                 let horaSalidaMinima = new Date(ahora);
-
                 if (pasante.hora_salida) {
                     horaSalidaMinima = getFechaConHora(pasante.hora_salida);
                 } else {
                     horaSalidaMinima.setHours(16, 0, 0, 0);
                 }
-
                 if (ahora < horaSalidaMinima) {
                     registrarAuditoria('Retiro Anticipado', `Pasante ${nombrePasante} salió antes de su hora (${horaSalidaMinima.toLocaleTimeString()})`, nombreResponsable);
                 }
             }
 
             const sqlInsert = 'INSERT INTO registros_asistencia (pasante_id, tipo_evento, guardia_responsable, fecha_hora) VALUES (?, ?, ?, ?)';
-            db.query(sqlInsert, [pasanteId, tipoEvento, guardia, ahora], (err) => { // Aquí guardamos el usuario (ID) para referencia interna
+            db.query(sqlInsert, [pasanteId, tipoEvento, guardia, ahora], (err) => {
                 if (err) return res.status(500).json({ error: "Error saving attendance" });
 
                 if (nuevoAtraso > 0) {
                     const totalAtrasos = (pasante.atrasos || 0) + 1;
                     let nuevoEstado = pasante.estado;
-
-                    // AUDITORIA LLAMADOS ATENCIÓN
                     if (totalAtrasos % 3 === 0) {
                         registrarAuditoria('Llamado de Atención', `Pasante ${nombrePasante} acumula ${totalAtrasos} atrasos.`, 'Sistema');
                     }
@@ -318,7 +309,6 @@ app.post('/timbrar', (req, res) => {
                         nuevoEstado = "Finalizado por atrasos excedidos";
                         registrarAuditoria('Pasante Finalizado', `Bloqueo automático: ${nombrePasante} excedió límite de atrasos.`, 'Sistema');
                     }
-
                     db.query('UPDATE pasantes SET atrasos = ?, estado = ? WHERE id = ?', [totalAtrasos, nuevoEstado, pasante.id]);
                 }
 
@@ -371,6 +361,7 @@ app.get('/pasantes', (req, res) => {
             ...p,
             horasCompletadas: p.horas_completadas || 0,
             horasRequeridas: p.horas_requeridas || 0,
+            // URL correcta para el servidor
             fotoUrl: p.foto_url ? `/api/uploads/${p.foto_url}` : null,
             informeUrl: p.informe_url ? `/api/uploads/${p.informe_url}` : null,
             informeFinalSubido: !!p.informe_url,
@@ -400,7 +391,6 @@ app.get('/pasantes/:id', (req, res) => {
             docCartaSolicitud: p.doc_carta_solicitud ? `/api/uploads/${p.doc_carta_solicitud}` : null,
             docAcuerdoConfidencialidad: p.doc_acuerdo_confidencialidad ? `/api/uploads/${p.doc_acuerdo_confidencialidad}` : null,
             docCopiaCedula: p.doc_copia_cedula ? `/api/uploads/${p.doc_copia_cedula}` : null,
-            docCopiaCedula: p.doc_copia_cedula ? `/api/uploads/${p.doc_copia_cedula}` : null,
             docCartaConvenio: p.doc_carta_convenio ? `/api/uploads/${p.doc_carta_convenio}` : null,
             horaEntrada: p.hora_entrada,
             horaSalida: p.hora_salida
@@ -418,9 +408,7 @@ app.post('/pasantes', upload.single('foto'), (req, res) => {
 
     db.query(sql, values, (err, result) => {
         if (err) return res.status(500).json({ error: err.sqlMessage });
-
         registrarAuditoria('Creación de Pasante', `Se registró al pasante ${body.nombres} ${body.apellidos}`, body.creadoPor);
-
         res.json({ message: 'Pasante creado', id: result.insertId });
     });
 });
@@ -439,6 +427,7 @@ app.patch('/pasantes/:id', (req, res) => {
         let updates = [];
         let values = [];
 
+        // --- AQUÍ ESTÁ EL ARREGLO PARA QUE NO SE REINICIEN LOS LLAMADOS ---
         const dbMap = {
             horasCompletadas: 'horas_completadas',
             horasRequeridas: 'horas_requeridas',
@@ -449,7 +438,9 @@ app.patch('/pasantes/:id', (req, res) => {
             docAcuerdoConfidencialidad: 'doc_acuerdo_confidencialidad',
             docCopiaCedula: 'doc_copia_cedula',
             docCartaConvenio: 'doc_carta_convenio',
-            informeUrl: 'informe_url'
+            informeUrl: 'informe_url',
+            llamadosAtencion: 'llamados_atencion',
+            telefonoEmergencia: 'telefono_emergencia'
         };
 
         Object.keys(body).forEach(key => {
@@ -495,7 +486,6 @@ app.patch('/pasantes/:id', (req, res) => {
                 if (body.estado && body.estado !== pasanteActual.estado) {
                     registrarAuditoria('Cambio de Estado', `Estado de ${nombrePasante} cambió de '${pasanteActual.estado}' a '${body.estado}'`, 'Admin');
                 }
-
                 res.json({ message: 'Actualizado correctamente' });
             });
         } else {
@@ -583,4 +573,4 @@ app.get('/usuarios', (req, res) => { db.query('SELECT * FROM usuarios_admin', (e
 const PORT = 3001;
 app.listen(PORT, () => {
     console.log(`🚀 Server ready on port ${PORT}`);
-});
+}); 

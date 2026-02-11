@@ -40,16 +40,18 @@ const CreacionPasante = () => {
     const [isConverting, setIsConverting] = useState(false);
 
     const dependencias = [
-        "Dirección Ejecutiva",
-        "Coordinación General Técnica",
-        "Dirección Meteorológica",
-        "Dirección Hidrológica",
-        "Dirección Administrativa Financiera",
-        "Dirección Jurídica",
-        "Tecnologías de la Información (TICS)",
-        "Dirección Administrativo Financiera",
-        "Comunicación Social",
-        "Planificación"
+    "TECNOLOGÍAS DE LA INFORMACIÓN Y COMUNICACIÓN", 
+    "DIRECCIÓN DE INFORMACIÓN HIDROMETEOROLÓGICA",
+    "DIRECCIÓN DE ADMINISTRACIÓN DE RECURSOS HUMANOS",
+    "DIRECCIÓN ADMINISTRATIVA FINANCIERA",
+    "DIRECCIÓN EJECUTIVA",
+    "DIRECCIÓN DE ASESORÍA JURÍDICA",    
+    "DIRECCIÓN DE COMUNICACIÓN SOCIAL",
+    "DIRECCIÓN DE PLANIFICACIÓN",
+    "DIRECCIÓN DE PRONÓSTICOS Y ALERTAS",
+    "DIRECCIÓN DE ESTUDIOS, INVESTIGACIÓN Y DESARROLLO HIDROMETEOROLÓGICO",
+    "DIRECCIÓN DE LA RED NACIONAL DE OBSERVACIÓN HIDROMETEOROLÓGICA",
+    "LABORATORIO NACIONAL DE CALIDAD DE AGUA Y SEDIMENTOS"
     ];
 
 

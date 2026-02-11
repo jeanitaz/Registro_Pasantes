@@ -1,14 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Upload, FileText, Trash2, CheckCircle, AlertCircle, Save, Loader2, ArrowLeft, User, Eye, X } from 'lucide-react';
+import { Upload, FileText, Trash2, CheckCircle, Save, Loader2, ArrowLeft, User, Eye, X } from 'lucide-react';
 import '../styles/Documentacion.css';
 
 const DOCS_REQUERIDOS = [
-    { key: 'docHojaVida', label: 'Hoja de Vida', dbId: 'd1' },
+    { key: 'docCartaConvenio', label: 'Carta de Convenio', dbId: 'd5' },
     { key: 'docCartaSolicitud', label: 'Carta de Solicitud', dbId: 'd2' },
+    { key: 'docHojaVida', label: 'Hoja de Vida', dbId: 'd1' },
     { key: 'docAcuerdoConfidencialidad', label: 'Acuerdo de Confidencialidad', dbId: 'd3' },
-    { key: 'docCopiaCedula', label: 'Copia de Cédula', dbId: 'd4' },
-    { key: 'docCartaConvenio', label: 'Carta de Convenio', dbId: 'd5' }
+    { key: 'docCopiaCedula', label: 'Copia de Cédula / Papeleta de Votación', dbId: 'd4' }
 ];
 
 const Documentacion = () => {
@@ -215,13 +215,6 @@ const Documentacion = () => {
                         <span>Pasante: {nombrePasante || "Cargando..."}</span>
                     </div>
                 </div>
-                <div className="status-indicator">
-                    {isCompleted ? (
-                        <span className="badge-success"><CheckCircle size={16} /> Activo</span>
-                    ) : (
-                        <span className="badge-pending"><AlertCircle size={16} /> Pendiente</span>
-                    )}
-                </div>
             </header>
 
             <div className="docs-grid">
@@ -303,9 +296,9 @@ const Documentacion = () => {
                     {isUploading ? (
                         <><Loader2 size={20} className="spin" /> Subiendo...</>
                     ) : isCompleted ? (
-                        <><CheckCircle size={20} /> Pasante Activo</>
+                        <><CheckCircle size={20} style={{ color: '#ffffffff' }} /> Pasante Activo</>
                     ) : (
-                        <><Save size={20} /> Guardar y Activar Pasante</>
+                        <><Save size={20} style={{ color: '#ffffffff' }} /> Guardar y Activar Pasante</>
                     )}
                 </button>
             </div>
