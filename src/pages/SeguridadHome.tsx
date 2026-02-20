@@ -15,6 +15,9 @@ interface Pasante {
     horasRequeridas: number;
     atrasos: number;
     faltas: number;
+    // Agregamos las horas a la interfaz para poder leerlas
+    horaEntrada?: string;
+    horaSalida?: string;
 }
 
 const SeguridadHome = () => {
@@ -23,29 +26,55 @@ const SeguridadHome = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [pasantes, setPasantes] = useState<Pasante[]>([]);
     const [selectedPasante, setSelectedPasante] = useState<Pasante | null>(null);
-    // Modificamos el estado para guardar el objeto completo del evento
     const [eventosHoy, setEventosHoy] = useState<{ tipo_evento: string, guardia_responsable?: string }[]>([]);
     const [mensajeSistema, setMensajeSistema] = useState<{ tipo: 'success' | 'error', texto: string } | null>(null);
     const [guardName, setGuardName] = useState('Guardia de Turno');
 
-    // Cargar datos
+    // --- FUNCIÓN DE CARGA SEPARADA PARA PODER REUTILIZARLA ---
+    const fetchPasantes = async () => {
+        try {
+            const response = await fetch('/api/pasantes');
+            if (response.ok) {
+                const data = await response.json();
+                setPasantes(data);
+            }
+        } catch (error) {
+            console.error("Error cargando pasantes:", error);
+        }
+    };
+
+    // --- CARGA INICIAL Y POLLING (RECARGA AUTOMÁTICA) ---
     useEffect(() => {
-        // Cargar nombre del guardia
         try {
             const userStr = localStorage.getItem('user');
             if (userStr) {
                 const user = JSON.parse(userStr);
-                // Intenta obtener nombre o usuario, o fallback. Se agrega user.name que viene del log in
                 setGuardName(user.nombre || user.nombres || user.name || user.usuario || 'Guardia de Turno');
             }
         } catch (e) {
             console.error("Error leyendo usuario del localstorage", e);
         }
 
-        fetch('/api/pasantes')
-            .then(res => res.json())
-            .then(data => setPasantes(data));
+        // Carga inicial
+        fetchPasantes();
+
+        // Recarga automática cada 5 segundos para obtener cambios de RRHH
+        const interval = setInterval(() => {
+            fetchPasantes();
+        }, 5000);
+
+        return () => clearInterval(interval);
     }, []);
+
+    // --- SINCRONIZAR PERFIL SELECCIONADO SI RRHH HACE CAMBIOS ---
+    useEffect(() => {
+        if (selectedPasante) {
+            const actualizado = pasantes.find(p => p.id === selectedPasante.id);
+            if (actualizado && JSON.stringify(actualizado) !== JSON.stringify(selectedPasante)) {
+                setSelectedPasante(actualizado);
+            }
+        }
+    }, [pasantes, selectedPasante]);
 
     // Buscar historial de hoy
     useEffect(() => {
@@ -53,7 +82,6 @@ const SeguridadHome = () => {
             fetch(`/api/asistencia/hoy/${selectedPasante.id}`)
                 .then(res => res.json())
                 .then(data => {
-                    // Guardamos todo el objeto evento
                     setEventosHoy(data);
                 });
         } else {
@@ -78,7 +106,7 @@ const SeguridadHome = () => {
                 body: JSON.stringify({
                     pasanteId: selectedPasante.id,
                     tipoEvento: tipoEvento,
-                    guardia: guardName // Usa el nombre dinámico del guardia
+                    guardia: guardName
                 })
             });
             const result = await response.json();
@@ -90,10 +118,8 @@ const SeguridadHome = () => {
                     setMensajeSistema({ tipo: 'success', texto: result.message });
                 }
 
-                // Agregamos el nuevo evento con el nombre del guardia actual
                 setEventosHoy(prev => [...prev, { tipo_evento: tipoEvento, guardia_responsable: guardName }]);
 
-                // Actualizar contadores
                 const resP = await fetch(`/api/pasantes/${selectedPasante.id}`);
                 const dataP = await resP.json();
                 setSelectedPasante(dataP);
@@ -126,7 +152,6 @@ const SeguridadHome = () => {
         return false;
     };
 
-    // Función para cerrar sesión
     const handleLogout = () => {
         if (window.confirm("¿Seguro que desea cerrar el turno de guardia?")) {
             localStorage.removeItem('token');
@@ -136,7 +161,6 @@ const SeguridadHome = () => {
         }
     };
 
-    // Helper para buscar un evento específico
     const getEvento = (tipo: string) => eventosHoy.find(e => e.tipo_evento === tipo);
 
     return (
@@ -217,6 +241,13 @@ const SeguridadHome = () => {
                                             {selectedPasante.estado || 'Sin Estado'}
                                         </span>
                                     </div>
+                                    {/* --- MOSTRAR HORARIO PARA EL GUARDIA --- */}
+                                    {selectedPasante.horaEntrada && selectedPasante.horaSalida && (
+                                        <div style={{ marginTop: '8px', color: '#64748b', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                            <Clock size={16} />
+                                            <strong>Horario:</strong> {selectedPasante.horaEntrada} - {selectedPasante.horaSalida}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

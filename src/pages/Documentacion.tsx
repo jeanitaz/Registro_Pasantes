@@ -3,8 +3,17 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Upload, FileText, Trash2, CheckCircle, Save, Loader2, ArrowLeft, User, Eye, X } from 'lucide-react';
 import '../styles/Documentacion.css';
 
-const DOCS_REQUERIDOS = [
-    { key: 'docCartaConvenio', label: 'Carta de Convenio', dbId: 'd5' },
+// 1. Definimos la estructura para que TypeScript entienda la propiedad 'optional'
+interface DocRequerido {
+    key: string;
+    label: string;
+    dbId: string;
+    optional?: boolean; // <--- Esto permite que algunos sean opcionales
+}
+
+// 2. Agregamos 'optional: true' a la Carta de Convenio
+const DOCS_REQUERIDOS: DocRequerido[] = [
+    { key: 'docCartaConvenio', label: 'Carta de Convenio', dbId: 'd5', optional: true }, 
     { key: 'docCartaSolicitud', label: 'Carta de Solicitud', dbId: 'd2' },
     { key: 'docHojaVida', label: 'Hoja de Vida', dbId: 'd1' },
     { key: 'docAcuerdoConfidencialidad', label: 'Acuerdo de Confidencialidad', dbId: 'd3' },
@@ -12,10 +21,8 @@ const DOCS_REQUERIDOS = [
 ];
 
 const Documentacion = () => {
-    // CORRECCIÓN 1: Intentamos capturar el ID con ambos nombres comunes
     const params = useParams();
     const idPasante = params.idPasante || params.id;
-
     const navigate = useNavigate();
 
     const [files, setFiles] = useState<{ [key: string]: File | null }>({});
@@ -76,7 +83,6 @@ const Documentacion = () => {
                 alert(`El documento ${key} debe ser un PDF.`);
                 return;
             }
-            // Límite de 10MB por archivo individual para no saturar
             if (file.size > 10 * 1024 * 1024) {
                 alert(`⚠️ El archivo es muy pesado (${(file.size / 1024 / 1024).toFixed(1)}MB). Máximo 10MB.`);
                 return;
@@ -113,17 +119,21 @@ const Documentacion = () => {
             return;
         }
 
-        // Validar documentos faltantes
-        const faltantes = DOCS_REQUERIDOS.filter(doc => !files[doc.key] && !savedDocs[doc.key]);
+        // 3. VALIDACIÓN CORREGIDA: Filtramos solo los que NO son opcionales
+        const faltantes = DOCS_REQUERIDOS.filter(doc => 
+            !doc.optional && // Si optional es true, esta condición da false y NO lo marca como faltante
+            !files[doc.key] && 
+            !savedDocs[doc.key]
+        );
+
         if (faltantes.length > 0) {
-            alert(`⚠️ Faltan documentos: ${faltantes.map(d => d.label).join(', ')}`);
+            alert(`⚠️ Faltan documentos obligatorios: ${faltantes.map(d => d.label).join(', ')}`);
             return;
         }
 
         setIsUploading(true);
 
         try {
-            // Convertir solo nuevos
             const promesas = Object.keys(files).map(async (key) => {
                 const file = files[key];
                 if (file) {
@@ -139,7 +149,6 @@ const Documentacion = () => {
 
             const resultados = await Promise.all(promesas);
 
-            // Construir payload
             const payload: any = {
                 estado: "Activo",
                 documentacionCompleta: true
@@ -163,7 +172,6 @@ const Documentacion = () => {
                 setUploadStatus('success');
                 alert(`✅ ¡Éxito! ${nombrePasante} ha sido activado.`);
 
-                // Actualizar estado local
                 resultados.forEach(item => {
                     if (item) {
                         setSavedDocs(prev => ({ ...prev, [item.key]: item.base64 }));
@@ -175,20 +183,9 @@ const Documentacion = () => {
                     }
                 });
             } else {
-                // Manejo de errores detallado
-                const errorText = await response.text(); // Leemos como texto por si es error HTML (413)
+                const errorText = await response.text();
                 console.error("Error servidor:", errorText);
-
-                if (response.status === 413) {
-                    alert("❌ Error: Los archivos son demasiado grandes para el servidor. Intenta subir de uno en uno o comprimirlos.");
-                } else {
-                    try {
-                        const errorJson = JSON.parse(errorText);
-                        alert(`❌ Error del servidor: ${errorJson.error || 'Desconocido'}`);
-                    } catch {
-                        alert(`❌ Error del servidor (${response.status}). Revisa la consola.`);
-                    }
-                }
+                alert("Error al guardar en el servidor. Revisa la consola.");
             }
 
         } catch (error: any) {
@@ -229,7 +226,12 @@ const Documentacion = () => {
                                 {tieneArchivo ? <FileText size={32} className="text-blue" /> : <Upload size={32} className="text-gray" />}
                             </div>
                             <div className="info-area">
-                                <h3>{doc.label}</h3>
+                                <h3>
+                                    {doc.label} 
+                                    {/* Muestra visualmente que es opcional */}
+                                    {doc.optional && <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'normal', marginLeft: '5px' }}>(Opcional)</span>}
+                                </h3>
+                                
                                 {fileLocal ? (
                                     <p className="filename" style={{ color: '#d97706' }}>Nuevo: {fileLocal.name}</p>
                                 ) : fileGuardado ? (

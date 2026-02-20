@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx-js-style';
 
@@ -6,7 +6,7 @@ import {
     Search, Building,
     MapPin, Edit2,
     Trash2, Save, X, Key, User,
-    FileSpreadsheet, ArrowLeft, Plus, Clock, Phone
+    FileSpreadsheet, ArrowLeft, Plus, Clock, Phone, Camera // <--- Importamos Camera
 } from 'lucide-react';
 import '../styles/HistorialPasantes.css';
 
@@ -19,7 +19,7 @@ interface Pasante {
     institucion: string;
     dependencia: string;
     horasRequeridas: number;
-    horasCompletadas?: number;
+    horasCompletadas?: number | string;
     estado: string;
     usuario: string;
     password?: string;
@@ -42,6 +42,9 @@ const HistorialPasantes = () => {
     const [selectedCarrera, setSelectedCarrera] = useState('');
     const [selectedInstitucion, setSelectedInstitucion] = useState('');
     const [selectedEstado, setSelectedEstado] = useState('');
+
+    // Referencia para el input de la foto
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Fetch inicial
     const fetchPasantes = async () => {
@@ -75,7 +78,6 @@ const HistorialPasantes = () => {
         return matchesSearch && matchesCarrera && matchesInstitucion && matchesEstado;
     });
 
-    // Obtener listas únicas para los select
     const carreras = Array.from(new Set(pasantes.map(p => p.carrera).filter(Boolean)));
     const instituciones = Array.from(new Set(pasantes.map(p => p.institucion).filter(Boolean)));
     const estados = Array.from(new Set(pasantes.map(p => p.estado).filter(Boolean)));
@@ -108,18 +110,42 @@ const HistorialPasantes = () => {
     const handleOpenEdit = (pasante: Pasante) => {
         setEditingPasante({
             ...pasante,
-            horasCompletadas: pasante.horasCompletadas || 0,
+            horasCompletadas: pasante.horasCompletadas ?? '',
             horaEntrada: pasante.horaEntrada || '',
             horaSalida: pasante.horaSalida || ''
         });
         setIsModalOpen(true);
     };
 
+    // --- FUNCIÓN PARA CONVERTIR IMAGEN A BASE64 ---
+    const convertToBase64 = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = error => reject(error);
+        });
+    };
+
+    // --- FUNCIÓN PARA MANEJAR EL CAMBIO DE FOTO ---
+    const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file && editingPasante) {
+            try {
+                const base64 = await convertToBase64(file);
+                // Actualizamos el estado local para ver la previsualización inmediata
+                setEditingPasante({ ...editingPasante, fotoUrl: base64 });
+            } catch (error) {
+                console.error("Error al procesar la imagen", error);
+                alert("No se pudo procesar la imagen seleccionada.");
+            }
+        }
+    };
+
     // --- GUARDADO ---
     const handleSaveEdit = async () => {
         if (!editingPasante) return;
 
-        // Preparamos los datos a enviar EXPLICITAMENTE
         const datosParaEnviar: any = {
             nombres: editingPasante.nombres,
             apellidos: editingPasante.apellidos,
@@ -132,7 +158,8 @@ const HistorialPasantes = () => {
             horasCompletadas: Number(editingPasante.horasCompletadas),
             estado: editingPasante.estado,
             horaEntrada: editingPasante.horaEntrada || null,
-            horaSalida: editingPasante.horaSalida || null
+            horaSalida: editingPasante.horaSalida || null,
+            fotoUrl: editingPasante.fotoUrl // <--- AHORA ENVIAMOS LA FOTO TAMBIÉN
         };
 
         if (editingPasante.password && editingPasante.password.trim().length > 0) {
@@ -147,7 +174,6 @@ const HistorialPasantes = () => {
             });
 
             if (response.ok) {
-                // Actualizar estado local
                 setPasantes(prevPasantes => prevPasantes.map(p => {
                     if (p.id === editingPasante.id) {
                         return {
@@ -177,7 +203,7 @@ const HistorialPasantes = () => {
                 <div className="header-info">
                     <button className="back-btn-modern" onClick={() => navigate(-1)}><ArrowLeft size={20} /></button>
                     <div>
-                        <h1>Administración de Pasantes</h1>
+                        <h1>Historial de Pasantes</h1>
                         <p>{filteredPasantes.length} estudiantes registrados</p>
                     </div>
                 </div>
@@ -195,31 +221,18 @@ const HistorialPasantes = () => {
                     </button>
                 </div>
 
-                {/* BARRA DE FILTROS */}
                 <div className="filters-bar-modern">
-                    <select
-                        className="filter-select-modern"
-                        value={selectedCarrera}
-                        onChange={(e) => setSelectedCarrera(e.target.value)}
-                    >
+                    <select className="filter-select-modern" value={selectedCarrera} onChange={(e) => setSelectedCarrera(e.target.value)}>
                         <option value="">Todas las Carreras</option>
                         {carreras.map((c, i) => <option key={i} value={c}>{c}</option>)}
                     </select>
 
-                    <select
-                        className="filter-select-modern"
-                        value={selectedInstitucion}
-                        onChange={(e) => setSelectedInstitucion(e.target.value)}
-                    >
+                    <select className="filter-select-modern" value={selectedInstitucion} onChange={(e) => setSelectedInstitucion(e.target.value)}>
                         <option value="">Todas las Instituciones</option>
                         {instituciones.map((i, idx) => <option key={idx} value={i}>{i}</option>)}
                     </select>
 
-                    <select
-                        className="filter-select-modern"
-                        value={selectedEstado}
-                        onChange={(e) => setSelectedEstado(e.target.value)}
-                    >
+                    <select className="filter-select-modern" value={selectedEstado} onChange={(e) => setSelectedEstado(e.target.value)}>
                         <option value="">Todos los Estados</option>
                         {estados.map((e, i) => <option key={i} value={e}>{e}</option>)}
                     </select>
@@ -257,7 +270,6 @@ const HistorialPasantes = () => {
                                 </div>
 
                                 <div className="student-hero">
-                                    {/* --- FOTO DEL PASANTE --- */}
                                     <div className="avatar-large" style={{ overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                                         {p.fotoUrl ? (
                                             <img
@@ -313,14 +325,59 @@ const HistorialPasantes = () => {
             {/* --- MODAL DE EDICIÓN COMPLETO --- */}
             {isModalOpen && editingPasante && (
                 <div className="modal-overlay">
-                    {/* Agregado scroll y tamaño máximo para que quepan todos los campos */}
                     <div className="modal-glass" style={{ maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
                         <div className="modal-header">
                             <h3>Actualizar Pasante</h3>
                             <button className="close-btn" onClick={() => setIsModalOpen(false)}><X size={20} /></button>
                         </div>
                         <div className="modal-body">
-                            
+
+                            {/* SECCIÓN DE FOTO DE PERFIL */}
+                            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+                                <div style={{ position: 'relative', width: '100px', height: '100px' }}>
+                                    <div className="avatar-student-modal" style={{ width: '100px', height: '100px', borderRadius: '50%', background: '#2563eb', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: 'bold', overflow: 'hidden', border: '3px solid white', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+                                        {editingPasante.fotoUrl ? (
+                                            <img
+                                                src={editingPasante.fotoUrl}
+                                                alt="Foto"
+                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; e.currentTarget.parentElement!.innerText = editingPasante.nombres.charAt(0); }}
+                                            />
+                                        ) : (
+                                            <span>{editingPasante.nombres.charAt(0)}</span>
+                                        )}
+                                    </div>
+
+                                    {/* Botón flotante para editar foto */}
+                                    <label htmlFor="photo-upload" style={{
+                                        position: 'absolute',
+                                        bottom: '0',
+                                        right: '0',
+                                        backgroundColor: '#2563eb',
+                                        color: 'white',
+                                        borderRadius: '50%',
+                                        width: '32px',
+                                        height: '32px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        cursor: 'pointer',
+                                        border: '2px solid white',
+                                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                                    }}>
+                                        <Camera size={16} />
+                                    </label>
+                                    <input
+                                        type="file"
+                                        id="photo-upload"
+                                        accept="image/*"
+                                        style={{ display: 'none' }}
+                                        ref={fileInputRef}
+                                        onChange={handlePhotoChange}
+                                    />
+                                </div>
+                            </div>
+
                             {/* 1. SECCIÓN: DATOS PERSONALES */}
                             <h4 style={{ fontSize: '14px', color: '#64748b', marginBottom: '10px', marginTop: '0', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>Datos Personales</h4>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
@@ -392,7 +449,6 @@ const HistorialPasantes = () => {
                             <div className="credentials-box-modal" style={{ marginBottom: '15px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                                 <div className="input-group">
                                     <label><User size={14} /> Usuario</label>
-                                    {/* Ya no es readOnly, se puede editar */}
                                     <input
                                         type="text"
                                         value={editingPasante.usuario}
@@ -436,8 +492,8 @@ const HistorialPasantes = () => {
                                     <label>Horas Completadas</label>
                                     <input
                                         type="number"
-                                        value={editingPasante.horasCompletadas}
-                                        onChange={(e) => setEditingPasante({ ...editingPasante, horasCompletadas: Number(e.target.value) })}
+                                        value={editingPasante.horasCompletadas ?? ''}
+                                        onChange={(e) => setEditingPasante({ ...editingPasante, horasCompletadas: e.target.value })}
                                     />
                                 </div>
                                 <div className="input-group">

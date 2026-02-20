@@ -9,7 +9,8 @@ import {
   Activity, Lock, Download, Loader2,
   ClipboardList,
   FileSpreadsheet,
-  AlertTriangle, XCircle, ShieldAlert
+  AlertTriangle, XCircle, ShieldAlert,
+  Award, CalendarClock, AlertOctagon
 } from 'lucide-react';
 import '../styles/PasanteHome.css';
 
@@ -55,6 +56,42 @@ const PasanteHome = () => {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // --- ESTADOS PARA EL MODAL DE FINALIZACIÓN ---
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [diasRestantes, setDiasRestantes] = useState<number>(5);
+  const [modalClosedThisSession, setModalClosedThisSession] = useState(false);
+
+  // --- FUNCIÓN HELPER: CALCULAR DÍAS HÁBILES (Lunes a Viernes) ---
+  const addBusinessDays = (startDate: Date, days: number) => {
+    let count = 0;
+    const curDate = new Date(startDate);
+    while (count < days) {
+        curDate.setDate(curDate.getDate() + 1);
+        const dayOfWeek = curDate.getDay();
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) count++; // 0=Domingo, 6=Sábado
+    }
+    return curDate;
+  };
+
+  const getBusinessDaysDiff = (endDate: Date) => {
+    const now = new Date();
+    // Normalizar a media noche para comparación justa
+    now.setHours(0,0,0,0);
+    const target = new Date(endDate);
+    target.setHours(0,0,0,0);
+
+    if (now > target) return -1; // Ya pasó
+
+    let count = 0;
+    const curDate = new Date(now);
+    while (curDate < target) {
+        curDate.setDate(curDate.getDate() + 1);
+        const dayOfWeek = curDate.getDay();
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) count++;
+    }
+    return count;
+  };
+
   useEffect(() => {
     const cargarDatosEnTiempoReal = async () => {
       const storedUser = localStorage.getItem('user');
@@ -62,7 +99,6 @@ const PasanteHome = () => {
       if (storedUser) {
         const localUser = JSON.parse(storedUser);
 
-        // 1. Carga inicial desde caché (localStorage)
         setPasante({
           ...localUser,
           id: localUser.id,
@@ -75,10 +111,9 @@ const PasanteHome = () => {
           historialReciente: localUser.historialReciente || [],
           informeSubido: !!localUser.informeUrl,
           informeUrl: localUser.informeUrl,
-          fotoUrl: localUser.fotoUrl // Intenta cargar foto del login
+          fotoUrl: localUser.fotoUrl 
         });
 
-        // 2. CONSULTAR AL SERVIDOR (Datos frescos y FOTO URL)
         try {
           const response = await fetch(`/api/pasantes/${localUser.id}`);
           if (response.ok) {
@@ -87,17 +122,11 @@ const PasanteHome = () => {
             const datosActualizados = {
               ...localUser,
               ...dataDB,
-
-              // Normalización de datos
               llamadosAtencion: dataDB.llamadosAtencion ?? dataDB.llamados_atencion ?? 0,
               horasCompletadas: dataDB.horasCompletadas ?? dataDB.horas_completadas ?? 0,
               nombre: `${dataDB.nombres} ${dataDB.apellidos}`,
-
-              // Archivos e Imagen
               informeSubido: !!(dataDB.informeUrl || dataDB.informe_url),
               informeUrl: dataDB.informeUrl || dataDB.informe_url,
-
-              // AQUÍ SE TRAE LA IMAGEN GUARDADA DEL SERVIDOR
               fotoUrl: dataDB.fotoUrl || dataDB.foto_url
             };
 
@@ -114,6 +143,43 @@ const PasanteHome = () => {
 
     cargarDatosEnTiempoReal();
   }, [navigate]);
+
+  // --- EFECTO: DETECTAR COMPLETITUD Y GESTIONAR PLAZO ---
+  useEffect(() => {
+    if (pasante && !modalClosedThisSession) {
+        const horasC = Number(pasante.horasCompletadas);
+        const horasR = Number(pasante.horasRequeridas);
+        
+        // Si completó las horas Y NO ha subido el informe
+        if (horasR > 0 && horasC >= horasR && !pasante.informeSubido) {
+            
+            // 1. Verificar si ya tenemos una fecha límite guardada para este usuario
+            const storageKey = `deadline_reporte_${pasante.id}`;
+            let deadlineStr = localStorage.getItem(storageKey);
+            let deadlineDate;
+
+            if (!deadlineStr) {
+                // PRIMERA VEZ QUE LLEGA AL 100%: Definir fecha límite (Hoy + 5 días hábiles)
+                deadlineDate = addBusinessDays(new Date(), 5);
+                localStorage.setItem(storageKey, deadlineDate.toISOString());
+            } else {
+                deadlineDate = new Date(deadlineStr);
+            }
+
+            // 2. Calcular cuántos días faltan hoy
+            const diasLeft = getBusinessDaysDiff(deadlineDate);
+            setDiasRestantes(diasLeft);
+
+            // 3. Mostrar el modal siempre (mientras no suba el PDF)
+            setShowCompletionModal(true);
+        }
+    }
+  }, [pasante, modalClosedThisSession]);
+
+  const closeCompletionModal = () => {
+      setModalClosedThisSession(true); // Se cierra solo por esta sesión
+      setShowCompletionModal(false);
+  };
 
   const handleLogout = () => {
     if (window.confirm("¿Deseas cerrar tu sesión?")) {
@@ -183,7 +249,7 @@ const PasanteHome = () => {
     const file = e.target.files?.[0];
     if (file && pasante) {
       if (file.type !== 'application/pdf') { alert("❌ Error: Solo PDF."); return; }
-      if (file.size > 5 * 1024 * 1024) { alert("❌ Archivo muy pesado (Máx 5MB)."); return; } // Límite aumentado
+      if (file.size > 5 * 1024 * 1024) { alert("❌ Archivo muy pesado (Máx 5MB)."); return; } 
 
       setIsUploading(true);
       try {
@@ -200,6 +266,7 @@ const PasanteHome = () => {
           if (refreshResponse.ok) {
             const freshData = await refreshResponse.json();
             setPasante(prev => prev ? ({ ...prev, informeSubido: true, informeUrl: freshData.informeUrl }) : null);
+            setShowCompletionModal(false); // Cerrar el modal permanentemente si lo suben
           }
         } else { throw new Error("Error en BD"); }
       } catch (error) { alert("❌ Error al subir."); }
@@ -207,151 +274,49 @@ const PasanteHome = () => {
     }
   };
 
-  // 3. UPDATED REPORT GENERATION FUNCTION
   const handleGenerateFinalReport = async () => {
-    if (!pasante?.id) {
-      alert("Error: No se ha identificado al pasante.");
-      return;
-    }
-
-    // 4. LÓGICA HÍBRIDA: Si hay delegado en BD, úsalo. Si no, ¡PREGUNTA!
+    if (!pasante?.id) { alert("Error: No se ha identificado al pasante."); return; }
     let nombreDelegado = pasante.delegado;
-
     if (!nombreDelegado) {
-      nombreDelegado = window.prompt("⚠️ El sistema no tiene registrado un Tutor/Delegado para este pasante.\n\nPor favor, ingrese el nombre del Tutor Institucional / Delegado:", "Ing. Nombre Apellido") || "Tutor Institucional";
+      nombreDelegado = window.prompt("⚠️ El sistema no tiene registrado un Tutor/Delegado.\n\nIngrese nombre del Tutor:", "Ing. Nombre Apellido") || "Tutor Institucional";
     }
-
     const printWindow = window.open('', '_blank');
     if (!printWindow) return alert("Permita ventanas emergentes.");
 
-    // Initial loading state
-    const baseStructure = `
-      <html>
-      <head>
-          <title>Informe Final - ${pasante.nombre}</title>
-          <style>
-              body { font-family: 'Arial', sans-serif; padding: 40px; max-width: 900px; margin: 0 auto; line-height: 1.6; color: #333; }
-              .loading-container { display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column; font-family: sans-serif; }
-          </style>
-      </head>
-      <body>
-          <div id="content" class="loading-container">
-              <h3>Generando informe...</h3>
-              <p>Por favor espere mientras recuperamos su historial.</p>
-          </div>
-      </body>
-      </html>
-    `;
-
+    const baseStructure = `<html><head><title>Informe Final</title><style>body{font-family:Arial;padding:40px;text-align:center;}</style></head><body><h3>Generando informe...</h3></body></html>`;
     printWindow.document.write(baseStructure);
     printWindow.document.close();
 
-    // Fetch History
     let fullHistory: any[] = [];
     try {
-      console.log("Iniciando fetch de historial para:", pasante.id);
       const res = await fetch(`/api/asistencia?pasante_id=${pasante.id}`);
-
-      if (!res.ok) throw new Error(`Error del servidor: ${res.status}`);
-
+      if (!res.ok) throw new Error("Error server");
       fullHistory = await res.json();
       fullHistory.sort((a: any, b: any) => new Date(a.fecha_hora).getTime() - new Date(b.fecha_hora).getTime());
-    } catch (e: any) {
-      console.error("Error generating report:", e);
-      if (printWindow.document.body) {
-        printWindow.document.body.innerHTML = `
-           <div style="text-align:center; padding: 50px; font-family: sans-serif;">
-             <h3 style="color:red;">Error al generar el reporte</h3>
-             <p>${e.message || "No se pudo conectar con el servidor."}</p>
-             <button onclick="window.close()">Cerrar</button>
-           </div>
-         `;
-      }
-      return;
-    }
+    } catch (e: any) { return; }
 
-    // Build Final HTML with Logo
     const finalHtml = `
         <html>
       <head>
         <title>Informe Final - ${pasante.nombre}</title>
         <style>
             @page { size: A4; margin: 20mm; }
-            body { 
-                font-family: 'Arial', sans-serif; 
-                color: #333; 
-                line-height: 1.5; 
-                margin: 0; 
-                padding: 0;
-            }
-            .document-container {
-                padding: 40px;
-                border: 1px solid #eee; 
-            }
-            @media print {
-                .document-container { border: none; padding: 0; }
-                body { margin: 0; }
-            }
-
-            /* --- ENCABEZADO CON IMAGEN --- */
-            .header { 
-                display: flex; 
-                align-items: center; 
-                justify-content: space-between;
-                border-bottom: 3px solid #1a3a5a; 
-                padding-bottom: 15px; 
-                margin-bottom: 30px;
-            }
-            .header-logo img {
-                max-height: 80px;
-                width: auto;
-                display: block;
-            }
-            .header-info { 
-                text-align: right;
-                flex: 1;
-                margin-left: 20px;
-            }
-            .header-info h1 { 
-                font-size: 16px; 
-                margin: 0; 
-                color: #1a3a5a; 
-                text-transform: uppercase; 
-                letter-spacing: 0.5px;
-            }
-            .header-info h2 { 
-                font-size: 13px; 
-                margin: 5px 0 0; 
-                font-weight: normal; 
-                color: #555; 
-            }
-
+            body { font-family: 'Arial', sans-serif; color: #333; line-height: 1.5; margin: 0; padding: 0; }
+            .document-container { padding: 40px; border: 1px solid #eee; }
+            @media print { .document-container { border: none; padding: 0; } body { margin: 0; } }
+            .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #1a3a5a; padding-bottom: 15px; margin-bottom: 30px; }
+            .header-logo img { max-height: 80px; width: auto; }
             .title-section { text-align: center; margin-bottom: 30px; }
             .title-section h3 { font-size: 20px; text-decoration: underline; margin-bottom: 5px; color: #000; }
-            .ref-number { font-size: 12px; color: #666; }
-            
-            .info-grid {
-                display: grid; grid-template-columns: 1fr 1fr; gap: 15px 30px;
-                margin-bottom: 30px; background-color: #f8fafc; padding: 20px;
-                border-radius: 6px; border: 1px solid #e2e8f0;
-            }
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px 30px; margin-bottom: 30px; background-color: #f8fafc; padding: 20px; border-radius: 6px; border: 1px solid #e2e8f0; }
             .info-item { display: flex; flex-direction: column; }
             .info-label { font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 4px; }
             .info-value { font-size: 14px; color: #0f172a; font-weight: 500; }
-
-            .certificate-text {
-                font-family: 'Times New Roman', serif; font-size: 16px; text-align: justify;
-                line-height: 1.8; margin-bottom: 40px;
-            }
-
-            .history-section { margin-bottom: 40px; }
+            .certificate-text { font-family: 'Times New Roman', serif; font-size: 16px; text-align: justify; line-height: 1.8; margin-bottom: 40px; }
             .history-title { font-size: 14px; font-weight: bold; color: #1a3a5a; border-left: 4px solid #1a3a5a; padding-left: 10px; margin-bottom: 15px; }
-            
             table { width: 100%; border-collapse: collapse; font-size: 11px; }
             th { background-color: #f1f5f9; color: #475569; font-weight: bold; text-align: left; padding: 10px; border-bottom: 2px solid #e2e8f0; text-transform: uppercase; }
             td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; color: #334155; }
-            tr:nth-child(even) td { background-color: #fcfcfc; }
-            
             .signatures-container { display: flex; justify-content: space-between; margin-top: 80px; page-break-inside: avoid; }
             .signature-box { width: 40%; text-align: center; }
             .signature-line { border-top: 1px solid #000; margin-bottom: 10px; width: 80%; margin-left: auto; margin-right: auto; }
@@ -361,106 +326,36 @@ const PasanteHome = () => {
       </head>
       <body>
         <div class="document-container">
-            
-            <div class="header">
-                <div class="header-logo">
-                    <img src="https://i.postimg.cc/j2p691mH/Captura-de-pantalla-2026-01-09-130055.png" alt="Logo Institucional" />
-                </div>
-            </div>
-
-            <div class="title-section">
-                <h3>INFORME FINAL DE CUMPLIMIENTO DE HORAS DE PASANTÍAS</h3>
-            </div>
-
+            <div class="header"><div class="header-logo"><img src="https://i.postimg.cc/j2p691mH/Captura-de-pantalla-2026-01-09-130055.png" alt="Logo" /></div></div>
+            <div class="title-section"><h3>INFORME FINAL DE CUMPLIMIENTO DE HORAS</h3></div>
              <div class="info-grid">
-                 <div class="info-item">
-                    <span class="info-label">Estudiante</span>
-                    <span class="info-value">${pasante.nombre}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Cédula de Identidad</span>
-                    <span class="info-value">${pasante.cedula || 'N/A'}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Institución Educativa</span>
-                    <span class="info-value">${pasante.institucion || 'No Registrada'}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Carrera / Especialidad</span>
-                    <span class="info-value">${pasante.carrera}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Total Horas Requeridas</span>
-                    <span class="info-value">${pasante.horasRequeridas} Horas</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Total Horas Ejecutadas</span>
-                    <span class="info-value">${Number(pasante.horasCompletadas).toFixed(2)} Horas</span>
-                </div>
+                 <div class="info-item"><span class="info-label">Estudiante</span><span class="info-value">${pasante.nombre}</span></div>
+                <div class="info-item"><span class="info-label">Cédula</span><span class="info-value">${pasante.cedula || 'N/A'}</span></div>
+                <div class="info-item"><span class="info-label">Institución</span><span class="info-value">${pasante.institucion || 'No Registrada'}</span></div>
+                <div class="info-item"><span class="info-label">Carrera</span><span class="info-value">${pasante.carrera}</span></div>
+                <div class="info-item"><span class="info-label">Horas Requeridas</span><span class="info-value">${pasante.horasRequeridas} Horas</span></div>
+                <div class="info-item"><span class="info-label">Horas Ejecutadas</span><span class="info-value">${Number(pasante.horasCompletadas).toFixed(2)} Horas</span></div>
             </div>
-
             <div class="certificate-text">
-                <p>
-                    Por medio del presente documento, se certifica que el/la estudiante <strong>${pasante.nombre}</strong>, portador/a del documento de identidad 
-                    <strong>${pasante.cedula || 'N/A'}</strong>, ha completado satisfactoriamente el programa de prácticas pre-profesionales en esta institución.
-                    Durante el periodo de ejecución, ha demostrado responsabilidad, puntualidad y compromiso en el desarrollo de las actividades asignadas, 
-                    cumpliendo a cabalidad con el requisito académico de <strong>${pasante.horasRequeridas} horas</strong> de práctica.
-                </p>
-                <p>
-                    Para constancia de lo actuado, y a petición de la parte interesada, se extiende el presente informe detallado con el registro de asistencia correspondiente.
-                </p>
+                <p>Por medio del presente documento, se certifica que el/la estudiante <strong>${pasante.nombre}</strong> con CI <strong>${pasante.cedula || 'N/A'}</strong>, ha completado satisfactoriamente <strong>${pasante.horasRequeridas} horas</strong> de práctica.</p>
             </div>
-
             <div class="history-section">
-                <div class="history-title">DETALLE DE REGISTRO DE ASISTENCIA</div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Hora</th>
-                            <th>Evento</th>
-                            <th>Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${fullHistory.slice(0, 50).map((h: any) => `
-                            <tr>
-                                <td>${new Date(h.fecha_hora).toLocaleDateString()}</td>
-                                <td>${new Date(h.fecha_hora).toLocaleTimeString()}</td>
-                                <td>${h.tipo_evento ? h.tipo_evento.replace('_', ' ').toUpperCase() : 'EVENTO'}</td>
-                                <td><span style="font-size:10px; background:#f0fdf4; color:#166534; padding:2px 6px; border-radius:4px; font-weight:bold;">REGISTRADO</span></td>
-                            </tr>
-                        `).join('')}
-                        ${fullHistory.length === 0 ? '<tr><td colspan="4" style="text-align:center; padding:20px;">No hay registros de asistencia disponibles.</td></tr>' : ''}
-                    </tbody>
+                <div class="history-title">DETALLE DE ASISTENCIA</div>
+                <table><thead><tr><th>Fecha</th><th>Hora</th><th>Evento</th><th>Estado</th></tr></thead>
+                    <tbody>${fullHistory.slice(0, 50).map((h: any) => `<tr><td>${new Date(h.fecha_hora).toLocaleDateString()}</td><td>${new Date(h.fecha_hora).toLocaleTimeString()}</td><td>${h.tipo_evento ? h.tipo_evento.replace('_', ' ').toUpperCase() : 'EVENTO'}</td><td>REGISTRADO</td></tr>`).join('')}</tbody>
                 </table>
-                ${fullHistory.length > 50 ? `<div style="text-align:center; font-size:11px; color:#666; margin-top:10px;">... Se muestran los primeros 50 registros por brevedad ...</div>` : ''}
             </div>
-
             <div class="signatures-container">
-                <div class="signature-box">
-                    <div class="signature-line"></div>
-                    <p class="signer-name">${nombreDelegado}</p>
-                    <p class="signer-role">Tutor Institucional / Delegado</p>
-                </div>
-                <div class="signature-box">
-                    <div class="signature-line"></div>
-                    <p class="signer-name">${pasante.nombre}</p>
-                    <p class="signer-role">Estudiante / Practicante</p>
-                    <p class="signer-role" style="font-size: 10px;">C.I: ${pasante.cedula || 'N/A'}</p>
-                </div>
+                <div class="signature-box"><div class="signature-line"></div><p class="signer-name">${nombreDelegado}</p><p class="signer-role">Tutor Institucional</p></div>
+                <div class="signature-box"><div class="signature-line"></div><p class="signer-name">${pasante.nombre}</p><p class="signer-role">Estudiante</p><p class="signature-role" style="font-size: 10px;">C.I: ${pasante.cedula || 'N/A'}</p></div>
             </div>
         </div>
       </body>
-      </html>
-    `;
+      </html>`;
 
     if (printWindow.document.body) {
       printWindow.document.body.innerHTML = finalHtml;
-      setTimeout(() => {
-        printWindow.focus();
-        printWindow.print();
-      }, 800);
+      setTimeout(() => { printWindow.focus(); printWindow.print(); }, 800);
     }
   };
 
@@ -595,7 +490,7 @@ const PasanteHome = () => {
 
                 <div className="action-panel secondary-panel" onClick={handleGenerateFinalReport} style={{ cursor: 'pointer' }}>
                   <div className="panel-icon"><FileText size={24} className="text-blue-500" /></div>
-                  <div className="panel-content"><h4>Plantilla de Informe</h4><p>Descarga el formato oficial.</p></div>
+                  <div className="panel-content"><h4>Informe Final Cumplimiento Horas</h4><p>Presiona aqui para descargarlo</p></div>
                   <button className="panel-btn-icon"><Download size={20} /></button>
                 </div>
 
@@ -618,6 +513,56 @@ const PasanteHome = () => {
           </div>
         </div>
       </main>
+
+      {/* --- MODAL DE FELICITACIONES Y RECORDATORIO DE 5 DÍAS --- */}
+      {showCompletionModal && (
+        <div className="modal-overlay" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'rgba(0,0,0,0.6)', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}>
+            <div className="modal-glass" style={{ textAlign: 'center', maxWidth: '400px', padding: '30px', borderTop: `5px solid ${diasRestantes <= 2 ? '#ef4444' : '#22c55e'}`, background: 'white' }}>
+                <div style={{ margin: '0 auto 15px auto', width: '70px', height: '70px', borderRadius: '50%', background: diasRestantes <= 2 ? '#fee2e2' : '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {diasRestantes <= 0 ? <AlertOctagon size={40} className="text-red-600" /> : <Award size={40} className={diasRestantes <= 2 ? 'text-red-600' : 'text-green-600'} />}
+                </div>
+                
+                {diasRestantes > 0 ? (
+                    <>
+                        <h3 style={{ fontSize: '1.5rem', color: diasRestantes <= 2 ? '#b91c1c' : '#166534', margin: '0 0 10px 0' }}>
+                            ¡Meta Alcanzada!
+                        </h3>
+                        <p style={{ color: '#4b5563', marginBottom: '20px', lineHeight: '1.5' }}>
+                            Has completado tus horas. Tienes un plazo de <strong>5 días laborales</strong> para entregar tu informe.
+                        </p>
+                        <div style={{ background: diasRestantes <= 2 ? '#fef2f2' : '#f0f9ff', padding: '15px', borderRadius: '8px', border: `1px solid ${diasRestantes <= 2 ? '#fca5a5' : '#bae6fd'}`, marginBottom: '25px', textAlign: 'left' }}>
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                <CalendarClock size={24} className={diasRestantes <= 2 ? 'text-red-600' : 'text-blue-600'} style={{ flexShrink: 0 }} />
+                                <div>
+                                    <strong style={{ color: diasRestantes <= 2 ? '#991b1b' : '#0369a1', display: 'block' }}>Tiempo Restante:</strong>
+                                    <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#334155' }}>
+                                        {diasRestantes} {diasRestantes === 1 ? 'día laboral' : 'días laborales'}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <h3 style={{ fontSize: '1.5rem', color: '#b91c1c', margin: '0 0 10px 0' }}>
+                            ¡Plazo Vencido!
+                        </h3>
+                        <p style={{ color: '#4b5563', marginBottom: '20px', lineHeight: '1.5' }}>
+                            El tiempo para subir tu informe ha finalizado. Por favor, comunícate con Talento Humano inmediatamente.
+                        </p>
+                    </>
+                )}
+
+                <button 
+                    onClick={closeCompletionModal} 
+                    style={{ width: '100%', padding: '12px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}
+                >
+                    Entendido
+                </button>
+            </div>
+        </div>
+      )}
+
     </div>
   );
 };

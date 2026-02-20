@@ -7,7 +7,7 @@ import {
     CheckCircle2,
     KeyRound, X,
     History, FileText, Download, UploadCloud, Eye, ExternalLink,
-    Gavel, Ban
+    Gavel, Ban, AlertCircle, Award, Trash2 // <--- Importamos Trash2
 } from 'lucide-react';
 import '../styles/RRHHHome.css';
 
@@ -28,6 +28,7 @@ interface Pasante {
     informeFinalSubido: boolean;
     informeUrl?: string;
     institucion?: string;
+    delegado?: string;
 }
 
 interface Alerta { id: number; usuario: string; fecha: string; tipo: string; leido: boolean; }
@@ -59,6 +60,9 @@ const RRHHModern = () => {
     const [dismissedIds, setDismissedIds] = useState<number[]>([]);
 
     const [showPdfModal, setShowPdfModal] = useState(false);
+
+    // --- ESTADO PARA LA ALERTA DE FINALIZACIÓN ---
+    const [showFinalizeAlert, setShowFinalizeAlert] = useState(false);
 
     // --- LÓGICA DE ESTADOS AUTOMÁTICA ---
     const determinarEstado = (p: Pasante): string => {
@@ -98,9 +102,8 @@ const RRHHModern = () => {
                         nombre: p.nombre || `${p.nombres} ${p.apellidos}`,
                         cedula: p.cedula,
                         carrera: p.carrera,
-                        institucion: p.institucion || 'Inamhi', // Default to Inamhi if not present
+                        institucion: p.institucion || 'Inamhi',
                         estado: p.estado || "No habilitado",
-                        // AQUÍ ESTÁ LA CORRECCIÓN CLAVE PARA LAS HORAS:
                         progresoHoras: Number(p.horasCompletadas ?? p.horas_completadas ?? 0),
                         horasRequeridas: Number(p.horasRequeridas ?? p.horas_requeridas ?? 0),
                         faltas: p.faltas ?? 0,
@@ -109,7 +112,8 @@ const RRHHModern = () => {
                         fechasFaltas: p.fechasFaltas || [],
                         documentos: docsDinamicos,
                         informeFinalSubido: !!(p.informeUrl || p.informe_url),
-                        informeUrl: p.informeUrl || p.informe_url
+                        informeUrl: p.informeUrl || p.informe_url,
+                        delegado: p.delegado
                     };
                 });
                 setPasantes(pasantesAdaptados);
@@ -119,7 +123,6 @@ const RRHHModern = () => {
 
     useEffect(() => {
         fetchPasantes();
-        // Actualizar cada 5 segundos para ver cambios en tiempo real
         const interval = setInterval(fetchPasantes, 5000);
         return () => clearInterval(interval);
     }, []);
@@ -128,12 +131,29 @@ const RRHHModern = () => {
     useEffect(() => {
         if (selectedPasante) {
             const actualizado = pasantes.find(p => p.id === selectedPasante.id);
-            // Si hay cambios en los datos del pasante seleccionado, actualizar la vista
             if (actualizado && JSON.stringify(actualizado) !== JSON.stringify(selectedPasante)) {
                 setSelectedPasante(actualizado);
             }
         }
     }, [pasantes, selectedPasante]);
+
+    // --- DETECTAR SI NECESITA FINALIZACIÓN AL CAMBIAR DE USUARIO ---
+    useEffect(() => {
+        if (selectedPasante) {
+            // Si subió el informe Y NO está finalizado ni aprobado ni retirado
+            if (selectedPasante.informeFinalSubido &&
+                !selectedPasante.estado.includes('Finalizado') &&
+                selectedPasante.estado !== 'Aprobado' &&
+                selectedPasante.estado !== 'Retirado') {
+
+                setShowFinalizeAlert(true);
+            } else {
+                setShowFinalizeAlert(false);
+            }
+        } else {
+            setShowFinalizeAlert(false);
+        }
+    }, [selectedPasante?.id]);
 
     useEffect(() => {
         const revisarBuzon = () => {
@@ -160,12 +180,9 @@ const RRHHModern = () => {
         if (!selectedPasante) return;
 
         const nuevoValor = Math.max(0, selectedPasante[tipo] + delta);
-
-        // Objeto temporal para recalcular estado
         const pasanteTemporal = { ...selectedPasante, [tipo]: nuevoValor };
         const nuevoEstado = determinarEstado(pasanteTemporal);
 
-        // Mapeo para enviar al backend
         const bodyToSend = {
             [tipo]: nuevoValor,
             estado: nuevoEstado
@@ -177,9 +194,6 @@ const RRHHModern = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(bodyToSend)
             });
-            // No necesitamos actualizar el estado local manualmente aquí porque
-            // el fetchPasantes (polling) o el useEffect de sincronización lo harán.
-            // Pero para respuesta inmediata visual:
             const pasanteActualizado = { ...pasanteTemporal, estado: nuevoEstado };
             setPasantes(prev => prev.map(p => p.id === pasanteActualizado.id ? pasanteActualizado : p));
             setSelectedPasante(pasanteActualizado);
@@ -187,6 +201,26 @@ const RRHHModern = () => {
         } catch (error) {
             console.error("Error actualizando contador:", error);
             alert("Error de conexión al actualizar.");
+        }
+    };
+
+    // --- FINALIZAR RÁPIDAMENTE DESDE LA ALERTA ---
+    const handleQuickFinalize = async () => {
+        if (!selectedPasante) return;
+        try {
+            await fetch(`/api/pasantes/${selectedPasante.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ estado: 'Finalizado' })
+            });
+
+            const updated = { ...selectedPasante, estado: 'Finalizado' };
+            setPasantes(prev => prev.map(p => p.id === updated.id ? updated : p));
+            setSelectedPasante(updated);
+            setShowFinalizeAlert(false);
+            alert("✅ Estado actualizado a FINALIZADO correctamente.");
+        } catch (error) {
+            alert("Error al finalizar.");
         }
     };
 
@@ -216,6 +250,33 @@ const RRHHModern = () => {
         }
     };
 
+    // --- NUEVO: ELIMINAR INFORME FINAL ---
+    const handleDeleteInforme = async () => {
+        if (!selectedPasante) return;
+        if (!window.confirm("¿Está seguro de que desea eliminar el Informe Final cargado?\n\nEsta acción no se puede deshacer y el pasante deberá subirlo nuevamente.")) {
+            return;
+        }
+
+        try {
+            // Enviamos informeUrl como null o cadena vacía para que el backend lo limpie
+            await fetch(`/api/pasantes/${selectedPasante.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ informeUrl: '' }) // Enviamos vacío para borrar
+            });
+
+            // Actualizamos el estado local
+            const updated = { ...selectedPasante, informeFinalSubido: false, informeUrl: undefined };
+            setPasantes(prev => prev.map(p => p.id === updated.id ? updated : p));
+            setSelectedPasante(updated);
+
+            alert("Informe eliminado correctamente.");
+        } catch (error) {
+            console.error("Error al eliminar informe:", error);
+            alert("Error al eliminar el informe.");
+        }
+    };
+
     const calcularProgresoDocs = () => {
         if (!selectedPasante) return 0;
         const validados = selectedPasante.documentos.filter(d => d.validado).length;
@@ -228,6 +289,8 @@ const RRHHModern = () => {
         if (estado === "Activo") return "pill-success";
         return "pill-warning";
     };
+
+    // --- LÓGICA DE FINALIZACIÓN Y CERTIFICADOS ---
 
     const handleEarlyTermination = async () => {
         if (!selectedPasante) return;
@@ -242,7 +305,6 @@ const RRHHModern = () => {
                 body: JSON.stringify(bodyToSend)
             });
 
-            // Actualizar estado local
             const pasanteActualizado = { ...selectedPasante, estado: "Retirado" };
             setPasantes(prev => prev.map(p => p.id === pasanteActualizado.id ? pasanteActualizado : p));
             setSelectedPasante(pasanteActualizado);
@@ -251,6 +313,197 @@ const RRHHModern = () => {
             console.error("Error finalizando pasantía:", error);
             alert("Error al finalizar pasantía.");
         }
+    };
+
+    // --- FUNCIÓN NUEVA: IMPRIMIR CERTIFICADO DE APROBACIÓN (CON PIE DE PÁGINA) ---
+const handlePrintCertificate = () => {
+        if (!selectedPasante) return;
+
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return alert("Permita ventanas emergentes para imprimir.");
+
+        const htmlContent = `
+        <html>
+        <head>
+            <title>Certificado de Aprobación - ${selectedPasante.nombre}</title>
+            <style>
+                @page { 
+                    size: A4 landscape; 
+                    margin: 0; 
+                }
+                
+                body { 
+                    margin: 0; 
+                    padding: 0; 
+                    font-family: 'Georgia', 'Times New Roman', serif; 
+                    background-color: #fff;
+                    -webkit-print-color-adjust: exact; 
+                    width: 297mm; 
+                    height: 210mm; 
+                    box-sizing: border-box;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                }
+                
+                .page-padding {
+                    width: 100%;
+                    height: 100%;
+                    padding: 10mm; 
+                    box-sizing: border-box;
+                }
+
+                .outer-border {
+                    width: 100%;
+                    height: 100%;
+                    border: 5px solid #1a3a5a;
+                    padding: 5px; 
+                    box-sizing: border-box;
+                    display: flex; 
+                }
+
+                .inner-content {
+                    width: 100%;
+                    height: 100%;
+                    border: 2px solid #c5a059;
+                    box-sizing: border-box;
+                    padding: 40px; 
+                    text-align: center;
+                    position: relative;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: space-between;
+                }
+
+                /* Marca de agua */
+                .watermark {
+                    position: absolute;
+                    top: 45%; 
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    opacity: 0.08;
+                    width: 50%; 
+                    max-width: 500px;
+                    z-index: -1;
+                }
+
+                /* PIE DE PÁGINA */
+                .footer-img {
+                    position: absolute;
+                    bottom: 15px;      
+                    left: 50%;
+                    transform: translateX(-50%);
+                    width: 98%;        
+                    max-height: 70px;  
+                    object-fit: contain;
+                    z-index: 10;
+                }
+
+                .header-logo img { height: 80px; width: auto; margin-bottom: 10px; }
+                .institution-name { font-family: 'Arial', sans-serif; font-size: 14px; color: #555; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px; font-weight: bold; }
+
+                .cert-title { font-family: 'Arial', sans-serif; font-size: 48px; font-weight: 900; color: #1a3a5a; margin: 0; text-transform: uppercase; letter-spacing: 3px; }
+                .cert-subtitle { font-size: 20px; color: #c5a059; font-style: italic; margin-bottom: 20px; font-weight: bold; }
+
+                .cert-body { font-size: 18px; line-height: 1.6; color: #333; max-width: 90%; margin: 0 auto; }
+                
+                .student-name { 
+                    font-size: 36px; 
+                    font-weight: bold; 
+                    color: #000; 
+                    margin: 15px 0; 
+                    text-transform: uppercase; 
+                    border-bottom: 1px solid #999;
+                    display: inline-block;
+                    padding: 0 30px 2px 30px;
+                    font-family: 'Arial', sans-serif;
+                }
+
+                .highlight { font-weight: bold; color: #1a3a5a; }
+
+                .cert-date { font-size: 16px; color: #666; margin-top: 10px; }
+
+                /* SECCIÓN DE FIRMAS AJUSTADA */
+                .signatures-section { 
+                    display: flex; 
+                    justify-content: space-around; 
+                    align-items: flex-end; 
+                    margin-top: 90px; /* <--- AUMENTADO PARA DAR ESPACIO A LA FIRMA (antes 40px) */
+                    margin-bottom: 60px; 
+                }
+                
+                .signature-box { text-align: center; width: 35%; }
+                .line { border-top: 2px solid #1a3a5a; margin-bottom: 8px; width: 100%; }
+                .signer-name { font-weight: bold; font-size: 14px; margin: 0; color: #000; }
+                .signer-role { font-size: 12px; color: #555; text-transform: uppercase; letter-spacing: 1px; }
+            </style>
+        </head>
+        <body>
+            <div class="page-padding">
+                <div class="outer-border">
+                    <div class="inner-content">
+                        <img src="https://i.postimg.cc/76YQ9c2d/imagen-2026-02-18-145812994-removebg-preview.png" class="watermark" alt="Watermark" />
+
+                        <div>
+                            <div class="header-logo">
+                                <img src="https://i.postimg.cc/76YQ9c2d/imagen-2026-02-18-145812994-removebg-preview.png" alt="Logo INAMHI" />
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="cert-title">Certificado de Aprobación</div>
+                            <div class="cert-subtitle">Prácticas Pre-Profesionales</div>
+                        </div>
+
+                        <div class="cert-body">
+                            El Instituto Nacional de Meteorología e Hidrología certifica que:
+                            <br/>
+                            <div class="student-name">${selectedPasante.nombre}</div>
+                            <br/>
+                            Con Cédula de Identidad No. <span class="highlight">${selectedPasante.cedula}</span>, 
+                            estudiante de la carrera de <span class="highlight">${selectedPasante.carrera}</span> 
+                            del <span class="highlight">${selectedPasante.institucion || 'Educación Superior'}</span>,
+                            ha culminado satisfactoriamente <span class="highlight">${selectedPasante.progresoHoras} horas</span> 
+                            de práctica profesional, demostrando compromiso y excelencia en sus funciones.
+                        </div>
+
+                        <div class="cert-date">
+                            Dado en la ciudad de Quito, a los ${new Date().toLocaleDateString('es-EC', { day: 'numeric', month: 'long', year: 'numeric' })}.
+                        </div>
+
+                        <div class="signatures-section">
+                            <div class="signature-box">
+                                <div class="line"></div>
+                                <p class="signer-name">Mgs. Mercy Ivonne Freire Sánchez</p>
+                                <p class="signer-role">Directora de Administración de Recursos Humanos</p>
+                            </div>
+                            <div class="signature-box">
+                                <div class="line"></div>
+                                <p class="signer-name">Msc. ${selectedPasante.delegado || 'Ing. Tutor Institucional'}</p>
+                                <p class="signer-role">Supervisor de Prácticas</p>
+                            </div>
+                        </div>
+
+                        <img 
+                            src="https://i.postimg.cc/MKDdTwry/imagen-2026-02-18-170314615-removebg-preview.png" 
+                            class="footer-img" 
+                            alt="Pie de Página Institucional" 
+                        />
+
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+        
+        setTimeout(() => {
+            printWindow.focus();
+            printWindow.print();
+        }, 1000);
     };
 
     const handlePrintTermination = () => {
@@ -265,149 +518,44 @@ const RRHHModern = () => {
           <title>Acta de Finalización Anticipada - ${selectedPasante.nombre}</title>
           <style>
               @page { size: A4; margin: 20mm; }
-              body { 
-                  font-family: 'Arial', sans-serif; 
-                  color: #333; 
-                  line-height: 1.5; 
-                  margin: 0; 
-                  padding: 0;
-              }
-              .document-container {
-                  padding: 30px;
-                  border: 1px solid #eee;
-                  position: relative;
-              }
-              @media print {
-                  .document-container { border: none; padding: 0; }
-                  body { margin: 0; }
-              }
-
-              /* --- ENCABEZADO CON LOGO --- */
-              .header { 
-                  display: flex; 
-                  align-items: center; 
-                  justify-content: space-between; /* Separa logo y texto */
-                  border-bottom: 3px solid #1a3a5a; 
-                  padding-bottom: 10px; 
-                  margin-bottom: 30px;
-              }
-              .header-logo img {
-                  max-height: 70px; /* Tamaño controlado del logo */
-                  width: auto;
-                  display: block;
-              }
-              .header-text { 
-                  flex-grow: 1; 
-                  text-align: right; /* Alineación a la derecha se ve más formal */
-                  margin-left: 20px;
-              }
-              .header-text h1 { 
-                  font-size: 15px; 
-                  margin: 0; 
-                  color: #1a3a5a; 
-                  text-transform: uppercase;
-                  letter-spacing: 0.5px;
-              }
-              .header-text h2 { 
-                  font-size: 12px; 
-                  margin: 4px 0 0; 
-                  font-weight: normal; 
-                  color: #555;
-              }
-
-              /* Título del Documento */
+              body { font-family: 'Arial', sans-serif; color: #333; line-height: 1.5; margin: 0; padding: 0; }
+              .document-container { padding: 30px; border: 1px solid #eee; position: relative; }
+              @media print { .document-container { border: none; padding: 0; } body { margin: 0; } }
+              .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #1a3a5a; padding-bottom: 10px; margin-bottom: 30px; }
+              .header-logo img { max-height: 70px; width: auto; display: block; }
               .title-section { text-align: center; margin-bottom: 40px; }
-              .title-section h3 { 
-                  font-size: 18px; 
-                  text-decoration: underline; 
-                  margin-bottom: 8px;
-                  color: #000;
-                  text-transform: uppercase;
-              }
-              .doc-number { font-size: 12px; color: #666; font-weight: bold; }
-
-              /* Cuerpo del acta */
+              .title-section h3 { font-size: 18px; text-decoration: underline; margin-bottom: 8px; color: #000; text-transform: uppercase; }
               .content-text { font-family: 'Times New Roman', serif; font-size: 15px; text-align: justify; margin-bottom: 25px; line-height: 1.6; }
-
-              /* Tabla de Datos */
               .info-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
               .info-table td { padding: 8px 5px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
               .label { font-weight: bold; color: #1a3a5a; width: 35%; font-size: 13px; text-transform: uppercase; }
               .value { font-size: 14px; color: #333; }
-
-              /* Cuadro de Estadísticas */
-              .stats-container { 
-                  background-color: #f8f9fa; 
-                  border-left: 5px solid #1a3a5a; 
-                  padding: 15px 20px; 
-                  margin: 30px 0;
-                  border-radius: 0 4px 4px 0;
-              }
+              .stats-container { background-color: #f8f9fa; border-left: 5px solid #1a3a5a; padding: 15px 20px; margin: 30px 0; border-radius: 0 4px 4px 0; }
               .stats-title { font-size: 13px; font-weight: bold; margin-bottom: 10px; display: block; border-bottom: 1px solid #ddd; padding-bottom: 5px; color: #1a3a5a; text-transform: uppercase; }
               .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px; }
-
-              /* Firmas */
-              .signature-section { 
-                  margin-top: 60px; 
-                  display: flex; 
-                  justify-content: space-between; /* Mejor distribución */
-                  page-break-inside: avoid;
-              }
-              .signature-box { 
-                  text-align: center; 
-                  width: 45%; 
-              }
-              .signature-line { 
-                  border-top: 1px solid #000; 
-                  margin-bottom: 8px; 
-                  width: 80%;
-                  margin-left: auto; margin-right: auto;
-              }
+              .signature-section { margin-top: 60px; display: flex; justify-content: space-between; page-break-inside: avoid; }
+              .signature-box { text-align: center; width: 45%; }
+              .signature-line { border-top: 1px solid #000; margin-bottom: 8px; width: 80%; margin-left: auto; margin-right: auto; }
               .signature-name { font-weight: bold; font-size: 12px; margin: 0; }
               .signature-role { font-size: 11px; color: #555; text-transform: uppercase; margin-top: 2px; }
           </style>
       </head>
       <body>
           <div class="document-container">
-              
               <div class="header">
-                  <div class="header-logo">
-                      <img src="https://i.postimg.cc/j2p691mH/Captura-de-pantalla-2026-01-09-130055.png" alt="Logo INAMHI" />
-                  </div>
+                  <div class="header-logo"><img src="https://i.postimg.cc/j2p691mH/Captura-de-pantalla-2026-01-09-130055.png" alt="Logo INAMHI" /></div>
               </div>
-
-              <div class="title-section">
-                  <h3>Acta de Finalización Anticipada</h3>
-                  
-              </div>
-
+              <div class="title-section"><h3>Acta de Finalización Anticipada</h3></div>
               <div class="content-text">
                   En la ciudad de Quito, con fecha <strong>${new Date().toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })}</strong>, se suscribe la presente acta de finalización anticipada de pasantía pre-profesional, conforme a los registros que constan en el Sistema de Gestión Institucional:
               </div>
-
               <table class="info-table">
-                  <tr>
-                      <td class="label">Apellidos y Nombres:</td>
-                      <td class="value">${selectedPasante.nombre}</td>
-                  </tr>
-                  <tr>
-                      <td class="label">Cédula de Identidad:</td>
-                      <td class="value">${selectedPasante.cedula || 'N/A'}</td>
-                  </tr>
-                  <tr>
-                      <td class="label">Institución Educativa:</td>
-                      <td class="value">${selectedPasante.institucion || 'No Registrada'}</td>
-                  </tr>
-                  <tr>
-                      <td class="label">Carrera:</td>
-                      <td class="value">${selectedPasante.carrera || 'No Registrada'}</td>
-                  </tr>
-                  <tr>
-                      <td class="label">Estado de Cierre:</td>
-                      <td class="value" style="color: #e11d48;"><strong>${selectedPasante.estado.toUpperCase()}</strong></td>
-                  </tr>
+                  <tr><td class="label">Apellidos y Nombres:</td><td class="value">${selectedPasante.nombre}</td></tr>
+                  <tr><td class="label">Cédula de Identidad:</td><td class="value">${selectedPasante.cedula || 'N/A'}</td></tr>
+                  <tr><td class="label">Institución Educativa:</td><td class="value">${selectedPasante.institucion || 'No Registrada'}</td></tr>
+                  <tr><td class="label">Carrera:</td><td class="value">${selectedPasante.carrera || 'No Registrada'}</td></tr>
+                  <tr><td class="label">Estado de Cierre:</td><td class="value" style="color: #e11d48;"><strong>${selectedPasante.estado.toUpperCase()}</strong></td></tr>
               </table>
-
               <div class="stats-container">
                   <span class="stats-title">Resumen de Desempeño y Asistencia</span>
                   <div class="stats-grid">
@@ -417,29 +565,17 @@ const RRHHModern = () => {
                       <div><strong>Llamados de Atención:</strong> ${selectedPasante.llamadosAtencion || 0}/3</div>
                   </div>
               </div>
-
               <div class="content-text" style="font-size: 13px;">
                   <strong>OBSERVACIONES:</strong> Se deja constancia que la relación de pasantía termina antes del plazo previsto originalmente debido a las causales indicadas en el estado de cierre. El INAMHI certifica únicamente las horas validadas mediante el registro biométrico y de actividades hasta la presente fecha.
               </div>
-
               <div class="signature-section">
-                  <div class="signature-box">
-                      <div class="signature-line"></div>
-                      <p class="signature-name">Delegado de Talento Humano</p>
-                      <p class="signature-role">INAMHI</p>
-                  </div>
-                  <div class="signature-box">
-                      <div class="signature-line"></div>
-                      <p class="signature-name">${selectedPasante.nombre}</p>
-                      <p class="signature-role">Pasante / Practicante</p>
-                      <p class="signature-role" style="font-size: 10px;">C.I: ${selectedPasante.cedula || 'N/A'}</p>
-                  </div>
+                  <div class="signature-box"><div class="signature-line"></div><p class="signature-name">Delegado de Talento Humano</p><p class="signature-role">INAMHI</p></div>
+                  <div class="signature-box"><div class="signature-line"></div><p class="signature-name">${selectedPasante.nombre}</p><p class="signature-role">Pasante / Practicante</p><p class="signature-role" style="font-size: 10px;">C.I: ${selectedPasante.cedula || 'N/A'}</p></div>
               </div> 
           </div>
       </body>
       </html>
 `;
-
         printWindow.document.write(htmlContent);
         printWindow.document.close();
         printWindow.focus();
@@ -454,10 +590,7 @@ const RRHHModern = () => {
                     <span className="logo-text">RRHH INAMHI</span>
                 </div>
                 <div className="nav-links">
-                    <button className="nav-item active">
-                        <div className="nav-icon"><LayoutGrid size={20} /></div>
-                        <span>Dashboard</span>
-                    </button>
+                    <button className="nav-item active"><div className="nav-icon"><LayoutGrid size={20} /></div><span>Dashboard</span></button>
                     <button className="nav-item" onClick={() => navigate('/historialAlertas')}>
                         <div className="nav-icon" style={{ position: 'relative' }}>
                             <Bell size={20} />
@@ -520,23 +653,15 @@ const RRHHModern = () => {
                                 <h1>{selectedPasante.nombre}</h1>
                                 <div className="header-badges">
                                     <span className="badge-pill">{selectedPasante.carrera}</span>
-                                    <span className={`badge-pill ${getStatusColor(selectedPasante.estado)}`}>
-                                        {selectedPasante.estado}
-                                    </span>
+                                    <span className={`badge-pill ${getStatusColor(selectedPasante.estado)}`}>{selectedPasante.estado}</span>
                                 </div>
                             </div>
                         </header>
 
                         <div className="clean-dashboard-grid">
                             <div className="grid-left">
-                                {/* CARD: DOCUMENTACIÓN */}
                                 <div className="clean-card">
-                                    <div
-                                        className="card-top interactive-header"
-                                        onClick={() => navigate(`/documentacion/${selectedPasante.id}`)}
-                                        style={{ cursor: 'pointer' }}
-                                        title="Ir al gestor de documentación"
-                                    >
+                                    <div className="card-top interactive-header" onClick={() => navigate(`/documentacion/${selectedPasante.id}`)} style={{ cursor: 'pointer' }} title="Ir al gestor de documentación">
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             <span className="card-label" style={{ color: '#2563eb' }}>Documentación</span>
                                             <ExternalLink size={14} className="text-blue-500" />
@@ -559,62 +684,24 @@ const RRHHModern = () => {
                                     </div>
                                 </div>
 
-                                {/* CARD: CONTROL DISCIPLINARIO (COMPLETO) */}
                                 <div className="clean-card">
-                                    <div className="card-top">
-                                        <span className="card-label">Control Disciplinario</span>
-                                        <Gavel size={18} className="text-red-500" />
-                                    </div>
-
+                                    <div className="card-top"><span className="card-label">Control Disciplinario</span><Gavel size={18} className="text-red-500" /></div>
                                     <div className="discipline-grid">
-                                        {/* Atrasos */}
                                         <div className="control-item">
-                                            <div className="control-header">
-                                                <span className="control-title">Atrasos</span>
-                                                <span className={`control-val ${selectedPasante.atrasos > LIMITES.ATRASOS ? 'text-danger' : ''}`}>
-                                                    {selectedPasante.atrasos}/{LIMITES.ATRASOS}
-                                                </span>
-                                            </div>
-                                            <div className="control-buttons">
-                                                <button onClick={() => updateContador('atrasos', -1)}>-</button>
-                                                <button onClick={() => updateContador('atrasos', 1)}>+</button>
-                                            </div>
+                                            <div className="control-header"><span className="control-title">Atrasos</span><span className={`control-val ${selectedPasante.atrasos > LIMITES.ATRASOS ? 'text-danger' : ''}`}>{selectedPasante.atrasos}/{LIMITES.ATRASOS}</span></div>
+                                            <div className="control-buttons"><button onClick={() => updateContador('atrasos', -1)}>-</button><button onClick={() => updateContador('atrasos', 1)}>+</button></div>
                                         </div>
-
-                                        {/* Faltas */}
                                         <div className="control-item">
-                                            <div className="control-header">
-                                                <span className="control-title">Faltas</span>
-                                                <span className={`control-val ${selectedPasante.faltas > LIMITES.FALTAS ? 'text-danger' : ''}`}>
-                                                    {selectedPasante.faltas}/{LIMITES.FALTAS}
-                                                </span>
-                                            </div>
-                                            <div className="control-buttons">
-                                                <button onClick={() => updateContador('faltas', -1)}>-</button>
-                                                <button onClick={() => updateContador('faltas', 1)}>+</button>
-                                            </div>
+                                            <div className="control-header"><span className="control-title">Faltas</span><span className={`control-val ${selectedPasante.faltas > LIMITES.FALTAS ? 'text-danger' : ''}`}>{selectedPasante.faltas}/{LIMITES.FALTAS}</span></div>
+                                            <div className="control-buttons"><button onClick={() => updateContador('faltas', -1)}>-</button><button onClick={() => updateContador('faltas', 1)}>+</button></div>
                                         </div>
-
-                                        {/* Llamados */}
                                         <div className="control-item">
-                                            <div className="control-header">
-                                                <span className="control-title">Llamados</span>
-                                                <span className={`control-val ${selectedPasante.llamadosAtencion > LIMITES.LLAMADOS ? 'text-danger' : ''}`}>
-                                                    {selectedPasante.llamadosAtencion}/{LIMITES.LLAMADOS}
-                                                </span>
-                                            </div>
-                                            <div className="control-buttons">
-                                                <button onClick={() => updateContador('llamadosAtencion', -1)}>-</button>
-                                                <button onClick={() => updateContador('llamadosAtencion', 1)}>+</button>
-                                            </div>
+                                            <div className="control-header"><span className="control-title">Llamados</span><span className={`control-val ${selectedPasante.llamadosAtencion > LIMITES.LLAMADOS ? 'text-danger' : ''}`}>{selectedPasante.llamadosAtencion}/{LIMITES.LLAMADOS}</span></div>
+                                            <div className="control-buttons"><button onClick={() => updateContador('llamadosAtencion', -1)}>-</button><button onClick={() => updateContador('llamadosAtencion', 1)}>+</button></div>
                                         </div>
                                     </div>
-
-                                    {selectedPasante.estado.includes("Finalizado") && (
-                                        <div className="alert-box-danger">
-                                            <Ban size={16} />
-                                            <span>Estado Crítico: {selectedPasante.estado}</span>
-                                        </div>
+                                    {selectedPasante.estado.includes("Finalizado") && !selectedPasante.estado.includes("Finalizado (OK)") && (
+                                        <div className="alert-box-danger"><Ban size={16} /><span>Estado Crítico: {selectedPasante.estado}</span></div>
                                     )}
                                 </div>
                             </div>
@@ -622,36 +709,33 @@ const RRHHModern = () => {
                             <div className="grid-right">
                                 <div className="clean-card card-full-height">
                                     <div className="card-top"><span className="card-label">Cierre de Pasantías</span></div>
-
                                     <div className="stats-row mb-4" style={{ justifyContent: 'center', gap: '20px' }}>
-                                        <div className="stat-item">
-                                            {/* CORREGIDO: Mostrando decimales exactos */}
-                                            <span className="stat-num">{Number(selectedPasante.progresoHoras).toFixed(2)}</span>
-                                            <span className="stat-desc">Horas Realizadas</span>
-                                        </div>
-                                        <div className="stat-item">
-                                            <span className="stat-num">{selectedPasante.horasRequeridas}</span>
-                                            <span className="stat-desc">Meta</span>
-                                        </div>
+                                        <div className="stat-item"><span className="stat-num">{Number(selectedPasante.progresoHoras).toFixed(2)}</span><span className="stat-desc">Horas Realizadas</span></div>
+                                        <div className="stat-item"><span className="stat-num">{selectedPasante.horasRequeridas}</span><span className="stat-desc">Meta</span></div>
                                     </div>
 
                                     <div className="informe-status-area">
                                         {selectedPasante.informeFinalSubido ? (
                                             <>
                                                 <div className="pdf-preview-container" onClick={handleVerInforme}>
-                                                    <div className="pdf-icon-overlay">
-                                                        <Eye size={32} className="text-white" />
-                                                        <span>Ver Documento</span>
-                                                    </div>
-                                                    <div className="pdf-mockup">
-                                                        <FileText size={64} className="text-gray-300" />
-                                                    </div>
+                                                    <div className="pdf-icon-overlay"><Eye size={32} className="text-white" /><span>Ver Documento</span></div>
+                                                    <div className="pdf-mockup"><FileText size={64} className="text-gray-300" /></div>
                                                 </div>
                                                 <h3 className="mt-4">Informe Cargado</h3>
                                                 <p className="text-sm text-gray mb-4">Listo para revisión y cierre.</p>
                                                 <div className="flex gap-2 w-full">
                                                     <button className="btn-clean btn-outline flex-1" onClick={handleVerInforme}><Eye size={16} /> Ver</button>
                                                     <button className="btn-clean btn-primary flex-1" onClick={handleDescargarInforme}><Download size={16} /> Bajar</button>
+
+                                                    {/* --- BOTÓN DE ELIMINAR INFORME --- */}
+                                                    <button
+                                                        className="btn-clean flex-1"
+                                                        onClick={handleDeleteInforme}
+                                                        style={{ background: '#fee2e2', color: '#b91c1c', border: '1px solid #fca5a5' }}
+                                                        title="Eliminar Informe"
+                                                    >
+                                                        <Trash2 size={16} /> Eliminar
+                                                    </button>
                                                 </div>
                                             </>
                                         ) : (
@@ -664,13 +748,21 @@ const RRHHModern = () => {
                                     </div>
                                     <div className="divider"></div>
 
-                                    {/* MÓDULO DE FINALIZACIÓN ANTICIPADA */}
+                                    {/* MÓDULO DE FINALIZACIÓN Y CERTIFICACIÓN */}
                                     <div className="early-termination-module" style={{ marginBottom: '20px', padding: '15px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                                         <h4 style={{ margin: '0 0 10px 0', color: '#475569', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                            <Ban size={14} /> Zona de Finalización
+                                            <Award size={14} /> Gestión de Cierre
                                         </h4>
 
-                                        {selectedPasante.estado === 'Retirado' ? (
+                                        {(selectedPasante.estado === 'Finalizado' || selectedPasante.estado === 'Aprobado') ? (
+                                            <button
+                                                className="btn-clean"
+                                                style={{ width: '100%', background: '#dcfce7', border: '1px solid #86efac', color: '#166534' }}
+                                                onClick={handlePrintCertificate}
+                                            >
+                                                <Award size={16} /> Imprimir Certificado
+                                            </button>
+                                        ) : selectedPasante.estado === 'Retirado' ? (
                                             <button
                                                 className="btn-clean"
                                                 style={{ width: '100%', background: '#fff', border: '1px solid #cbd5e1', color: '#334155' }}
@@ -703,11 +795,7 @@ const RRHHModern = () => {
                         </div>
                     </div>
                 ) : (
-                    <div className="clean-empty-state">
-                        <div className="empty-circle"><Users size={48} /></div>
-                        <h3>Selecciona un perfil</h3>
-                        <p>Navega por la lista de la izquierda para ver los detalles del estudiante.</p>
-                    </div>
+                    <div className="clean-empty-state"><div className="empty-circle"><Users size={48} /></div><h3>Selecciona un perfil</h3><p>Navega por la lista de la izquierda para ver los detalles del estudiante.</p></div>
                 )}
             </main>
 
@@ -715,18 +803,36 @@ const RRHHModern = () => {
             {showPdfModal && selectedPasante?.informeUrl && (
                 <div className="modal-overlay-pdf">
                     <div className="modal-pdf-content">
-                        <div className="modal-pdf-header">
-                            <h3>Informe Final - {selectedPasante.nombre}</h3>
-                            <button onClick={() => setShowPdfModal(false)}><X size={24} /></button>
+                        <div className="modal-pdf-header"><h3>Informe Final - {selectedPasante.nombre}</h3><button onClick={() => setShowPdfModal(false)}><X size={24} /></button></div>
+                        <div className="modal-pdf-body"><iframe src={selectedPasante.informeUrl} title="Visor PDF" width="100%" height="100%" style={{ border: 'none' }}></iframe></div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL ALERTA FINALIZACIÓN */}
+            {showFinalizeAlert && selectedPasante && (
+                <div className="modal-overlay" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'rgba(0,0,0,0.5)', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}>
+                    <div style={{ background: 'white', padding: '30px', borderRadius: '12px', width: '400px', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', borderTop: '5px solid #f59e0b' }}>
+                        <div style={{ margin: '0 auto 15px auto', width: '60px', height: '60px', borderRadius: '50%', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <AlertCircle size={32} color="#d97706" />
                         </div>
-                        <div className="modal-pdf-body">
-                            <iframe
-                                src={selectedPasante.informeUrl}
-                                title="Visor PDF"
-                                width="100%"
-                                height="100%"
-                                style={{ border: 'none' }}
-                            ></iframe>
+                        <h3 style={{ margin: '0 0 10px 0', color: '#1e293b' }}>¡Informe Recibido!</h3>
+                        <p style={{ color: '#64748b', marginBottom: '20px', lineHeight: '1.5' }}>
+                            El pasante <strong>{selectedPasante.nombre}</strong> ha cargado su informe final.
+                            <br /><br />
+                            ¿Desea cambiar su estado a <strong>Finalizado</strong> para cerrar el proceso?
+                        </p>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button
+                                onClick={() => setShowFinalizeAlert(false)}
+                                style={{ flex: 1, padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', background: 'white', cursor: 'pointer', color: '#64748b' }}>
+                                Revisar Documento
+                            </button>
+                            <button
+                                onClick={handleQuickFinalize}
+                                style={{ flex: 1, padding: '10px', border: 'none', borderRadius: '6px', background: '#f59e0b', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>
+                                Finalizar Ahora
+                            </button>
                         </div>
                     </div>
                 </div>
