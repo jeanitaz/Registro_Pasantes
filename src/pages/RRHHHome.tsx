@@ -442,7 +442,7 @@ const RRHHModern = () => {
                             <br/>
                             Con Cédula de Identidad No. <span class="highlight">${selectedPasante.cedula}</span>, 
                             estudiante de la carrera de <span class="highlight">${selectedPasante.carrera}</span> 
-                            del <span class="highlight">${selectedPasante.institucion || 'Educación Superior'}</span>,
+                            del/de la <span class="highlight">${selectedPasante.institucion || 'Educación Superior'}</span>,
                             ha culminado satisfactoriamente <span class="highlight">${selectedPasante.progresoHoras} horas</span> 
                             de práctica profesional, demostrando compromiso y excelencia en sus funciones.
                         </div>
