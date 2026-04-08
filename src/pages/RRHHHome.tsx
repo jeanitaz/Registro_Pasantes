@@ -7,7 +7,7 @@ import {
     CheckCircle2,
     KeyRound, X,
     History, FileText, Download, UploadCloud, Eye, ExternalLink,
-    Gavel, Ban, AlertCircle, Award, Trash2 // <--- Importamos Trash2
+    Gavel, Ban, AlertCircle, Award, Trash2
 } from 'lucide-react';
 import '../styles/RRHHHome.css';
 
@@ -61,8 +61,10 @@ const RRHHModern = () => {
 
     const [showPdfModal, setShowPdfModal] = useState(false);
 
-    // --- ESTADO PARA LA ALERTA DE FINALIZACIÓN ---
+    // --- ESTADOS PARA MODALES ---
     const [showFinalizeAlert, setShowFinalizeAlert] = useState(false);
+    const [showCertNameModal, setShowCertNameModal] = useState(false);
+    const [firmaDirector, setFirmaDirector] = useState("Mgs. Mercy Ivonne Freire Sánchez");
 
     // --- LÓGICA DE ESTADOS AUTOMÁTICA ---
     const determinarEstado = (p: Pasante): string => {
@@ -70,9 +72,7 @@ const RRHHModern = () => {
         if (p.faltas > LIMITES.FALTAS) return "Finalizado por faltas excedidas";
         if (p.llamadosAtencion > LIMITES.LLAMADOS) return "Finalizado por llamado de atención";
 
-        // Si estaba finalizado y se corrigieron los contadores, vuelve a activo
         if (p.estado.includes("Finalizado")) return "Activo";
-
         if (p.horasRequeridas > 0 && p.progresoHoras >= p.horasRequeridas) return "Aprobado";
 
         const docsCompletos = p.documentos.every(d => d.validado);
@@ -81,7 +81,7 @@ const RRHHModern = () => {
         return p.estado;
     };
 
-    // --- CARGA DE DATOS (POLLING + MAPEO SEGURO) ---
+    // --- CARGA DE DATOS ---
     const fetchPasantes = async () => {
         try {
             const response = await fetch('/api/pasantes');
@@ -127,7 +127,6 @@ const RRHHModern = () => {
         return () => clearInterval(interval);
     }, []);
 
-    // --- SINCRONIZACIÓN AUTOMÁTICA DEL PANEL DERECHO ---
     useEffect(() => {
         if (selectedPasante) {
             const actualizado = pasantes.find(p => p.id === selectedPasante.id);
@@ -137,15 +136,12 @@ const RRHHModern = () => {
         }
     }, [pasantes, selectedPasante]);
 
-    // --- DETECTAR SI NECESITA FINALIZACIÓN AL CAMBIAR DE USUARIO ---
     useEffect(() => {
         if (selectedPasante) {
-            // Si subió el informe Y NO está finalizado ni aprobado ni retirado
             if (selectedPasante.informeFinalSubido &&
                 !selectedPasante.estado.includes('Finalizado') &&
                 selectedPasante.estado !== 'Aprobado' &&
                 selectedPasante.estado !== 'Retirado') {
-
                 setShowFinalizeAlert(true);
             } else {
                 setShowFinalizeAlert(false);
@@ -175,18 +171,13 @@ const RRHHModern = () => {
         p.cedula.includes(searchTerm)
     );
 
-    // --- GESTIÓN DE CONTADORES ---
     const updateContador = async (tipo: 'faltas' | 'atrasos' | 'llamadosAtencion', delta: number) => {
         if (!selectedPasante) return;
-
         const nuevoValor = Math.max(0, selectedPasante[tipo] + delta);
         const pasanteTemporal = { ...selectedPasante, [tipo]: nuevoValor };
         const nuevoEstado = determinarEstado(pasanteTemporal);
 
-        const bodyToSend = {
-            [tipo]: nuevoValor,
-            estado: nuevoEstado
-        };
+        const bodyToSend = { [tipo]: nuevoValor, estado: nuevoEstado };
 
         try {
             await fetch(`/api/pasantes/${selectedPasante.id}`, {
@@ -197,14 +188,11 @@ const RRHHModern = () => {
             const pasanteActualizado = { ...pasanteTemporal, estado: nuevoEstado };
             setPasantes(prev => prev.map(p => p.id === pasanteActualizado.id ? pasanteActualizado : p));
             setSelectedPasante(pasanteActualizado);
-
         } catch (error) {
-            console.error("Error actualizando contador:", error);
             alert("Error de conexión al actualizar.");
         }
     };
 
-    // --- FINALIZAR RÁPIDAMENTE DESDE LA ALERTA ---
     const handleQuickFinalize = async () => {
         if (!selectedPasante) return;
         try {
@@ -213,7 +201,6 @@ const RRHHModern = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ estado: 'Finalizado' })
             });
-
             const updated = { ...selectedPasante, estado: 'Finalizado' };
             setPasantes(prev => prev.map(p => p.id === updated.id ? updated : p));
             setSelectedPasante(updated);
@@ -245,34 +232,25 @@ const RRHHModern = () => {
     };
 
     const handleVerInforme = () => {
-        if (selectedPasante?.informeUrl) {
-            setShowPdfModal(true);
-        }
+        if (selectedPasante?.informeUrl) setShowPdfModal(true);
     };
 
-    // --- NUEVO: ELIMINAR INFORME FINAL ---
     const handleDeleteInforme = async () => {
         if (!selectedPasante) return;
-        if (!window.confirm("¿Está seguro de que desea eliminar el Informe Final cargado?\n\nEsta acción no se puede deshacer y el pasante deberá subirlo nuevamente.")) {
-            return;
-        }
+        if (!window.confirm("¿Está seguro de que desea eliminar el Informe Final cargado?\n\nEsta acción no se puede deshacer y el pasante deberá subirlo nuevamente.")) return;
 
         try {
-            // Enviamos informeUrl como null o cadena vacía para que el backend lo limpie
             await fetch(`/api/pasantes/${selectedPasante.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ informeUrl: '' }) // Enviamos vacío para borrar
+                body: JSON.stringify({ informeUrl: '' })
             });
 
-            // Actualizamos el estado local
             const updated = { ...selectedPasante, informeFinalSubido: false, informeUrl: undefined };
             setPasantes(prev => prev.map(p => p.id === updated.id ? updated : p));
             setSelectedPasante(updated);
-
             alert("Informe eliminado correctamente.");
         } catch (error) {
-            console.error("Error al eliminar informe:", error);
             alert("Error al eliminar el informe.");
         }
     };
@@ -289,8 +267,6 @@ const RRHHModern = () => {
         if (estado === "Activo") return "pill-success";
         return "pill-warning";
     };
-
-    // --- LÓGICA DE FINALIZACIÓN Y CERTIFICADOS ---
 
     const handleEarlyTermination = async () => {
         if (!selectedPasante) return;
@@ -310,17 +286,21 @@ const RRHHModern = () => {
             setSelectedPasante(pasanteActualizado);
             alert("Pasantía finalizada anticipadamente. Ahora puede generar el informe de retiro.");
         } catch (error) {
-            console.error("Error finalizando pasantía:", error);
             alert("Error al finalizar pasantía.");
         }
     };
 
-    // --- FUNCIÓN NUEVA: IMPRIMIR CERTIFICADO DE APROBACIÓN (CON PIE DE PÁGINA) ---
-const handlePrintCertificate = () => {
+    // --- FUNCIÓN QUE SE EJECUTA AL DAR CLICK EN EL MODAL ---
+    const ejecutarImpresionCertificado = () => {
         if (!selectedPasante) return;
 
         const printWindow = window.open('', '_blank');
-        if (!printWindow) return alert("Permita ventanas emergentes para imprimir.");
+        if (!printWindow) {
+            alert("⚠️ Permita ventanas emergentes para imprimir.");
+            return;
+        }
+
+        const firmaAUsar = firmaDirector.trim() !== "" ? firmaDirector : "Mgs. Mercy Ivonne Freire Sánchez";
 
         const htmlContent = `
         <html>
@@ -428,8 +408,8 @@ const handlePrintCertificate = () => {
                     display: flex; 
                     justify-content: space-around; 
                     align-items: flex-end; 
-                    margin-top: 90px; /* <--- AUMENTADO PARA DAR ESPACIO A LA FIRMA (antes 40px) */
-                    margin-bottom: 60px; 
+                    margin-top: 40px;
+                    margin-bottom: 20px; 
                 }
                 
                 .signature-box { text-align: center; width: 35%; }
@@ -474,12 +454,12 @@ const handlePrintCertificate = () => {
                         <div class="signatures-section">
                             <div class="signature-box">
                                 <div class="line"></div>
-                                <p class="signer-name">Mgs. Mercy Ivonne Freire Sánchez</p>
+                                <p class="signer-name">${firmaAUsar}</p>
                                 <p class="signer-role">Directora de Administración de Recursos Humanos</p>
                             </div>
                             <div class="signature-box">
                                 <div class="line"></div>
-                                <p class="signer-name">Msc. ${selectedPasante.delegado || 'Ing. Tutor Institucional'}</p>
+                                <p class="signer-name">${selectedPasante.delegado || 'Ing. Tutor Institucional'}</p>
                                 <p class="signer-role">Supervisor de Prácticas</p>
                             </div>
                         </div>
@@ -503,7 +483,10 @@ const handlePrintCertificate = () => {
         setTimeout(() => {
             printWindow.focus();
             printWindow.print();
-        }, 1000);
+        }, 800);
+
+        // Cerramos el modal de configuración después de imprimir
+        setShowCertNameModal(false);
     };
 
     const handlePrintTermination = () => {
@@ -758,7 +741,7 @@ const handlePrintCertificate = () => {
                                             <button
                                                 className="btn-clean"
                                                 style={{ width: '100%', background: '#dcfce7', border: '1px solid #86efac', color: '#166534' }}
-                                                onClick={handlePrintCertificate}
+                                                onClick={() => setShowCertNameModal(true)} /* AHORA ABRE NUESTRO MODAL PERSONALIZADO */
                                             >
                                                 <Award size={16} /> Imprimir Certificado
                                             </button>
@@ -832,6 +815,49 @@ const handlePrintCertificate = () => {
                                 onClick={handleQuickFinalize}
                                 style={{ flex: 1, padding: '10px', border: 'none', borderRadius: '6px', background: '#f59e0b', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>
                                 Finalizar Ahora
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL PARA CONFIGURAR NOMBRE DE LA FIRMA */}
+            {showCertNameModal && selectedPasante && (
+                <div className="modal-overlay" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'rgba(0,0,0,0.5)', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}>
+                    <div style={{ background: 'white', padding: '30px', borderRadius: '12px', width: '400px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', borderTop: '5px solid #22c55e' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+                            <div style={{ background: '#dcfce7', padding: '10px', borderRadius: '50%', color: '#16a34a' }}>
+                                <Award size={24} />
+                            </div>
+                            <h3 style={{ margin: 0, color: '#1e293b' }}>Configurar Firma</h3>
+                        </div>
+                        
+                        <div style={{ marginBottom: '25px' }}>
+                            <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', color: '#475569', marginBottom: '8px' }}>
+                                Nombre del Director/a de RRHH:
+                            </label>
+                            <input 
+                                type="text" 
+                                value={firmaDirector}
+                                onChange={(e) => setFirmaDirector(e.target.value)}
+                                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', outline: 'none' }}
+                                placeholder="Ej. Mgs. Juan Pérez"
+                            />
+                            <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '8px', margin: 0 }}>
+                                Este nombre aparecerá en la parte inferior izquierda del certificado.
+                            </p>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button
+                                onClick={() => setShowCertNameModal(false)}
+                                style={{ flex: 1, padding: '12px', border: '1px solid #cbd5e1', borderRadius: '8px', background: 'white', cursor: 'pointer', color: '#64748b', fontWeight: 'bold' }}>
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={ejecutarImpresionCertificado}
+                                style={{ flex: 1, padding: '12px', border: 'none', borderRadius: '8px', background: '#22c55e', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>
+                                Generar PDF
                             </button>
                         </div>
                     </div>
