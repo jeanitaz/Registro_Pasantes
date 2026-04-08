@@ -169,7 +169,7 @@ const AdminHome = () => {
                         <div className="fancy-card interns" onClick={() => navigate('/historialP')}>
                             <div className="card-text">
                                 <h3>Académico</h3>
-                                <h2>Pasantes</h2>
+                                <h2>Practicantes</h2>
                                 <p>Registro y seguimiento</p>
                             </div>
                             <div className="card-icon-float icon-blue"><Briefcase size={24} /></div>
@@ -267,7 +267,7 @@ const AdminHome = () => {
                             <div className="modal-grid">
                                 <div className="modal-option" onClick={() => handleDownload('pasantes')}>
                                     <Briefcase size={32} />
-                                    <span>Pasantes</span>
+                                    <span>Practicantes</span>
                                 </div>
                                 <div className="modal-option" onClick={() => handleDownload('rrhh')}>
                                     <Users size={32} />

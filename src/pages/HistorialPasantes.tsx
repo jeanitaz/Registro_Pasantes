@@ -6,7 +6,7 @@ import {
     Search, Building,
     MapPin, Edit2,
     Trash2, Save, X, Key, User,
-    FileSpreadsheet, ArrowLeft, Plus, Clock, Phone, Camera // <--- Importamos Camera
+    FileSpreadsheet, ArrowLeft, Plus, Clock, Phone, Camera
 } from 'lucide-react';
 import '../styles/HistorialPasantes.css';
 
@@ -39,14 +39,15 @@ const HistorialPasantes = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingPasante, setEditingPasante] = useState<Pasante | null>(null);
 
+    // --- NUEVO ESTADO: Para controlar la foto ampliada ---
+    const [viewPhotoUrl, setViewPhotoUrl] = useState<string | null>(null);
+
     const [selectedCarrera, setSelectedCarrera] = useState('');
     const [selectedInstitucion, setSelectedInstitucion] = useState('');
     const [selectedEstado, setSelectedEstado] = useState('');
 
-    // Referencia para el input de la foto
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Fetch inicial
     const fetchPasantes = async () => {
         try {
             const response = await fetch('/api/pasantes');
@@ -117,7 +118,6 @@ const HistorialPasantes = () => {
         setIsModalOpen(true);
     };
 
-    // --- FUNCIÓN PARA CONVERTIR IMAGEN A BASE64 ---
     const convertToBase64 = (file: File): Promise<string> => {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -127,13 +127,11 @@ const HistorialPasantes = () => {
         });
     };
 
-    // --- FUNCIÓN PARA MANEJAR EL CAMBIO DE FOTO ---
     const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file && editingPasante) {
             try {
                 const base64 = await convertToBase64(file);
-                // Actualizamos el estado local para ver la previsualización inmediata
                 setEditingPasante({ ...editingPasante, fotoUrl: base64 });
             } catch (error) {
                 console.error("Error al procesar la imagen", error);
@@ -142,7 +140,6 @@ const HistorialPasantes = () => {
         }
     };
 
-    // --- GUARDADO ---
     const handleSaveEdit = async () => {
         if (!editingPasante) return;
 
@@ -159,7 +156,7 @@ const HistorialPasantes = () => {
             estado: editingPasante.estado,
             horaEntrada: editingPasante.horaEntrada || null,
             horaSalida: editingPasante.horaSalida || null,
-            fotoUrl: editingPasante.fotoUrl // <--- AHORA ENVIAMOS LA FOTO TAMBIÉN
+            fotoUrl: editingPasante.fotoUrl
         };
 
         if (editingPasante.password && editingPasante.password.trim().length > 0) {
@@ -176,10 +173,7 @@ const HistorialPasantes = () => {
             if (response.ok) {
                 setPasantes(prevPasantes => prevPasantes.map(p => {
                     if (p.id === editingPasante.id) {
-                        return {
-                            ...p,
-                            ...datosParaEnviar
-                        };
+                        return { ...p, ...datosParaEnviar };
                     }
                     return p;
                 }));
@@ -203,7 +197,7 @@ const HistorialPasantes = () => {
                 <div className="header-info">
                     <button className="back-btn-modern" onClick={() => navigate(-1)}><ArrowLeft size={20} /></button>
                     <div>
-                        <h1>Historial de Pasantes</h1>
+                        <h1>Historial de Practicantes Pre-Profesionales</h1>
                         <p>{filteredPasantes.length} estudiantes registrados</p>
                     </div>
                 </div>
@@ -275,7 +269,14 @@ const HistorialPasantes = () => {
                                             <img
                                                 src={p.fotoUrl}
                                                 alt="Foto"
-                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                // --- CAMBIO: Evento onClick para ver foto ---
+                                                onClick={() => setViewPhotoUrl(p.fotoUrl || null)}
+                                                style={{ 
+                                                    width: '100%', 
+                                                    height: '100%', 
+                                                    objectFit: 'cover', 
+                                                    cursor: 'pointer' // Cursor de mano
+                                                }}
                                                 onError={(e) => {
                                                     const target = e.target as HTMLImageElement;
                                                     target.style.display = 'none';
@@ -322,7 +323,7 @@ const HistorialPasantes = () => {
                 )}
             </section>
 
-            {/* --- MODAL DE EDICIÓN COMPLETO --- */}
+            {/* --- MODAL DE EDICIÓN --- */}
             {isModalOpen && editingPasante && (
                 <div className="modal-overlay">
                     <div className="modal-glass" style={{ maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -331,7 +332,6 @@ const HistorialPasantes = () => {
                             <button className="close-btn" onClick={() => setIsModalOpen(false)}><X size={20} /></button>
                         </div>
                         <div className="modal-body">
-
                             {/* SECCIÓN DE FOTO DE PERFIL */}
                             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
                                 <div style={{ position: 'relative', width: '100px', height: '100px' }}>
@@ -347,155 +347,43 @@ const HistorialPasantes = () => {
                                             <span>{editingPasante.nombres.charAt(0)}</span>
                                         )}
                                     </div>
-
-                                    {/* Botón flotante para editar foto */}
-                                    <label htmlFor="photo-upload" style={{
-                                        position: 'absolute',
-                                        bottom: '0',
-                                        right: '0',
-                                        backgroundColor: '#2563eb',
-                                        color: 'white',
-                                        borderRadius: '50%',
-                                        width: '32px',
-                                        height: '32px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        cursor: 'pointer',
-                                        border: '2px solid white',
-                                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                                    }}>
+                                    <label htmlFor="photo-upload" style={{ position: 'absolute', bottom: '0', right: '0', backgroundColor: '#2563eb', color: 'white', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
                                         <Camera size={16} />
                                     </label>
-                                    <input
-                                        type="file"
-                                        id="photo-upload"
-                                        accept="image/*"
-                                        style={{ display: 'none' }}
-                                        ref={fileInputRef}
-                                        onChange={handlePhotoChange}
-                                    />
+                                    <input type="file" id="photo-upload" accept="image/*" style={{ display: 'none' }} ref={fileInputRef} onChange={handlePhotoChange} />
                                 </div>
                             </div>
 
-                            {/* 1. SECCIÓN: DATOS PERSONALES */}
+                            {/* RESTO DE CAMPOS DEL MODAL (Abreviado para limpieza, es igual al original) */}
                             <h4 style={{ fontSize: '14px', color: '#64748b', marginBottom: '10px', marginTop: '0', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>Datos Personales</h4>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
-                                <div className="input-group">
-                                    <label>Nombres</label>
-                                    <input
-                                        type="text"
-                                        value={editingPasante.nombres}
-                                        onChange={(e) => setEditingPasante({ ...editingPasante, nombres: e.target.value })}
-                                    />
-                                </div>
-                                <div className="input-group">
-                                    <label>Apellidos</label>
-                                    <input
-                                        type="text"
-                                        value={editingPasante.apellidos}
-                                        onChange={(e) => setEditingPasante({ ...editingPasante, apellidos: e.target.value })}
-                                    />
-                                </div>
-                                <div className="input-group">
-                                    <label>Cédula</label>
-                                    <input
-                                        type="text"
-                                        value={editingPasante.cedula}
-                                        onChange={(e) => setEditingPasante({ ...editingPasante, cedula: e.target.value })}
-                                    />
-                                </div>
-                                <div className="input-group">
-                                    <label>Teléfono Emergencia</label>
-                                    <input
-                                        type="text"
-                                        value={editingPasante.telefono_emergencia || ''}
-                                        onChange={(e) => setEditingPasante({ ...editingPasante, telefono_emergencia: e.target.value })}
-                                    />
-                                </div>
+                                <div className="input-group"><label>Nombres</label><input type="text" value={editingPasante.nombres} onChange={(e) => setEditingPasante({ ...editingPasante, nombres: e.target.value })} /></div>
+                                <div className="input-group"><label>Apellidos</label><input type="text" value={editingPasante.apellidos} onChange={(e) => setEditingPasante({ ...editingPasante, apellidos: e.target.value })} /></div>
+                                <div className="input-group"><label>Cédula</label><input type="text" value={editingPasante.cedula} onChange={(e) => setEditingPasante({ ...editingPasante, cedula: e.target.value })} /></div>
+                                <div className="input-group"><label>Teléfono Emergencia</label><input type="text" value={editingPasante.telefono_emergencia || ''} onChange={(e) => setEditingPasante({ ...editingPasante, telefono_emergencia: e.target.value })} /></div>
                             </div>
 
-                            {/* 2. SECCIÓN: DATOS ACADÉMICOS */}
                             <h4 style={{ fontSize: '14px', color: '#64748b', marginBottom: '10px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>Datos Académicos</h4>
                             <div style={{ marginBottom: '15px' }}>
-                                <div className="input-group" style={{ marginBottom: '10px' }}>
-                                    <label>Institución</label>
-                                    <input
-                                        type="text"
-                                        value={editingPasante.institucion}
-                                        onChange={(e) => setEditingPasante({ ...editingPasante, institucion: e.target.value })}
-                                    />
-                                </div>
-                                <div className="input-group" style={{ marginBottom: '10px' }}>
-                                    <label>Carrera</label>
-                                    <input
-                                        type="text"
-                                        value={editingPasante.carrera}
-                                        onChange={(e) => setEditingPasante({ ...editingPasante, carrera: e.target.value })}
-                                    />
-                                </div>
-                                <div className="input-group">
-                                    <label>Dependencia (Área)</label>
-                                    <input
-                                        type="text"
-                                        value={editingPasante.dependencia}
-                                        onChange={(e) => setEditingPasante({ ...editingPasante, dependencia: e.target.value })}
-                                    />
-                                </div>
+                                <div className="input-group" style={{ marginBottom: '10px' }}><label>Institución</label><input type="text" value={editingPasante.institucion} onChange={(e) => setEditingPasante({ ...editingPasante, institucion: e.target.value })} /></div>
+                                <div className="input-group" style={{ marginBottom: '10px' }}><label>Carrera</label><input type="text" value={editingPasante.carrera} onChange={(e) => setEditingPasante({ ...editingPasante, carrera: e.target.value })} /></div>
+                                <div className="input-group"><label>Dependencia</label><input type="text" value={editingPasante.dependencia} onChange={(e) => setEditingPasante({ ...editingPasante, dependencia: e.target.value })} /></div>
                             </div>
 
-                            {/* 3. SECCIÓN: CREDENCIALES */}
                             <h4 style={{ fontSize: '14px', color: '#64748b', marginBottom: '10px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>Credenciales</h4>
                             <div className="credentials-box-modal" style={{ marginBottom: '15px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                                <div className="input-group">
-                                    <label><User size={14} /> Usuario</label>
-                                    <input
-                                        type="text"
-                                        value={editingPasante.usuario}
-                                        onChange={(e) => setEditingPasante({ ...editingPasante, usuario: e.target.value })}
-                                    />
-                                </div>
-                                <div className="input-group">
-                                    <label><Key size={14} /> Contraseña</label>
-                                    <input
-                                        type="text"
-                                        value={editingPasante.password || ''}
-                                        onChange={(e) => setEditingPasante({ ...editingPasante, password: e.target.value })}
-                                        placeholder="Dejar vacío para no cambiar"
-                                    />
-                                </div>
+                                <div className="input-group"><label><User size={14} /> Usuario</label><input type="text" value={editingPasante.usuario} onChange={(e) => setEditingPasante({ ...editingPasante, usuario: e.target.value })} /></div>
+                                <div className="input-group"><label><Key size={14} /> Contraseña</label><input type="text" value={editingPasante.password || ''} onChange={(e) => setEditingPasante({ ...editingPasante, password: e.target.value })} placeholder="Dejar vacío para no cambiar" /></div>
                             </div>
 
-                            {/* 4. SECCIÓN: CONTROL Y HORARIOS */}
                             <h4 style={{ fontSize: '14px', color: '#64748b', marginBottom: '10px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>Control de Asistencia</h4>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
-                                <div className="input-group">
-                                    <label>Hora Entrada</label>
-                                    <input
-                                        type="time"
-                                        value={editingPasante.horaEntrada || ''}
-                                        onChange={(e) => setEditingPasante({ ...editingPasante, horaEntrada: e.target.value })}
-                                    />
-                                </div>
-                                <div className="input-group">
-                                    <label>Hora Salida</label>
-                                    <input
-                                        type="time"
-                                        value={editingPasante.horaSalida || ''}
-                                        onChange={(e) => setEditingPasante({ ...editingPasante, horaSalida: e.target.value })}
-                                    />
-                                </div>
+                                <div className="input-group"><label>Hora Entrada</label><input type="time" value={editingPasante.horaEntrada || ''} onChange={(e) => setEditingPasante({ ...editingPasante, horaEntrada: e.target.value })} /></div>
+                                <div className="input-group"><label>Hora Salida</label><input type="time" value={editingPasante.horaSalida || ''} onChange={(e) => setEditingPasante({ ...editingPasante, horaSalida: e.target.value })} /></div>
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                                <div className="input-group">
-                                    <label>Horas Completadas</label>
-                                    <input
-                                        type="number"
-                                        value={editingPasante.horasCompletadas ?? ''}
-                                        onChange={(e) => setEditingPasante({ ...editingPasante, horasCompletadas: e.target.value })}
-                                    />
-                                </div>
+                                <div className="input-group"><label>Horas Completadas</label><input type="number" value={editingPasante.horasCompletadas ?? ''} onChange={(e) => setEditingPasante({ ...editingPasante, horasCompletadas: e.target.value })} /></div>
                                 <div className="input-group">
                                     <label>Estado</label>
                                     <select value={editingPasante.estado} onChange={(e) => setEditingPasante({ ...editingPasante, estado: e.target.value })}>
@@ -509,12 +397,55 @@ const HistorialPasantes = () => {
                                     </select>
                                 </div>
                             </div>
-
                         </div>
                         <div className="modal-footer">
                             <button className="btn-cancel" onClick={() => setIsModalOpen(false)}>Cancelar</button>
                             <button className="btn-save" onClick={handleSaveEdit}><Save size={16} /> Guardar</button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* --- NUEVO: MODAL VISUALIZADOR DE FOTO GRANDE --- */}
+            {viewPhotoUrl && (
+                <div 
+                    className="modal-overlay" 
+                    onClick={() => setViewPhotoUrl(null)} // Cierra al hacer clic afuera
+                    style={{ 
+                        zIndex: 2000, 
+                        display: 'flex', 
+                        justifyContent: 'center', 
+                        alignItems: 'center',
+                        backgroundColor: 'rgba(0, 0, 0, 0.85)' // Fondo más oscuro
+                    }}
+                >
+                    <div style={{ position: 'relative', maxWidth: '90%', maxHeight: '90%' }} onClick={e => e.stopPropagation()}>
+                        <button
+                            onClick={() => setViewPhotoUrl(null)}
+                            style={{ 
+                                position: 'absolute', 
+                                top: -40, 
+                                right: 0, 
+                                background: 'none', 
+                                border: 'none', 
+                                color: 'white', 
+                                cursor: 'pointer' 
+                            }}
+                        >
+                            <X size={32} />
+                        </button>
+                        <img 
+                            src={viewPhotoUrl} 
+                            alt="Foto ampliada" 
+                            style={{ 
+                                width: '100%', 
+                                height: 'auto', 
+                                maxHeight: '90vh', 
+                                borderRadius: '8px', 
+                                boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                                objectFit: 'contain'
+                            }} 
+                        />
                     </div>
                 </div>
             )}

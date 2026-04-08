@@ -28,7 +28,7 @@ const Login = () => {
         { id: 'admin', label: 'Administrador' },
         { id: 'human_resources', label: 'RR.HH.' },
         { id: 'security', label: 'Seguridad' },
-        { id: 'pasante', label: 'Pasante' }
+        { id: 'pasante', label: 'Practicante' }
     ];
 
     useEffect(() => {
@@ -208,7 +208,7 @@ const Login = () => {
                     </svg>
                 </div>
                 <h1>SISTEMA DE<br />ACCESO</h1>
-                <div className="brand-tagline">INAMHI sistema de monitoreo de pasantes</div>
+                <div className="brand-tagline">INAMHI sistema de monitoreo de Practicas Pre-Profesionales</div>
             </div>
 
             <div className="form-section">

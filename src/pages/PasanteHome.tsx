@@ -304,24 +304,75 @@ const PasanteHome = () => {
             body { font-family: 'Arial', sans-serif; color: #333; line-height: 1.5; margin: 0; padding: 0; }
             .document-container { padding: 40px; border: 1px solid #eee; }
             @media print { .document-container { border: none; padding: 0; } body { margin: 0; } }
+            
             .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #1a3a5a; padding-bottom: 15px; margin-bottom: 30px; }
             .header-logo img { max-height: 80px; width: auto; }
             .title-section { text-align: center; margin-bottom: 30px; }
             .title-section h3 { font-size: 20px; text-decoration: underline; margin-bottom: 5px; color: #000; }
+            
             .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px 30px; margin-bottom: 30px; background-color: #f8fafc; padding: 20px; border-radius: 6px; border: 1px solid #e2e8f0; }
             .info-item { display: flex; flex-direction: column; }
             .info-label { font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 4px; }
             .info-value { font-size: 14px; color: #0f172a; font-weight: 500; }
+            
             .certificate-text { font-family: 'Times New Roman', serif; font-size: 16px; text-align: justify; line-height: 1.8; margin-bottom: 40px; }
             .history-title { font-size: 14px; font-weight: bold; color: #1a3a5a; border-left: 4px solid #1a3a5a; padding-left: 10px; margin-bottom: 15px; }
-            table { width: 100%; border-collapse: collapse; font-size: 11px; }
+            
+            /* --- TABLAS --- */
+            table { 
+                width: 100%; 
+                border-collapse: collapse; 
+                font-size: 11px; 
+                table-layout: fixed; 
+            }
             th { background-color: #f1f5f9; color: #475569; font-weight: bold; text-align: left; padding: 10px; border-bottom: 2px solid #e2e8f0; text-transform: uppercase; }
             td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; color: #334155; }
-            .signatures-container { display: flex; justify-content: space-between; margin-top: 80px; page-break-inside: avoid; }
-            .signature-box { width: 40%; text-align: center; }
-            .signature-line { border-top: 1px solid #000; margin-bottom: 10px; width: 80%; margin-left: auto; margin-right: auto; }
-            .signer-name { font-weight: bold; font-size: 13px; margin: 0; }
-            .signer-role { font-size: 12px; color: #666; font-style: italic; }
+            
+            /* --- CAJA IRROMPIBLE --- */
+            .caja-fuerte {
+                page-break-inside: avoid; 
+                break-inside: avoid;
+                width: 100%;
+            }
+            
+            /* --- FIRMAS ALINEADAS --- */
+            .signatures-container { 
+                display: flex; 
+                justify-content: space-between; 
+                /* CAMBIO CLAVE: alinear desde arriba para que la línea negra quede a la misma altura en ambas */
+                align-items: flex-start; 
+                width: 100%;
+                margin-top: 50px; 
+                padding: 0 40px; 
+                box-sizing: border-box;
+            }
+            .signature-box { 
+                width: 42%; /* Ligeramente más ancho para evitar que nombres largos se rompan en dos líneas */
+                text-align: center; 
+            }
+            .signature-line { 
+                border-top: 1px solid #000; 
+                margin-bottom: 10px; /* Separación consistente debajo de la línea */
+                width: 100%; 
+            }
+            .signer-name { 
+                font-weight: bold; 
+                font-size: 13px; 
+                margin: 0 0 4px 0; /* Margen inferior uniforme */
+                color: #222; 
+            }
+            .signer-role { 
+                font-size: 12px; 
+                color: #555; 
+                margin: 0; 
+                font-style: italic; 
+            }
+            .signer-cedula {
+                font-size: 10px; 
+                color: #555;
+                margin-top: 4px;
+                display: block; /* Asegura que caiga en una nueva línea limpia */
+            }
         </style>
       </head>
       <body>
@@ -339,15 +390,52 @@ const PasanteHome = () => {
             <div class="certificate-text">
                 <p>Por medio del presente documento, se certifica que el/la estudiante <strong>${pasante.nombre}</strong> con CI <strong>${pasante.cedula || 'N/A'}</strong>, ha completado satisfactoriamente <strong>${pasante.horasRequeridas} horas</strong> de práctica.</p>
             </div>
+            
             <div class="history-section">
                 <div class="history-title">DETALLE DE ASISTENCIA</div>
-                <table><thead><tr><th>Fecha</th><th>Hora</th><th>Evento</th><th>Estado</th></tr></thead>
-                    <tbody>${fullHistory.slice(0, 50).map((h: any) => `<tr><td>${new Date(h.fecha_hora).toLocaleDateString()}</td><td>${new Date(h.fecha_hora).toLocaleTimeString()}</td><td>${h.tipo_evento ? h.tipo_evento.replace('_', ' ').toUpperCase() : 'EVENTO'}</td><td>REGISTRADO</td></tr>`).join('')}</tbody>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 20%;">Fecha</th>
+                            <th style="width: 25%;">Hora</th>
+                            <th style="width: 35%;">Evento</th>
+                            <th style="width: 20%;">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${fullHistory.slice(0, -4).map((h: any) => `<tr><td>${new Date(h.fecha_hora).toLocaleDateString()}</td><td>${new Date(h.fecha_hora).toLocaleTimeString()}</td><td>${h.tipo_evento ? h.tipo_evento.replace('_', ' ').toUpperCase() : 'EVENTO'}</td><td>REGISTRADO</td></tr>`).join('')}
+                    </tbody>
                 </table>
-            </div>
-            <div class="signatures-container">
-                <div class="signature-box"><div class="signature-line"></div><p class="signer-name">${nombreDelegado}</p><p class="signer-role">Tutor Institucional</p></div>
-                <div class="signature-box"><div class="signature-line"></div><p class="signer-name">${pasante.nombre}</p><p class="signer-role">Estudiante</p><p class="signature-role" style="font-size: 10px;">C.I: ${pasante.cedula || 'N/A'}</p></div>
+                
+                <div class="caja-fuerte">
+                    <table>
+                        <colgroup>
+                            <col style="width: 20%;">
+                            <col style="width: 25%;">
+                            <col style="width: 35%;">
+                            <col style="width: 20%;">
+                        </colgroup>
+                        <tbody>
+                            ${fullHistory.slice(-4).map((h: any) => `<tr><td>${new Date(h.fecha_hora).toLocaleDateString()}</td><td>${new Date(h.fecha_hora).toLocaleTimeString()}</td><td>${h.tipo_evento ? h.tipo_evento.replace('_', ' ').toUpperCase() : 'EVENTO'}</td><td>REGISTRADO</td></tr>`).join('')}
+                        </tbody>
+                    </table>
+                    
+                    <div class="signatures-container">
+                        <div class="signature-box">
+                            <div class="signature-line"></div>
+                            <p class="signer-name">${nombreDelegado}</p>
+                            <p class="signer-role">Tutor Institucional</p>
+                        </div>
+                        <div class="signature-box">
+                            <div class="signature-line"></div>
+                            <p class="signer-name">${pasante.nombre}</p>
+                            <p class="signer-role">Estudiante</p>
+                            <span class="signer-cedula">C.I: ${pasante.cedula || 'N/A'}</span>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
       </body>

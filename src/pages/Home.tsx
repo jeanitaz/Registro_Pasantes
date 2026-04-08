@@ -24,11 +24,11 @@ const Home = () => {
 
                     <h2 className="display-title">
                         Centro control de <br />
-                        <span className="text-gradient">Pasantes</span>
+                        <span className="text-gradient">Practicas Pre-Profesionales</span>
                     </h2>
 
                     <p className="description-text">
-                        Bienvenido al ecosistema de gestión de pasantes. 
+                        Bienvenido al ecosistema de gestión de Practicas Pre-Profesionales. 
                         Centralizamos la asistencia, evaluación y seguimiento 
                         en una plataforma segura y escalable.
                     </p>
@@ -90,10 +90,11 @@ const Home = () => {
                                 <div className="info-card">
                                     <p>Para pasar de estado <strong>"No Habilitado"</strong> a <strong>"Activo"</strong>, debes subir los siguientes documentos en formato PDF:</p>
                                     <ul className="checklist">
+                                        <li>Carta de Convenio(Opcional)</li>
                                         <li>Hoja de Vida actualizada</li>
                                         <li>Carta de Solicitud de Pasantías (Firmada)</li>
                                         <li>Acuerdo de Confidencialidad</li>
-                                        <li>Copia de Cédula de Identidad</li>
+                                        <li>Copia de Cédula / Papeleta de Votación</li>
                                     </ul>
                                 </div>
                             </section>
