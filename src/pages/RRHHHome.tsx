@@ -301,6 +301,11 @@ const RRHHModern = () => {
         }
 
         const firmaAUsar = firmaDirector.trim() !== "" ? firmaDirector : "Mgs. Mercy Ivonne Freire Sánchez";
+        
+        // --- LOGICA DE PREPOSICIÓN (DEL / DE LA) ---
+        const nombreInstitucion = selectedPasante.institucion || 'Educación Superior';
+        const instLower = nombreInstitucion.toLowerCase();
+        const preposicion = (instLower.includes('universidad') || instLower.includes('escuela')) ? 'de la' : 'del';
 
         const htmlContent = `
         <html>
@@ -442,24 +447,24 @@ const RRHHModern = () => {
                             <br/>
                             Con Cédula de Identidad No. <span class="highlight">${selectedPasante.cedula}</span>, 
                             estudiante de la carrera de <span class="highlight">${selectedPasante.carrera}</span> 
-                            del/de la <span class="highlight">${selectedPasante.institucion || 'Educación Superior'}</span>,
+                            ${preposicion} <span class="highlight">${nombreInstitucion}</span>,
                             ha culminado satisfactoriamente <span class="highlight">${selectedPasante.progresoHoras} horas</span> 
                             de práctica profesional, demostrando compromiso y excelencia en sus funciones.
                         </div>
 
                         <div class="cert-date">
-                            Dado en la ciudad de Quito, a los ${new Date().toLocaleDateString('es-EC', { day: 'numeric', month: 'long', year: 'numeric' })}.
+                            Dado en la ciudad de Quito, a los ${new Date().getDate()} días del mes de ${new Date().toLocaleDateString('es-EC', { month: 'long' })} de ${new Date().getFullYear()}.
                         </div>
 
                         <div class="signatures-section">
                             <div class="signature-box">
                                 <div class="line"></div>
                                 <p class="signer-name">${firmaAUsar}</p>
-                                <p class="signer-role">Directora de Administración de Recursos Humanos</p>
+                                <p class="signer-role">Dirección de Administración de Recursos Humanos</p>
                             </div>
                             <div class="signature-box">
                                 <div class="line"></div>
-                                <p class="signer-name">${selectedPasante.delegado || 'Ing. Tutor Institucional'}</p>
+                                <p class="signer-name">Msc. ${selectedPasante.delegado || 'Ing. Tutor Institucional'}</p>
                                 <p class="signer-role">Supervisor de Prácticas</p>
                             </div>
                         </div>
@@ -485,7 +490,6 @@ const RRHHModern = () => {
             printWindow.print();
         }, 800);
 
-        // Cerramos el modal de configuración después de imprimir
         setShowCertNameModal(false);
     };
 
@@ -741,7 +745,7 @@ const RRHHModern = () => {
                                             <button
                                                 className="btn-clean"
                                                 style={{ width: '100%', background: '#dcfce7', border: '1px solid #86efac', color: '#166534' }}
-                                                onClick={() => setShowCertNameModal(true)} /* AHORA ABRE NUESTRO MODAL PERSONALIZADO */
+                                                onClick={() => setShowCertNameModal(true)}
                                             >
                                                 <Award size={16} /> Imprimir Certificado
                                             </button>
