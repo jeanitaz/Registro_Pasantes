@@ -100,6 +100,49 @@ const Documentacion = () => {
         if (inputRefs.current[key]) inputRefs.current[key]!.value = '';
     };
 
+    // --- NUEVO: FUNCIÓN PARA ELIMINAR DOCUMENTOS YA GUARDADOS ---
+    const handleDeleteSavedDoc = async (key: string) => {
+        if (!window.confirm("¿Seguro que deseas eliminar este documento del sistema?")) return;
+
+        try {
+            // Verificamos si el documento que están borrando era obligatorio
+            const isRequired = !DOCS_REQUERIDOS.find(d => d.key === key)?.optional;
+            
+            const payload: any = { [key]: '' }; 
+            
+            // Si borra un documento vital, el pasante pierde el estado Activo
+            if (isRequired) {
+                payload.estado = "No habilitado";
+                payload.documentacionCompleta = false;
+            }
+
+            const response = await fetch(`/api/pasantes/${idPasante}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                // Lo quitamos del estado visual de React
+                setSavedDocs(prev => {
+                    const newDocs = { ...prev };
+                    delete newDocs[key]; 
+                    return newDocs;
+                });
+                
+                if (isRequired) {
+                    setUploadStatus('idle'); // Quitamos el check verde general
+                }
+                
+                alert("Documento eliminado correctamente. Puede subir uno nuevo.");
+            } else {
+                alert("Error al intentar eliminar el documento en el servidor.");
+            }
+        } catch (error) {
+            alert("Error de conexión con el servidor.");
+        }
+    };
+
     const handleViewFile = (key: string) => {
         if (files[key]) {
             const objectUrl = URL.createObjectURL(files[key]!);
@@ -119,9 +162,8 @@ const Documentacion = () => {
             return;
         }
 
-        // 3. VALIDACIÓN CORREGIDA: Filtramos solo los que NO son opcionales
         const faltantes = DOCS_REQUERIDOS.filter(doc => 
-            !doc.optional && // Si optional es true, esta condición da false y NO lo marca como faltante
+            !doc.optional && 
             !files[doc.key] && 
             !savedDocs[doc.key]
         );
@@ -160,8 +202,6 @@ const Documentacion = () => {
                 }
             });
 
-            console.log("Enviando...", payload);
-
             const response = await fetch(`/api/pasantes/${idPasante}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
@@ -170,7 +210,7 @@ const Documentacion = () => {
 
             if (response.ok) {
                 setUploadStatus('success');
-                alert(`✅ ¡Éxito! ${nombrePasante} ha sido activado.`);
+                alert(`✅ ¡Éxito! Los documentos se han guardado.`);
 
                 resultados.forEach(item => {
                     if (item) {
@@ -196,7 +236,8 @@ const Documentacion = () => {
         }
     };
 
-    const isCompleted = uploadStatus === 'success';
+    // Detectamos si hay archivos locales nuevos para activar el botón de guardar
+    const hasNewFiles = Object.keys(files).length > 0;
 
     return (
         <div className="docs-container">
@@ -228,7 +269,6 @@ const Documentacion = () => {
                             <div className="info-area">
                                 <h3>
                                     {doc.label} 
-                                    {/* Muestra visualmente que es opcional */}
                                     {doc.optional && <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'normal', marginLeft: '5px' }}>(Opcional)</span>}
                                 </h3>
                                 
@@ -240,6 +280,8 @@ const Documentacion = () => {
                                     <p className="placeholder">Vacío</p>
                                 )}
                             </div>
+                            
+                            {/* AQUÍ ESTÁN LOS BOTONES CORREGIDOS */}
                             <div className="action-area" style={{ display: 'flex', gap: '5px' }}>
                                 {tieneArchivo && (
                                     <button
@@ -252,27 +294,51 @@ const Documentacion = () => {
                                     </button>
                                 )}
 
-                                {!isCompleted && (
-                                    <>
-                                        <input
-                                            type="file"
-                                            id={`file-${doc.key}`}
-                                            accept=".pdf"
-                                            className="hidden-input"
-                                            ref={el => { inputRefs.current[doc.key] = el }}
-                                            onChange={(e) => handleFileChange(doc.key, e)}
-                                        />
+                                <input
+                                    type="file"
+                                    id={`file-${doc.key}`}
+                                    accept=".pdf"
+                                    className="hidden-input"
+                                    ref={el => { inputRefs.current[doc.key] = el }}
+                                    onChange={(e) => handleFileChange(doc.key, e)}
+                                />
 
-                                        {fileLocal ? (
-                                            <button className="btn-icon delete" onClick={() => handleRemoveFile(doc.key)}>
-                                                <Trash2 size={18} />
-                                            </button>
-                                        ) : (
-                                            <label htmlFor={`file-${doc.key}`} className="btn-upload-label">
-                                                {fileGuardado ? "Cambiar" : "Subir"}
-                                            </label>
-                                        )}
+                                {fileLocal ? (
+                                    <button 
+                                        className="btn-icon delete" 
+                                        onClick={() => handleRemoveFile(doc.key)}
+                                        style={{ background: '#fee2e2', color: '#ef4444', border: 'none', width: '36px', height: '36px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        title="Descartar archivo nuevo"
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
+                                ) : fileGuardado ? (
+                                    <>
+                                        <label 
+                                            htmlFor={`file-${doc.key}`} 
+                                            className="btn-upload-label"
+                                            style={{ background: '#f59e0b', padding: '8px 12px', borderRadius: '8px', color: 'white', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center' }}
+                                            title="Reemplazar archivo"
+                                        >
+                                            Cambiar
+                                        </label>
+                                        <button 
+                                            className="btn-icon delete" 
+                                            onClick={() => handleDeleteSavedDoc(doc.key)}
+                                            style={{ background: '#fee2e2', color: '#ef4444', border: 'none', width: '36px', height: '36px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                            title="Eliminar archivo del sistema"
+                                        >
+                                            <Trash2 size={18} />
+                                        </button>
                                     </>
+                                ) : (
+                                    <label 
+                                        htmlFor={`file-${doc.key}`} 
+                                        className="btn-upload-label"
+                                        style={{ background: '#2563eb', padding: '8px 12px', borderRadius: '8px', color: 'white', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center' }}
+                                    >
+                                        Subir
+                                    </label>
                                 )}
                             </div>
                         </div>
@@ -280,31 +346,35 @@ const Documentacion = () => {
                 })}
             </div>
 
+            {/* FOOTER Y BOTÓN DE GUARDAR ACTUALIZADOS */}
             <div className="docs-footer">
                 <div className="info-text">
-                    {isCompleted ? "Este usuario ya tiene la documentación completa." : "* Esta acción habilitará la cuenta del pasante inmediatamente."}
+                    {hasNewFiles ? "Tienes archivos nuevos listos para guardar." : (uploadStatus === 'success' ? "Este usuario ya tiene la documentación requerida." : "* Sube los documentos requeridos para habilitar la cuenta.")}
                 </div>
 
                 <button
-                    className={`btn-submit-docs ${isCompleted ? 'completed-btn' : ''}`}
+                    className={`btn-submit-docs ${!hasNewFiles ? 'completed-btn' : ''}`}
                     onClick={handleSubmit}
-                    disabled={isUploading || isCompleted}
+                    disabled={isUploading || !hasNewFiles}
                     style={{
-                        backgroundColor: isCompleted ? '#22c55e' : '#2563eb',
-                        cursor: isCompleted ? 'not-allowed' : 'pointer',
-                        opacity: isCompleted ? 0.9 : 1
+                        backgroundColor: !hasNewFiles ? (uploadStatus === 'success' ? '#22c55e' : '#cbd5e1') : '#2563eb',
+                        cursor: !hasNewFiles ? 'not-allowed' : 'pointer',
+                        opacity: !hasNewFiles ? 0.8 : 1
                     }}
                 >
                     {isUploading ? (
                         <><Loader2 size={20} className="spin" /> Subiendo...</>
-                    ) : isCompleted ? (
-                        <><CheckCircle size={20} style={{ color: '#ffffffff' }} /> Pasante Activo</>
+                    ) : hasNewFiles ? (
+                        <><Save size={20} style={{ color: '#ffffffff' }} /> Guardar Cambios</>
+                    ) : uploadStatus === 'success' ? (
+                        <><CheckCircle size={20} style={{ color: '#ffffffff' }} /> Documentación al Día</>
                     ) : (
-                        <><Save size={20} style={{ color: '#ffffffff' }} /> Guardar y Activar Pasante</>
+                        <><Save size={20} style={{ color: '#ffffffff' }} /> Esperando Documentos</>
                     )}
                 </button>
             </div>
 
+            {/* MODAL DEL VISOR PDF */}
             {showModal && pdfPreview && (
                 <div style={{
                     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,

@@ -460,12 +460,12 @@ const RRHHModern = () => {
                             <div class="signature-box">
                                 <div class="line"></div>
                                 <p class="signer-name">${firmaAUsar}</p>
-                                <p class="signer-role">Dirección de Administración de Recursos Humanos</p>
+                                <p class="signer-role">Director de Administración de Recursos Humanos</p>
                             </div>
                             <div class="signature-box">
                                 <div class="line"></div>
                                 <p class="signer-name">Msc. ${selectedPasante.delegado || 'Ing. Tutor Institucional'}</p>
-                                <p class="signer-role">Supervisor de Prácticas</p>
+                                <p class="signer-role">Tutor de Prácticas Pre-Profesionales</p>
                             </div>
                         </div>
 
