@@ -15,10 +15,10 @@ interface Pasante {
     horasRequeridas: number;
     atrasos: number;
     faltas: number;
-    // Agregamos las horas a la interfaz para poder leerlas
     horaEntrada?: string;
     horaSalida?: string;
 }
+
 
 const SeguridadHome = () => {
     const navigate = useNavigate();

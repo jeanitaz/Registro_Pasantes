@@ -47,9 +47,7 @@ const RegistroHoras = () => {
         fetchData();
     }, [navigate]);
 
-    // ... (Helpers formatFecha, formatHora, getEventoBadge, handleExportExcel se mantienen igual) ...
-    // Solo copia las funciones helper de tu código anterior aquí si las borraste
-
+    
     const formatFecha = (isoString: string) => {
         const date = new Date(isoString);
         return date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
