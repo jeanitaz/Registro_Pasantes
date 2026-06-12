@@ -91,6 +91,7 @@ const RRHHModern = () => {
     const [showFinalizeAlert, setShowFinalizeAlert] = useState(false);
     const [showCertNameModal, setShowCertNameModal] = useState(false);
     const [firmaDirector, setFirmaDirector] = useState("Mgs. Mercy Ivonne Freire Sánchez");
+    const [showLogoutModal, setShowLogoutModal] = useState(false);
 
     // --- LÓGICA DE ESTADOS AUTOMÁTICA ---
     const determinarEstado = (p: Pasante): string => {
@@ -238,10 +239,12 @@ const RRHHModern = () => {
     };
 
     const handleLogout = () => {
-        if (window.confirm("¿Cerrar sesión de administrador?")) {
-            localStorage.removeItem('token');
-            navigate('/login');
-        }
+        setShowLogoutModal(true);
+    };
+
+    const confirmLogout = () => {
+        localStorage.removeItem('token');
+        navigate('/login');
     };
 
     const handleDescargarInforme = () => {
@@ -845,6 +848,37 @@ const RRHHModern = () => {
                                 onClick={handleQuickFinalize}
                                 style={{ flex: 1, padding: '10px', border: 'none', borderRadius: '6px', background: '#f59e0b', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>
                                 Finalizar Ahora
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL DE LOGOUT */}
+            {showLogoutModal && (
+                <div className="modal-overlay" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'rgba(0,0,0,0.6)', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}>
+                    <div className="modal-glass" style={{ textAlign: 'center', maxWidth: '400px', padding: '30px', borderTop: '5px solid #ef4444', background: 'white', borderRadius: '12px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)' }}>
+                        <div style={{ margin: '0 auto 15px auto', width: '60px', height: '60px', borderRadius: '50%', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }}>
+                            <LogOut size={30} />
+                        </div>
+                        <h3 style={{ fontSize: '1.5rem', color: '#1e293b', margin: '0 0 10px 0', fontWeight: 'bold' }}>
+                            ¿Cerrar Sesión?
+                        </h3>
+                        <p style={{ color: '#64748b', marginBottom: '25px', lineHeight: '1.5' }}>
+                            ¿Estás seguro de que deseas salir de tu cuenta de administrador?
+                        </p>
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button 
+                                onClick={() => setShowLogoutModal(false)}
+                                style={{ flex: 1, padding: '12px', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}
+                            >
+                                Cancelar
+                            </button>
+                            <button 
+                                onClick={confirmLogout} 
+                                style={{ flex: 1, padding: '12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}
+                            >
+                                Cerrar Sesión
                             </button>
                         </div>
                     </div>
