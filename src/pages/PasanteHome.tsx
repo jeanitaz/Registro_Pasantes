@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, type ChangeEvent } from 'react';
+import { useState, useEffect, useRef, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx-js-style';
 
@@ -48,6 +48,15 @@ interface PasanteData {
   institucion?: string;
   delegado?: string;
 }
+
+const formatDecimalToTime = (decimalHours: number | string | undefined): string => {
+  if (decimalHours === undefined || decimalHours === null || decimalHours === '') return '0h 00m';
+  const num = Number(decimalHours);
+  if (isNaN(num)) return '0h 00m';
+  const hrs = Math.floor(num);
+  const mins = Math.round((num - hrs) * 60);
+  return `${hrs}h ${mins.toString().padStart(2, '0')}m`;
+};
 
 const PasanteHome = () => {
   const navigate = useNavigate();
@@ -224,7 +233,7 @@ const PasanteHome = () => {
     const rowIndexResumen = wsData.length;
     wsData.push([{ v: "RESUMEN FINAL DE HORAS", s: resumenHeaderStyle }, { v: "", s: resumenHeaderStyle }]);
     wsData.push([{ v: "Meta Requerida:", s: labelStyle }, { v: `${pasante.horasRequeridas} hrs` }]);
-    wsData.push([{ v: "Horas Completadas:", s: labelStyle }, { v: `${pasante.horasCompletadas} hrs` }]);
+    wsData.push([{ v: "Horas Completadas:", s: labelStyle }, { v: formatDecimalToTime(pasante.horasCompletadas) }]);
     wsData.push([{ v: "Porcentaje:", s: labelStyle }, { v: `${((pasante.horasCompletadas / pasante.horasRequeridas) * 100).toFixed(1)}%` }]);
     wsData.push([{ v: "Total Atrasos:", s: labelStyle }, { v: pasante.atrasos }]);
 
@@ -385,7 +394,7 @@ const PasanteHome = () => {
                 <div class="info-item"><span class="info-label">Institución</span><span class="info-value">${pasante.institucion || 'No Registrada'}</span></div>
                 <div class="info-item"><span class="info-label">Carrera</span><span class="info-value">${pasante.carrera}</span></div>
                 <div class="info-item"><span class="info-label">Horas Requeridas</span><span class="info-value">${pasante.horasRequeridas} Horas</span></div>
-                <div class="info-item"><span class="info-label">Horas Ejecutadas</span><span class="info-value">${Number(pasante.horasCompletadas).toFixed(2)} Horas</span></div>
+                <div class="info-item"><span class="info-label">Horas Ejecutadas</span><span class="info-value">${formatDecimalToTime(pasante.horasCompletadas)}</span></div>
             </div>
             <div class="certificate-text">
                 <p>Por medio del presente documento, se certifica que el/la estudiante <strong>${pasante.nombre}</strong> con CI <strong>${pasante.cedula || 'N/A'}</strong>, ha completado satisfactoriamente <strong>${pasante.horasRequeridas} horas</strong> de práctica.</p>
@@ -519,7 +528,7 @@ const PasanteHome = () => {
                 <h3>Progreso General</h3>
                 <p>Has completado el <strong>{porcentaje.toFixed(1)}%</strong> de tus horas.</p>
                 <div className="stats-row">
-                  <div className="stat-item"><span className="label">Completadas</span><span className="value">{pasante.horasCompletadas}h</span></div>
+                  <div className="stat-item"><span className="label">Completadas</span><span className="value">{formatDecimalToTime(pasante.horasCompletadas)}</span></div>
                   <div className="stat-separator">/</div>
                   <div className="stat-item"><span className="label">Meta</span><span className="value">{pasante.horasRequeridas}h</span></div>
                 </div>

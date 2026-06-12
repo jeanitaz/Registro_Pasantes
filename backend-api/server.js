@@ -334,8 +334,12 @@ function calcularHorasDia(pasanteId, horaSalida, res) {
             else if (salAlm && !entAlm) totalMilisegundos -= (30 * 60 * 1000);
 
             const horasGanadas = totalMilisegundos / 1000 / 60 / 60;
+            const hrs = Math.floor(horasGanadas);
+            const mins = Math.round((horasGanadas - hrs) * 60);
+            const timeStr = `${hrs}h ${mins.toString().padStart(2, '0')}m`;
+
             db.query('UPDATE pasantes SET horas_completadas = horas_completadas + ? WHERE id = ?', [horasGanadas, pasanteId], (err) => {
-                res.json({ message: `Jornada finalizada. Horas sumadas: ${horasGanadas.toFixed(2)}` });
+                res.json({ message: `Jornada finalizada. Horas sumadas: ${timeStr}` });
             });
         } else {
             res.json({ message: 'Salida registrada (Sin entrada previa)' });

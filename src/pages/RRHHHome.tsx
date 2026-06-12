@@ -51,6 +51,32 @@ const ToastItem = ({ alerta, onClose }: { alerta: Alerta; onClose: (id: number) 
     );
 };
 
+const formatDecimalToTime = (decimalHours: number | string | undefined): string => {
+    if (decimalHours === undefined || decimalHours === null || decimalHours === '') return '0h 00m';
+    const num = Number(decimalHours);
+    if (isNaN(num)) return '0h 00m';
+    const hrs = Math.floor(num);
+    const mins = Math.round((num - hrs) * 60);
+    return `${hrs}h ${mins.toString().padStart(2, '0')}m`;
+};
+
+const formatDecimalToTimeDetailed = (decimalHours: number | string | undefined): string => {
+    if (decimalHours === undefined || decimalHours === null || decimalHours === '') return '0 horas';
+    const num = Number(decimalHours);
+    if (isNaN(num) || num === 0) return '0 horas';
+    const hrs = Math.floor(num);
+    const mins = Math.round((num - hrs) * 60);
+    
+    let parts = [];
+    if (hrs > 0) {
+        parts.push(`${hrs} ${hrs === 1 ? 'hora' : 'horas'}`);
+    }
+    if (mins > 0) {
+        parts.push(`${mins} ${mins === 1 ? 'minuto' : 'minutos'}`);
+    }
+    return parts.join(' y ');
+};
+
 const RRHHModern = () => {
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
@@ -448,7 +474,7 @@ const RRHHModern = () => {
                             Con Cédula de Identidad No. <span class="highlight">${selectedPasante.cedula}</span>, 
                             estudiante de la carrera de <span class="highlight">${selectedPasante.carrera}</span> 
                             ${preposicion} <span class="highlight">${nombreInstitucion}</span>,
-                            ha culminado satisfactoriamente <span class="highlight">${selectedPasante.progresoHoras} horas</span> 
+                            ha culminado satisfactoriamente <span class="highlight">${formatDecimalToTimeDetailed(selectedPasante.progresoHoras)}</span> 
                             de práctica profesional, demostrando compromiso y excelencia en sus funciones.
                         </div>
 
@@ -546,7 +572,7 @@ const RRHHModern = () => {
               <div class="stats-container">
                   <span class="stats-title">Resumen de Desempeño y Asistencia</span>
                   <div class="stats-grid">
-                      <div><strong>Horas Realizadas:</strong> ${Number(selectedPasante.progresoHoras || 0).toFixed(2)} / ${selectedPasante.horasRequeridas} h</div>
+                      <div><strong>Horas Realizadas:</strong> ${formatDecimalToTime(selectedPasante.progresoHoras)} / ${selectedPasante.horasRequeridas} h</div>
                       <div><strong>Atrasos Registrados:</strong> ${selectedPasante.atrasos || 0}/5</div>
                       <div><strong>Faltas Injustificadas:</strong> ${selectedPasante.faltas || 0}/3</div>
                       <div><strong>Llamados de Atención:</strong> ${selectedPasante.llamadosAtencion || 0}/3</div>
@@ -697,7 +723,7 @@ const RRHHModern = () => {
                                 <div className="clean-card card-full-height">
                                     <div className="card-top"><span className="card-label">Cierre de Pasantías</span></div>
                                     <div className="stats-row mb-4" style={{ justifyContent: 'center', gap: '20px' }}>
-                                        <div className="stat-item"><span className="stat-num">{Number(selectedPasante.progresoHoras).toFixed(2)}</span><span className="stat-desc">Horas Realizadas</span></div>
+                                        <div className="stat-item"><span className="stat-num">{formatDecimalToTime(selectedPasante.progresoHoras)}</span><span className="stat-desc">Horas Realizadas</span></div>
                                         <div className="stat-item"><span className="stat-num">{selectedPasante.horasRequeridas}</span><span className="stat-desc">Meta</span></div>
                                     </div>
 

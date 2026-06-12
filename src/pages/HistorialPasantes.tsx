@@ -30,6 +30,50 @@ interface Pasante {
     telefono_emergencia?: string;
 }
 
+const formatDecimalToTime = (decimalHours: number | string | undefined): string => {
+    if (decimalHours === undefined || decimalHours === null || decimalHours === '') return '0h 00m';
+    const num = Number(decimalHours);
+    if (isNaN(num)) return '0h 00m';
+    const hrs = Math.floor(num);
+    const mins = Math.round((num - hrs) * 60);
+    return `${hrs}h ${mins.toString().padStart(2, '0')}m`;
+};
+
+const decimalToTimeInput = (decimalHours: number | string | undefined): string => {
+    if (decimalHours === undefined || decimalHours === null || decimalHours === '') return '0:00';
+    const num = Number(decimalHours);
+    if (isNaN(num)) return '0:00';
+    const hrs = Math.floor(num);
+    const mins = Math.round((num - hrs) * 60);
+    return `${hrs}:${mins.toString().padStart(2, '0')}`;
+};
+
+const parseTimeToDecimal = (timeStr: string): number => {
+    if (!timeStr) return 0;
+    const clean = timeStr.trim();
+    if (!clean) return 0;
+    
+    if (clean.includes(':')) {
+        const [hStr, mStr] = clean.split(':');
+        const h = parseInt(hStr, 10) || 0;
+        const m = parseInt(mStr, 10) || 0;
+        return h + (m / 60);
+    }
+    
+    if (clean.includes('.') || clean.includes(',')) {
+        const parts = clean.split(/[.,]/);
+        if (parts.length === 2) {
+            const h = parseInt(parts[0], 10) || 0;
+            const mStr = parts[1];
+            const m = parseInt(mStr.padEnd(2, '0').substring(0, 2), 10) || 0;
+            return h + (m / 60);
+        }
+    }
+    
+    const num = parseFloat(clean);
+    return isNaN(num) ? 0 : num;
+};
+
 const HistorialPasantes = () => {
     const navigate = useNavigate();
     const [pasantes, setPasantes] = useState<Pasante[]>([]);
@@ -111,7 +155,7 @@ const HistorialPasantes = () => {
     const handleOpenEdit = (pasante: Pasante) => {
         setEditingPasante({
             ...pasante,
-            horasCompletadas: pasante.horasCompletadas ?? '',
+            horasCompletadas: decimalToTimeInput(Number(pasante.horasCompletadas || 0)),
             horaEntrada: pasante.horaEntrada || '',
             horaSalida: pasante.horaSalida || ''
         });
@@ -143,6 +187,8 @@ const HistorialPasantes = () => {
     const handleSaveEdit = async () => {
         if (!editingPasante) return;
 
+        const decimalHoras = parseTimeToDecimal(String(editingPasante.horasCompletadas));
+
         const datosParaEnviar: any = {
             nombres: editingPasante.nombres,
             apellidos: editingPasante.apellidos,
@@ -152,7 +198,7 @@ const HistorialPasantes = () => {
             dependencia: editingPasante.dependencia,
             usuario: editingPasante.usuario,
             telefono_emergencia: editingPasante.telefono_emergencia,
-            horasCompletadas: Number(editingPasante.horasCompletadas),
+            horasCompletadas: decimalHoras,
             estado: editingPasante.estado,
             horaEntrada: editingPasante.horaEntrada || null,
             horaSalida: editingPasante.horaSalida || null,
@@ -311,7 +357,7 @@ const HistorialPasantes = () => {
                                 <div className="student-progress-box">
                                     <div className="progress-labels">
                                         <span>Progreso</span>
-                                        <span>{horasC} / {horasR}h</span>
+                                        <span>{formatDecimalToTime(horasC)} / {horasR}h</span>
                                     </div>
                                     <div className="progress-rail">
                                         <div className="progress-bar" style={{ width: `${progress}%`, backgroundColor: progress >= 100 ? '#10b981' : '#2563eb' }}></div>
@@ -383,7 +429,7 @@ const HistorialPasantes = () => {
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                                <div className="input-group"><label>Horas Completadas</label><input type="number" value={editingPasante.horasCompletadas ?? ''} onChange={(e) => setEditingPasante({ ...editingPasante, horasCompletadas: e.target.value })} /></div>
+                                <div className="input-group"><label>Horas Completadas</label><input type="text" placeholder="Ej: 120:30 o 120.30" value={editingPasante.horasCompletadas ?? ''} onChange={(e) => setEditingPasante({ ...editingPasante, horasCompletadas: e.target.value })} /></div>
                                 <div className="input-group">
                                     <label>Estado</label>
                                     <select value={editingPasante.estado} onChange={(e) => setEditingPasante({ ...editingPasante, estado: e.target.value })}>
