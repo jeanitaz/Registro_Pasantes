@@ -282,3 +282,25 @@
     position: relative;
     width: 100%;
 }
+
+@media (max-width: 600px) {
+    .admin-home-scope .header-simple {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    .admin-home-scope .logout-btn-top {
+        width: 100%;
+        justify-content: center;
+    }
+    .admin-home-scope .audit-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .admin-home-scope .chart-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+}

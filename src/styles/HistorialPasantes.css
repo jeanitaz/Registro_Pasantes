@@ -204,3 +204,53 @@
 .btn-cancel { background-color: transparent; color: #64748b; border: 1px solid #cbd5e1; padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 600; cursor: pointer; }
 
 @keyframes modalPop { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+@media (max-width: 768px) {
+    .history-page-wrapper {
+        padding: 1rem;
+    }
+    .page-header-modern {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
+    }
+    .header-info {
+        flex-direction: row;
+        align-items: center;
+    }
+    .header-actions-modern {
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+        gap: 10px;
+    }
+    .search-box-modern {
+        width: 100%;
+    }
+    .btn-modern {
+        width: 100%;
+        justify-content: center;
+    }
+    .filters-bar-modern {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .filter-select-modern {
+        width: 100%;
+        min-width: 0;
+    }
+    .cards-grid-modern {
+        grid-template-columns: 1fr;
+    }
+    .credentials-box-modal {
+        grid-template-columns: 1fr !important;
+    }
+    .modal-footer {
+        flex-direction: column-reverse;
+        gap: 8px;
+    }
+    .modal-footer button {
+        width: 100%;
+        justify-content: center;
+    }
+}

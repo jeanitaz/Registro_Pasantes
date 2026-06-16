@@ -226,3 +226,27 @@
 .btn-notfound-home:active {
     transform: translateY(0);
 }
+
+@media (max-width: 480px) {
+    .radar-scanner-wrapper {
+        width: 240px;
+        height: 240px;
+    }
+    .notfound-card {
+        padding: 1.5rem;
+    }
+    .notfound-card .error-code {
+        font-size: 4.5rem;
+    }
+    .notfound-card h2 {
+        font-size: 1.5rem;
+    }
+    .notfound-card p {
+        font-size: 0.85rem;
+        margin-bottom: 1.5rem;
+    }
+    .btn-notfound-home {
+        padding: 12px;
+        font-size: 0.95rem;
+    }
+}

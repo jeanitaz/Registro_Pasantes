@@ -513,3 +513,57 @@
 .password-toggle-btn:hover {
     color: var(--radar-light);
 }
+
+@media (max-width: 600px) {
+    .form-container-wide {
+        padding: 1.5rem 1rem;
+    }
+    .form-header {
+        margin-bottom: 2rem;
+    }
+    .form-header h2 {
+        font-size: 1.8rem;
+    }
+    .form-header p {
+        font-size: 0.95rem;
+    }
+    .role-selector-wide {
+        margin-bottom: 1.5rem;
+        gap: 2px;
+    }
+    .role-btn {
+        padding: 8px 4px;
+        font-size: 0.8rem;
+    }
+    .input-field {
+        padding: 12px 16px;
+        font-size: 0.9rem;
+    }
+    .password-wrapper .input-field {
+        padding-right: 40px;
+    }
+    .btn-submit-wide {
+        padding: 14px;
+        font-size: 1rem;
+    }
+    .btn-back-simple {
+        top: 1rem;
+        right: 1.5rem;
+    }
+    .modal-content-warning,
+    .modal-content-finished,
+    .modal-content-success {
+        padding: 1.5rem 1rem;
+    }
+    .modal-icon-wrapper,
+    .modal-icon-finished,
+    .modal-icon-success {
+        width: 60px;
+        height: 60px;
+    }
+    .modal-content-warning h3,
+    .modal-content-finished h3,
+    .modal-content-success h3 {
+        font-size: 1.2rem;
+    }
+}

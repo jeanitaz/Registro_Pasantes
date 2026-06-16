@@ -489,3 +489,25 @@
 .hidden-input {
     display: none;
 }
+
+@media (max-width: 480px) {
+    .docs-header {
+        padding: 16px;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .doc-card {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 16px;
+        gap: 12px;
+    }
+    .action-area {
+        width: 100%;
+        justify-content: flex-start;
+    }
+    .btn-upload-label {
+        width: 100%;
+        text-align: center;
+    }
+}

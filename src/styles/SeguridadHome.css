@@ -796,3 +796,12 @@
 .detail-label-wrapper svg.text-danger {
     color: #ef4444;
 }
+
+@media (max-width: 480px) {
+    .details-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .detail-item.full-width {
+        grid-column: span 1 !important;
+    }
+}

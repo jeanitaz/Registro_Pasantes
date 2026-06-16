@@ -180,3 +180,30 @@
 .registro-horas-scope .table-container::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
 }
+
+@media (max-width: 600px) {
+    .registro-horas-scope {
+        padding: 1rem;
+    }
+    .registro-horas-scope header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    .registro-horas-scope .header-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+    .registro-horas-scope .header-actions button {
+        flex: 1;
+        justify-content: center;
+    }
+    .registro-horas-scope th, 
+    .registro-horas-scope td {
+        padding: 12px 14px;
+        font-size: 0.85rem;
+    }
+    .registro-horas-scope h1 {
+        font-size: 1.5rem;
+    }
+}
