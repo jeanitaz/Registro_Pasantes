@@ -13,6 +13,7 @@ import Documentacion from "../pages/Documentacion";
 import RegistroHoras from "../pages/RegistroHoras";
 import SeguridadHome from "../pages/SeguridadHome";
 import ProtectedRoute from "../components/ProtectedRoute";
+import NotFound from "../pages/NotFound";
 
 const AppRoutes = () => {
     return (
@@ -47,6 +48,10 @@ const AppRoutes = () => {
                 <Route path="/pasante" element={<PasanteHome />} />
                 <Route path="/horas" element={<RegistroHoras />} />
             </Route>
+
+            {/* Rutas de Error y Redirección */}
+            <Route path="/unauthorized" element={<NotFound />} />
+            <Route path="*" element={<NotFound />} />
         </Routes>
     )
 }

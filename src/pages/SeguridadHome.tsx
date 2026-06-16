@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Clock, User, AlertTriangle, CheckCircle, LogOut, Coffee, ArrowRight, ShieldCheck, XCircle } from 'lucide-react';
+import { 
+    Search, Clock, User, AlertTriangle, CheckCircle, LogOut, 
+    Coffee, ArrowRight, ShieldCheck, XCircle, ArrowLeft,
+    CreditCard, Calendar, Phone, Activity, Mail, 
+    GraduationCap, Briefcase, UserCheck 
+} from 'lucide-react';
 import '../styles/SeguridadHome.css';
 
 interface Pasante {
@@ -17,7 +22,16 @@ interface Pasante {
     faltas: number;
     horaEntrada?: string;
     horaSalida?: string;
+    institucion?: string;
+    dependencia?: string;
+    telefono_emergencia?: string;
+    fecha_nacimiento?: string;
+    delegado?: string;
+    discapacidad?: string;
+    email?: string;
+    telefono?: string;
 }
+
 
 
 const SeguridadHome = () => {
@@ -167,7 +181,7 @@ const SeguridadHome = () => {
     const getEvento = (tipo: string) => eventosHoy.find(e => e.tipo_evento === tipo);
 
     return (
-        <div className="security-layout">
+        <div className={`security-layout ${selectedPasante ? 'has-selected' : ''}`}>
 
             {/* SIDEBAR DE BÚSQUEDA */}
             <aside className="security-sidebar">
@@ -231,6 +245,10 @@ const SeguridadHome = () => {
                     <div className="control-panel">
                         <header className="panel-header">
                             <div className="user-profile-large">
+                                <button className="btn-back-sidebar" onClick={() => setSelectedPasante(null)} title="Volver a la lista">
+                                    <ArrowLeft size={20} />
+                                    <span>Volver</span>
+                                </button>
                                 <div className="avatar-large-box">
                                     {selectedPasante.fotoUrl ? (
                                         <img src={selectedPasante.fotoUrl} alt="Foto" />
@@ -246,9 +264,9 @@ const SeguridadHome = () => {
                                     </div>
                                     {/* --- MOSTRAR HORARIO PARA EL GUARDIA --- */}
                                     {selectedPasante.horaEntrada && selectedPasante.horaSalida && (
-                                        <div style={{ marginTop: '8px', color: '#64748b', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                            <Clock size={16} />
-                                            <strong>Horario:</strong> {selectedPasante.horaEntrada} - {selectedPasante.horaSalida}
+                                        <div className="schedule-info">
+                                            <Clock size={15} />
+                                            <span><strong>Horario:</strong> {selectedPasante.horaEntrada} - {selectedPasante.horaSalida}</span>
                                         </div>
                                     )}
                                 </div>
@@ -267,114 +285,202 @@ const SeguridadHome = () => {
                         </header>
 
                         <div className="panel-body">
-                            {/* COLUMNA IZQUIERDA: BOTONES */}
-                            <div className="buttons-grid">
-                                <button
-                                    className="big-btn btn-entry"
-                                    disabled={isButtonDisabled('entrada')}
-                                    onClick={() => handleTimbrar('entrada')}
-                                >
-                                    <div className="btn-content">
-                                        <div className="icon-box"><Clock size={28} /></div>
-                                        <div className="btn-text">
-                                            <h3>Entrada Jornada</h3>
-                                            <p>Registro de inicio de labores</p>
-                                        </div>
-                                    </div>
-                                    {getEvento('entrada') && <CheckCircle size={24} color="#10b981" />}
-                                </button>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                            {/* COLUMNA IZQUIERDA: BOTONES Y DETALLES */}
+                            <div className="panel-left-col">
+                                <div className="buttons-grid">
                                     <button
-                                        className="big-btn btn-lunch-out"
-                                        disabled={isButtonDisabled('salida_almuerzo')}
-                                        onClick={() => handleTimbrar('salida_almuerzo')}
+                                        className="big-btn btn-entry"
+                                        disabled={isButtonDisabled('entrada')}
+                                        onClick={() => handleTimbrar('entrada')}
                                     >
-                                        <div className="btn-content" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '10px' }}>
-                                            <div className="icon-box"><Coffee size={24} /></div>
-                                            <div className="btn-text"><h3>Salida Almuerzo</h3></div>
+                                        <div className="btn-content">
+                                            <div className="icon-box"><Clock size={24} /></div>
+                                            <div className="btn-text">
+                                                <h3>Entrada Jornada</h3>
+                                                <p>Registro de inicio de labores</p>
+                                            </div>
                                         </div>
+                                        {getEvento('entrada') && <CheckCircle size={22} color="#10b981" />}
                                     </button>
 
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                        <button
+                                            className="big-btn btn-lunch-out"
+                                            disabled={isButtonDisabled('salida_almuerzo')}
+                                            onClick={() => handleTimbrar('salida_almuerzo')}
+                                        >
+                                            <div className="btn-content">
+                                                <div className="icon-box"><Coffee size={20} /></div>
+                                                <div className="btn-text">
+                                                    <h3>Salida Almuerzo</h3>
+                                                    <p>Inicio de receso</p>
+                                                </div>
+                                            </div>
+                                            {getEvento('salida_almuerzo') && <CheckCircle size={20} color="#10b981" />}
+                                        </button>
+
+                                        <button
+                                            className="big-btn btn-lunch-in"
+                                            disabled={isButtonDisabled('entrada_almuerzo')}
+                                            onClick={() => handleTimbrar('entrada_almuerzo')}
+                                        >
+                                            <div className="btn-content">
+                                                <div className="icon-box"><ArrowRight size={20} /></div>
+                                                <div className="btn-text">
+                                                    <h3>Retorno Almuerzo</h3>
+                                                    <p>Fin de receso</p>
+                                                </div>
+                                            </div>
+                                            {getEvento('entrada_almuerzo') && <CheckCircle size={20} color="#10b981" />}
+                                        </button>
+                                    </div>
+
                                     <button
-                                        className="big-btn btn-lunch-in"
-                                        disabled={isButtonDisabled('entrada_almuerzo')}
-                                        onClick={() => handleTimbrar('entrada_almuerzo')}
+                                        className="big-btn btn-exit"
+                                        disabled={isButtonDisabled('salida')}
+                                        onClick={() => handleTimbrar('salida')}
                                     >
-                                        <div className="btn-content" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '10px' }}>
-                                            <div className="icon-box"><ArrowRight size={24} /></div>
-                                            <div className="btn-text"><h3>Retorno Almuerzo</h3></div>
+                                        <div className="btn-content">
+                                            <div className="icon-box"><LogOut size={24} /></div>
+                                            <div className="btn-text">
+                                                <h3>Salida Final</h3>
+                                                <p>Cierre de jornada laboral</p>
+                                            </div>
                                         </div>
+                                        {getEvento('salida') && <ShieldCheck size={22} color="#10b981" />}
                                     </button>
                                 </div>
 
-                                <button
-                                    className="big-btn btn-exit"
-                                    disabled={isButtonDisabled('salida')}
-                                    onClick={() => handleTimbrar('salida')}
-                                >
-                                    <div className="btn-content">
-                                        <div className="icon-box"><LogOut size={28} /></div>
-                                        <div className="btn-text">
-                                            <h3>Salida Final</h3>
-                                            <p>Cierre de jornada laboral</p>
+                                {/* TARJETA DE DETALLES DEL PASANTE */}
+                                <div className="intern-details-card">
+                                    <h3>Información Completa</h3>
+                                    <div className="details-container">
+                                        <div className="details-section">
+                                            <h4>Datos Personales</h4>
+                                            <div className="details-grid">
+                                                <div className="detail-item">
+                                                    <span className="detail-label-wrapper">
+                                                        <CreditCard size={14} /> Cédula
+                                                    </span>
+                                                    <span className="detail-value">{selectedPasante.cedula}</span>
+                                                </div>
+                                                <div className="detail-item">
+                                                    <span className="detail-label-wrapper">
+                                                        <Calendar size={14} /> F. Nacimiento
+                                                    </span>
+                                                    <span className="detail-value">
+                                                        {selectedPasante.fecha_nacimiento 
+                                                            ? new Date(selectedPasante.fecha_nacimiento).toLocaleDateString('es-EC', { timeZone: 'UTC' }) 
+                                                            : 'No registrada'}
+                                                    </span>
+                                                </div>
+                                                <div className="detail-item">
+                                                    <span className="detail-label-wrapper">
+                                                        <Phone size={14} /> Teléfono
+                                                    </span>
+                                                    <span className="detail-value">{selectedPasante.telefono || 'No registrado'}</span>
+                                                </div>
+                                                <div className="detail-item">
+                                                    <span className="detail-label-wrapper">
+                                                        <Activity size={14} /> Discapacidad
+                                                    </span>
+                                                    <span className="detail-value">{selectedPasante.discapacidad || 'No'}</span>
+                                                </div>
+                                                <div className="detail-item full-width">
+                                                    <span className="detail-label-wrapper">
+                                                        <Mail size={14} /> Correo Electrónico
+                                                    </span>
+                                                    <span className="detail-value">{selectedPasante.email || 'No registrado'}</span>
+                                                </div>
+                                                <div className="detail-item full-width">
+                                                    <span className="detail-label-wrapper">
+                                                        <AlertTriangle size={14} className="text-danger" /> Teléfono Emergencia
+                                                    </span>
+                                                    <span className="detail-value text-danger font-bold">{selectedPasante.telefono_emergencia || 'No registrado'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="details-section">
+                                            <h4>Datos Académicos</h4>
+                                            <div className="details-grid">
+                                                <div className="detail-item full-width">
+                                                    <span className="detail-label-wrapper">
+                                                        <GraduationCap size={14} /> Institución
+                                                    </span>
+                                                    <span className="detail-value">{selectedPasante.institucion || 'No registrada'}</span>
+                                                </div>
+                                                <div className="detail-item full-width">
+                                                    <span className="detail-label-wrapper">
+                                                        <Briefcase size={14} /> Dependencia
+                                                    </span>
+                                                    <span className="detail-value">{selectedPasante.dependencia || 'No registrada'}</span>
+                                                </div>
+                                                <div className="detail-item full-width">
+                                                    <span className="detail-label-wrapper">
+                                                        <UserCheck size={14} /> Tutor / Delegado
+                                                    </span>
+                                                    <span className="detail-value">{selectedPasante.delegado || 'No asignado'}</span>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
-                                    {getEvento('salida') && <ShieldCheck size={24} color="#10b981" />}
-                                </button>
+                                </div>
                             </div>
 
                             {/* COLUMNA DERECHA: TIMELINE */}
                             <div className="timeline-section">
                                 <span className="timeline-header">Resumen del Día</span>
 
-                                <div className="timeline-item">
-                                    <div className={`timeline-dot ${getEvento('entrada') ? 'done' : ''}`}></div>
-                                    <div className="timeline-content">
-                                        <h4>Entrada</h4>
-                                        <span>{getEvento('entrada') ? 'Registrado' : 'Pendiente'}</span>
-                                        {getEvento('entrada')?.guardia_responsable && (
-                                            <div className="timeline-guard">Por: {getEvento('entrada')?.guardia_responsable}</div>
-                                        )}
+                                <div className="timeline-list">
+                                    <div className={`timeline-item ${getEvento('entrada') ? 'active-path' : ''}`}>
+                                        <div className={`timeline-dot ${getEvento('entrada') ? 'done' : ''}`}></div>
+                                        <div className="timeline-content">
+                                            <h4>Entrada</h4>
+                                            <span>{getEvento('entrada') ? 'Registrado' : 'Pendiente'}</span>
+                                            {getEvento('entrada')?.guardia_responsable && (
+                                                <div className="timeline-guard">Por: {getEvento('entrada')?.guardia_responsable}</div>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="timeline-item">
-                                    <div className={`timeline-dot ${getEvento('salida_almuerzo') ? 'done' : ''}`}></div>
-                                    <div className="timeline-content">
-                                        <h4>Inicio Almuerzo</h4>
-                                        <span>{getEvento('salida_almuerzo') ? 'Registrado' : 'Pendiente'}</span>
-                                        {getEvento('salida_almuerzo')?.guardia_responsable && (
-                                            <div className="timeline-guard">Por: {getEvento('salida_almuerzo')?.guardia_responsable}</div>
-                                        )}
+                                    <div className={`timeline-item ${getEvento('salida_almuerzo') ? 'active-path' : ''}`}>
+                                        <div className={`timeline-dot ${getEvento('salida_almuerzo') ? 'done' : ''}`}></div>
+                                        <div className="timeline-content">
+                                            <h4>Inicio Almuerzo</h4>
+                                            <span>{getEvento('salida_almuerzo') ? 'Registrado' : 'Pendiente'}</span>
+                                            {getEvento('salida_almuerzo')?.guardia_responsable && (
+                                                <div className="timeline-guard">Por: {getEvento('salida_almuerzo')?.guardia_responsable}</div>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="timeline-item">
-                                    <div className={`timeline-dot ${getEvento('entrada_almuerzo') ? 'done' : ''}`}></div>
-                                    <div className="timeline-content">
-                                        <h4>Fin Almuerzo</h4>
-                                        <span>{getEvento('entrada_almuerzo') ? 'Registrado' : 'Pendiente'}</span>
-                                        {getEvento('entrada_almuerzo')?.guardia_responsable && (
-                                            <div className="timeline-guard">Por: {getEvento('entrada_almuerzo')?.guardia_responsable}</div>
-                                        )}
+                                    <div className={`timeline-item ${getEvento('entrada_almuerzo') ? 'active-path' : ''}`}>
+                                        <div className={`timeline-dot ${getEvento('entrada_almuerzo') ? 'done' : ''}`}></div>
+                                        <div className="timeline-content">
+                                            <h4>Fin Almuerzo</h4>
+                                            <span>{getEvento('entrada_almuerzo') ? 'Registrado' : 'Pendiente'}</span>
+                                            {getEvento('entrada_almuerzo')?.guardia_responsable && (
+                                                <div className="timeline-guard">Por: {getEvento('entrada_almuerzo')?.guardia_responsable}</div>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="timeline-item">
-                                    <div className={`timeline-dot ${getEvento('salida') ? 'done' : ''}`}></div>
-                                    <div className="timeline-content">
-                                        <h4>Salida</h4>
-                                        <span>{getEvento('salida') ? 'Registrado' : 'Pendiente'}</span>
-                                        {getEvento('salida')?.guardia_responsable && (
-                                            <div className="timeline-guard">Por: {getEvento('salida')?.guardia_responsable}</div>
-                                        )}
+                                    <div className="timeline-item">
+                                        <div className={`timeline-dot ${getEvento('salida') ? 'done' : ''}`}></div>
+                                        <div className="timeline-content">
+                                            <h4>Salida</h4>
+                                            <span>{getEvento('salida') ? 'Registrado' : 'Pendiente'}</span>
+                                            {getEvento('salida')?.guardia_responsable && (
+                                                <div className="timeline-guard">Por: {getEvento('salida')?.guardia_responsable}</div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
                         {!selectedPasante.estado?.includes('Activo') && (
-                            <div style={{ background: '#fef2f2', padding: '15px', textAlign: 'center', color: '#991b1b', fontWeight: 'bold', borderTop: '1px solid #fee2e2' }}>
-                                <XCircle style={{ display: 'inline', marginBottom: '-4px', marginRight: '8px' }} />
-                                USUARIO BLOQUEADO: No es posible registrar asistencia.
+                            <div className="blocked-banner">
+                                <XCircle size={18} />
+                                <span>USUARIO BLOQUEADO: No es posible registrar asistencia.</span>
                             </div>
                         )}
                     </div>

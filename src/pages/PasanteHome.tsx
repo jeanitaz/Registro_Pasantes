@@ -207,42 +207,173 @@ const PasanteHome = () => {
 
   const handleDownloadExcel = () => {
     if (!pasante) return;
-    const tituloStyle = { font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "2563EB" } }, alignment: { horizontal: "center", vertical: "center" } };
-    const labelStyle = { font: { bold: true, color: { rgb: "334155" } } };
-    const headerTablaStyle = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "3B82F6" } }, alignment: { horizontal: "center", vertical: "center" }, border: { top: { style: "thin", color: { rgb: "FFFFFF" } }, bottom: { style: "thin", color: { rgb: "FFFFFF" } }, right: { style: "thin", color: { rgb: "FFFFFF" } } } };
-    const celdaStyle = { alignment: { horizontal: "left", vertical: "center" }, border: { bottom: { style: "thin", color: { rgb: "E2E8F0" } } } };
-    const celdaCentradaStyle = { alignment: { horizontal: "center", vertical: "center" }, border: { bottom: { style: "thin", color: { rgb: "E2E8F0" } } } };
-    const resumenHeaderStyle = { font: { bold: true, sz: 12, color: { rgb: "1E293B" } }, fill: { fgColor: { rgb: "F1F5F9" } }, border: { bottom: { style: "thin", color: { rgb: "CBD5E1" } } } };
+    
+    // --- ESTILOS ---
+    const fontName = "Segoe UI";
+    
+    const borderStyle = {
+      top: { style: "thin", color: { rgb: "E2E8F0" } },
+      bottom: { style: "thin", color: { rgb: "E2E8F0" } },
+      left: { style: "thin", color: { rgb: "E2E8F0" } },
+      right: { style: "thin", color: { rgb: "E2E8F0" } }
+    };
+
+    const tituloStyle = { 
+      font: { bold: true, sz: 14, color: { rgb: "FFFFFF" }, name: fontName }, 
+      fill: { fgColor: { rgb: "1E3A8A" } }, // Azul Marino
+      alignment: { horizontal: "center", vertical: "center" } 
+    };
+
+    const labelStyle = { 
+      font: { bold: true, color: { rgb: "1E293B" }, name: fontName, sz: 10 },
+      fill: { fgColor: { rgb: "F8FAFC" } },
+      border: borderStyle,
+      alignment: { vertical: "center", horizontal: "left" }
+    };
+
+    const valorInfoStyle = {
+      font: { name: fontName, sz: 10, color: { rgb: "334155" } },
+      fill: { fgColor: { rgb: "F8FAFC" } },
+      border: borderStyle,
+      alignment: { vertical: "center", horizontal: "left" }
+    };
+
+    const headerTablaStyle = { 
+      font: { bold: true, color: { rgb: "FFFFFF" }, name: fontName, sz: 11 }, 
+      fill: { fgColor: { rgb: "1E3A8A" } }, 
+      alignment: { horizontal: "center", vertical: "center" }, 
+      border: { 
+        top: { style: "thin", color: { rgb: "94A3B8" } }, 
+        bottom: { style: "medium", color: { rgb: "1E3A8A" } }, 
+        left: { style: "thin", color: { rgb: "94A3B8" } }, 
+        right: { style: "thin", color: { rgb: "94A3B8" } } 
+      } 
+    };
+
+    const celdaStyle = { 
+      font: { name: fontName, sz: 10, color: { rgb: "334155" } },
+      alignment: { horizontal: "left", vertical: "center" }, 
+      border: borderStyle 
+    };
+
+    const celdaCentradaStyle = { 
+      font: { name: fontName, sz: 10, color: { rgb: "334155" } },
+      alignment: { horizontal: "center", vertical: "center" }, 
+      border: borderStyle 
+    };
+
+    const celdaZebraStyle = { 
+      font: { name: fontName, sz: 10, color: { rgb: "334155" } },
+      fill: { fgColor: { rgb: "F8FAFC" } },
+      alignment: { horizontal: "left", vertical: "center" }, 
+      border: borderStyle 
+    };
+
+    const celdaZebraCentradaStyle = { 
+      font: { name: fontName, sz: 10, color: { rgb: "334155" } },
+      fill: { fgColor: { rgb: "F8FAFC" } },
+      alignment: { horizontal: "center", vertical: "center" }, 
+      border: borderStyle 
+    };
+
+    const resumenHeaderStyle = { 
+      font: { bold: true, sz: 12, color: { rgb: "FFFFFF" }, name: fontName }, 
+      fill: { fgColor: { rgb: "1E3A8A" } }, 
+      alignment: { horizontal: "center", vertical: "center" }
+    };
 
     const wsData: any[] = [];
-    wsData.push([{ v: "REPORTE DE ACTIVIDADES - PASANTÍAS", s: tituloStyle }, { v: "", s: tituloStyle }, { v: "", s: tituloStyle }, { v: "", s: tituloStyle }]);
+    wsData.push([{ v: "REPORTE DE ACTIVIDADES - INAMHI", s: tituloStyle }, { v: "", s: tituloStyle }, { v: "", s: tituloStyle }, { v: "", s: tituloStyle }]);
     wsData.push([]);
-    wsData.push([{ v: "Estudiante:", s: labelStyle }, { v: pasante.nombre }]);
-    wsData.push([{ v: "Carrera:", s: labelStyle }, { v: pasante.carrera }]);
-    wsData.push([{ v: "Estado:", s: labelStyle }, { v: pasante.estado }]);
-    wsData.push([{ v: "Fecha de Reporte:", s: labelStyle }, { v: new Date().toLocaleDateString() }]);
+    wsData.push([{ v: "Estudiante:", s: labelStyle }, { v: pasante.nombre, s: valorInfoStyle }, { v: "", s: valorInfoStyle }, { v: "", s: valorInfoStyle }]);
+    wsData.push([{ v: "Carrera:", s: labelStyle }, { v: pasante.carrera, s: valorInfoStyle }, { v: "", s: valorInfoStyle }, { v: "", s: valorInfoStyle }]);
+    wsData.push([{ v: "Estado:", s: labelStyle }, { v: pasante.estado, s: valorInfoStyle }, { v: "", s: valorInfoStyle }, { v: "", s: valorInfoStyle }]);
+    wsData.push([{ v: "Fecha de Reporte:", s: labelStyle }, { v: new Date().toLocaleDateString(), s: valorInfoStyle }, { v: "", s: valorInfoStyle }, { v: "", s: valorInfoStyle }]);
     wsData.push([]);
     wsData.push([{ v: "FECHA", s: headerTablaStyle }, { v: "TIPO", s: headerTablaStyle }, { v: "DETALLE DE ACTIVIDAD", s: headerTablaStyle }, { v: "ESTADO", s: headerTablaStyle }]);
 
     if (pasante.historialReciente && pasante.historialReciente.length > 0) {
-      pasante.historialReciente.forEach((item) => {
-        wsData.push([{ v: item.fecha, s: celdaCentradaStyle }, { v: item.tipo, s: celdaCentradaStyle }, { v: item.detalle, s: celdaStyle }, { v: item.estado, s: celdaCentradaStyle }]);
+      pasante.historialReciente.forEach((item, idx) => {
+        const isEven = idx % 2 === 0;
+        const currentStyleText = isEven ? celdaZebraStyle : celdaStyle;
+        const currentStyleCenter = isEven ? celdaZebraCentradaStyle : celdaCentradaStyle;
+        
+        const estadoLower = String(item.estado || '').toLowerCase();
+        let styleEstado: any = currentStyleCenter;
+        if (estadoLower.includes("aprobado") || estadoLower.includes("completado") || estadoLower === "activo" || estadoLower === "validado") {
+          styleEstado = {
+            font: { name: fontName, sz: 10, bold: true, color: { rgb: "166534" } },
+            fill: { fgColor: { rgb: "DCFCE7" } }, 
+            alignment: { horizontal: "center", vertical: "center" },
+            border: borderStyle
+          };
+        } else if (estadoLower.includes("pendiente") || estadoLower.includes("proceso") || estadoLower.includes("almuerzo") || estadoLower.includes("revisión")) {
+          styleEstado = {
+            font: { name: fontName, sz: 10, bold: true, color: { rgb: "854D0E" } },
+            fill: { fgColor: { rgb: "FEF9C3" } }, 
+            alignment: { horizontal: "center", vertical: "center" },
+            border: borderStyle
+          };
+        } else if (estadoLower.includes("rechazado") || estadoLower.includes("falta") || estadoLower.includes("atraso") || estadoLower.includes("finalizado")) {
+          styleEstado = {
+            font: { name: fontName, sz: 10, bold: true, color: { rgb: "991B1B" } },
+            fill: { fgColor: { rgb: "FEE2E2" } }, 
+            alignment: { horizontal: "center", vertical: "center" },
+            border: borderStyle
+          };
+        }
+
+        wsData.push([
+          { v: item.fecha, s: currentStyleCenter }, 
+          { v: item.tipo, s: currentStyleCenter }, 
+          { v: item.detalle, s: currentStyleText }, 
+          { v: item.estado, s: styleEstado }
+        ]);
       });
     } else {
-      wsData.push([{ v: "No hay registros disponibles", s: celdaStyle }]);
+      wsData.push([{ v: "No hay registros disponibles", s: celdaStyle }, { v: "", s: celdaStyle }, { v: "", s: celdaStyle }, { v: "", s: celdaStyle }]);
     }
 
     wsData.push([]);
     const rowIndexResumen = wsData.length;
-    wsData.push([{ v: "RESUMEN FINAL DE HORAS", s: resumenHeaderStyle }, { v: "", s: resumenHeaderStyle }]);
-    wsData.push([{ v: "Meta Requerida:", s: labelStyle }, { v: `${pasante.horasRequeridas} hrs` }]);
-    wsData.push([{ v: "Horas Completadas:", s: labelStyle }, { v: formatDecimalToTime(pasante.horasCompletadas) }]);
-    wsData.push([{ v: "Porcentaje:", s: labelStyle }, { v: `${((pasante.horasCompletadas / pasante.horasRequeridas) * 100).toFixed(1)}%` }]);
-    wsData.push([{ v: "Total Atrasos:", s: labelStyle }, { v: pasante.atrasos }]);
+    wsData.push([{ v: "RESUMEN FINAL DE HORAS", s: resumenHeaderStyle }, { v: "", s: resumenHeaderStyle }, { v: "", s: resumenHeaderStyle }, { v: "", s: resumenHeaderStyle }]);
+    wsData.push([{ v: "Meta Requerida:", s: labelStyle }, { v: `${pasante.horasRequeridas} hrs`, s: valorInfoStyle }, { v: "", s: valorInfoStyle }, { v: "", s: valorInfoStyle }]);
+    wsData.push([{ v: "Horas Completadas:", s: labelStyle }, { v: formatDecimalToTime(pasante.horasCompletadas), s: valorInfoStyle }, { v: "", s: valorInfoStyle }, { v: "", s: valorInfoStyle }]);
+    wsData.push([{ v: "Porcentaje:", s: labelStyle }, { v: `${((pasante.horasCompletadas / pasante.horasRequeridas) * 100).toFixed(1)}%`, s: valorInfoStyle }, { v: "", s: valorInfoStyle }, { v: "", s: valorInfoStyle }]);
+    wsData.push([{ v: "Total Atrasos:", s: labelStyle }, { v: pasante.atrasos, s: valorInfoStyle }, { v: "", s: valorInfoStyle }, { v: "", s: valorInfoStyle }]);
 
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     ws['!cols'] = [{ wch: 15 }, { wch: 20 }, { wch: 50 }, { wch: 15 }];
-    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }, { s: { r: rowIndexResumen, c: 0 }, e: { r: rowIndexResumen, c: 1 } }];
+    
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }, 
+      { s: { r: 2, c: 1 }, e: { r: 2, c: 3 } }, 
+      { s: { r: 3, c: 1 }, e: { r: 3, c: 3 } }, 
+      { s: { r: 4, c: 1 }, e: { r: 4, c: 3 } }, 
+      { s: { r: 5, c: 1 }, e: { r: 5, c: 3 } }, 
+      { s: { r: rowIndexResumen, c: 0 }, e: { r: rowIndexResumen, c: 3 } }
+    ];
+
+    for (let i = 1; i <= 4; i++) {
+      ws['!merges'].push({ s: { r: rowIndexResumen + i, c: 1 }, e: { r: rowIndexResumen + i, c: 3 } });
+    }
+
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:D1');
+    ws['!rows'] = [];
+    ws['!rows'][0] = { hpt: 32 }; 
+    ws['!rows'][1] = { hpt: 12 }; 
+    for (let r = 2; r <= 5; r++) ws['!rows'][r] = { hpt: 22 }; 
+    ws['!rows'][6] = { hpt: 12 }; 
+    ws['!rows'][7] = { hpt: 26 }; 
+    
+    for (let r = 8; r <= range.e.r; r++) {
+      if (r === rowIndexResumen) {
+        ws['!rows'][r] = { hpt: 26 }; 
+      } else {
+        ws['!rows'][r] = { hpt: 20 }; 
+      }
+    }
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Reporte");
     XLSX.writeFile(wb, `Reporte_InternApp_${pasante.nombre.replace(/\s+/g, '_')}.xlsx`);
@@ -567,36 +698,29 @@ const PasanteHome = () => {
           </div>
 
           <div className="right-column-stack">
-            <div className="card list-card">
-              <div className="card-header-row"><h3>Actividad Reciente</h3></div>
-              <div className="activity-list">
-                {pasante.historialReciente && pasante.historialReciente.map((item, idx) => (
-                  <div key={idx} className="activity-item">
-                    <div className={`activity-dot ${item.estado}`}></div>
-                    <div className="activity-info"><span className="act-type">{item.tipo}</span><span className="act-detail">{item.detalle}</span></div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             <div className="card actions-card-modern">
               <div className="card-header-row"><h3>Gestión de Cierre</h3></div>
               <div className="modern-actions-container">
-                <div className="action-panel" onClick={handleDownloadExcel} style={{ cursor: 'pointer', border: '1px solid #22c55e', backgroundColor: '#f0fdf4' }}>
-                  <div className="panel-icon"><FileSpreadsheet size={24} style={{ color: '#16a34a' }} /></div>
-                  <div className="panel-content"><h4 style={{ color: '#15803d' }}>Reporte de Horas</h4><p>Descargar Excel detallado.</p></div>
-                  <button className="panel-btn-icon"><Download size={20} style={{ color: '#16a34a' }} /></button>
-                </div>
-
-                <div className="action-panel secondary-panel" onClick={handleGenerateFinalReport} style={{ cursor: 'pointer' }}>
-                  <div className="panel-icon"><FileText size={24} className="text-blue-500" /></div>
-                  <div className="panel-content"><h4>Informe Final Cumplimiento Horas</h4><p>Presiona aqui para descargarlo</p></div>
+                <div className="action-panel excel-panel" onClick={handleDownloadExcel} style={{ cursor: 'pointer' }}>
+                  <div className="panel-icon"><FileSpreadsheet size={24} /></div>
+                  <div className="panel-content"><h4>Reporte de Horas</h4><p>Descargar Excel detallado.</p></div>
                   <button className="panel-btn-icon"><Download size={20} /></button>
                 </div>
 
-                <div className={`action-panel ${esCompletado ? 'primary-panel' : 'locked-panel'}`}>
-                  <div className="panel-icon">{esCompletado ? <Upload size={24} className="text-green-500" /> : <Lock size={24} className="text-gray-400" />}</div>
-                  <div className="panel-content"><h4>Subir Informe Final</h4><p>{pasante.informeSubido ? "¡Informe enviado!" : esCompletado ? "Sube tu informe." : "Completa tus horas."}</p></div>
+                <div className="action-panel pdf-panel" onClick={handleGenerateFinalReport} style={{ cursor: 'pointer' }}>
+                  <div className="panel-icon"><FileText size={24} /></div>
+                  <div className="panel-content"><h4>Informe Final Cumplimiento Horas</h4><p>Presiona aquí para descargarlo.</p></div>
+                  <button className="panel-btn-icon"><Download size={20} /></button>
+                </div>
+
+                <div className={`action-panel ${esCompletado ? 'upload-active-panel' : 'locked-panel'}`}>
+                  <div className="panel-icon">
+                    {esCompletado ? <Upload size={24} /> : <Lock size={24} />}
+                  </div>
+                  <div className="panel-content">
+                    <h4>Subir Informe Final</h4>
+                    <p>{pasante.informeSubido ? "¡Informe enviado!" : esCompletado ? "Sube tu informe." : "Completa tus horas."}</p>
+                  </div>
                   <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".pdf" onChange={handleFileChange} />
                   {esCompletado && !pasante.informeSubido ? (
                     <button className="panel-btn-text" onClick={handleUploadClick} disabled={isUploading}>

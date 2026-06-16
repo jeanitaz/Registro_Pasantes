@@ -11,14 +11,11 @@ const ProtectedRoute = ({ allowedRoles }: ProtectedRouteProps) => {
     // const userRole = localStorage.getItem("role") || localStorage.getItem("rol");
 
     if (!token) {
-        return <Navigate to="/login" replace />;
+        return <Navigate to="/unauthorized" replace />;
     }
 
     if (userRole && !allowedRoles.includes(userRole)) {
-        // Redirect to a safe page if authorized but wrong role
-        // For now, redirect to login or home. 
-        // Ideally: <Navigate to="/unauthorized" /> but we don't have that page yet.
-        return <Navigate to="/" replace />;
+        return <Navigate to="/unauthorized" replace />;
     }
 
     return <Outlet />;

@@ -72,13 +72,126 @@ const RegistroHoras = () => {
         if (registros.length === 0) return alert("No hay datos");
         const dataToExport = registros.map(reg => ({
             Fecha: new Date(reg.fecha_hora).toLocaleDateString(),
-            Hora: new Date(reg.fecha_hora).toLocaleTimeString(),
+            Hora: new Date(reg.fecha_hora).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
             Evento: reg.tipo_evento.toUpperCase(),
             'Registrado Por': reg.guardia // Exportará el nombre real
         }));
+        
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet(dataToExport);
-        ws['!cols'] = [{ wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 30 }];
+
+        // Estilos para celdas
+        const headerStyle = {
+            font: { bold: true, color: { rgb: "FFFFFF" }, name: "Segoe UI", sz: 11 },
+            fill: { fgColor: { rgb: "1E3A8A" } }, // Azul Marino
+            alignment: { vertical: "center", horizontal: "center" },
+            border: {
+                top: { style: "thin", color: { rgb: "94A3B8" } },
+                bottom: { style: "medium", color: { rgb: "1E3A8A" } },
+                left: { style: "thin", color: { rgb: "94A3B8" } },
+                right: { style: "thin", color: { rgb: "94A3B8" } }
+            }
+        };
+
+        const borderStyle = {
+            top: { style: "thin", color: { rgb: "E2E8F0" } },
+            bottom: { style: "thin", color: { rgb: "E2E8F0" } },
+            left: { style: "thin", color: { rgb: "E2E8F0" } },
+            right: { style: "thin", color: { rgb: "E2E8F0" } }
+        };
+
+        const cellStyleNormal = {
+            font: { name: "Segoe UI", sz: 10, color: { rgb: "1E293B" } },
+            alignment: { vertical: "center", horizontal: "left" },
+            border: borderStyle
+        };
+
+        const cellStyleCenter = {
+            font: { name: "Segoe UI", sz: 10, color: { rgb: "1E293B" } },
+            alignment: { vertical: "center", horizontal: "center" },
+            border: borderStyle
+        };
+
+        const cellStyleZebraNormal = {
+            font: { name: "Segoe UI", sz: 10, color: { rgb: "1E293B" } },
+            fill: { fgColor: { rgb: "F8FAFC" } }, // Grisáceo suave
+            alignment: { vertical: "center", horizontal: "left" },
+            border: borderStyle
+        };
+
+        const cellStyleZebraCenter = {
+            font: { name: "Segoe UI", sz: 10, color: { rgb: "1E293B" } },
+            fill: { fgColor: { rgb: "F8FAFC" } },
+            alignment: { vertical: "center", horizontal: "center" },
+            border: borderStyle
+        };
+
+        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:D1');
+        
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+                const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
+                const cell = ws[cell_address];
+                if (!cell) continue;
+
+                if (R === 0) {
+                    cell.s = headerStyle;
+                } else {
+                    const isEven = R % 2 === 0;
+                    const isCenterCol = [0, 1, 2].includes(C); // Fecha, Hora, Evento van centrados
+
+                    if (C === 2) { // Columna Evento
+                        const evento = String(cell.v).toLowerCase();
+                        if (evento === "entrada") {
+                            cell.s = {
+                                font: { name: "Segoe UI", sz: 10, bold: true, color: { rgb: "166534" } },
+                                fill: { fgColor: { rgb: "DCFCE7" } }, // Verde suave (entrada)
+                                alignment: { vertical: "center", horizontal: "center" },
+                                border: borderStyle
+                            };
+                        } else if (evento === "salida_almuerzo" || evento === "entrada_almuerzo") {
+                            cell.s = {
+                                font: { name: "Segoe UI", sz: 10, bold: true, color: { rgb: "854D0E" } },
+                                fill: { fgColor: { rgb: "FEF9C3" } }, // Amarillo/Naranja suave (almuerzo)
+                                alignment: { vertical: "center", horizontal: "center" },
+                                border: borderStyle
+                            };
+                        } else if (evento === "salida") {
+                            cell.s = {
+                                font: { name: "Segoe UI", sz: 10, bold: true, color: { rgb: "1E40AF" } },
+                                fill: { fgColor: { rgb: "DBEAFE" } }, // Azul suave (salida final)
+                                alignment: { vertical: "center", horizontal: "center" },
+                                border: borderStyle
+                            };
+                        } else {
+                            cell.s = isEven ? cellStyleZebraCenter : cellStyleCenter;
+                        }
+                    } else {
+                        if (isCenterCol) {
+                            cell.s = isEven ? cellStyleZebraCenter : cellStyleCenter;
+                        } else {
+                            cell.s = isEven ? cellStyleZebraNormal : cellStyleNormal;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Alturas de fila
+        ws['!rows'] = [];
+        ws['!rows'][0] = { hpt: 28 };
+        for (let R = 1; R <= range.e.r; ++R) {
+            ws['!rows'][R] = { hpt: 22 };
+        }
+
+        // Anchos de columna
+        ws['!cols'] = [
+            { wch: 16 }, // Fecha
+            { wch: 16 }, // Hora
+            { wch: 24 }, // Evento
+            { wch: 28 }  // Registrado Por
+        ];
+
         XLSX.utils.book_append_sheet(wb, ws, "Asistencia");
         XLSX.writeFile(wb, `Asistencia_${userName}.xlsx`);
     };

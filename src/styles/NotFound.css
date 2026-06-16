@@ -1,0 +1,228 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Share+Tech+Mono&display=swap');
+
+.notfound-container {
+    font-family: 'Inter', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    width: 100vw;
+    background-color: #020617;
+    background-image: 
+        radial-gradient(at 50% 50%, rgba(15, 23, 42, 0.9) 0%, rgba(2, 6, 23, 1) 100%),
+        linear-gradient(rgba(6, 182, 212, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(6, 182, 212, 0.05) 1px, transparent 1px);
+    background-size: 100% 100%, 40px 40px, 40px 40px;
+    color: #f8fafc;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Background Stars animation */
+.space-stars {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image: 
+        radial-gradient(1.5px 1.5px at 20px 30px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 40px 70px, rgba(103, 232, 249, 0.8), rgba(0,0,0,0)),
+        radial-gradient(1px 1px at 50px 160px, #fff, rgba(0,0,0,0)),
+        radial-gradient(1.5px 1.5px at 130px 80px, #fff, rgba(0,0,0,0)),
+        radial-gradient(1px 1px at 160px 120px, #fff, rgba(0,0,0,0));
+    background-size: 200px 200px;
+    opacity: 0.35;
+    animation: starsTwinkle 6s infinite linear;
+}
+
+@keyframes starsTwinkle {
+    0% { opacity: 0.2; }
+    50% { opacity: 0.5; }
+    100% { opacity: 0.2; }
+}
+
+.notfound-content {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 5rem;
+    max-width: 1000px;
+    width: 90%;
+    z-index: 10;
+}
+
+@media (max-width: 900px) {
+    .notfound-content {
+        flex-direction: column;
+        gap: 3rem;
+        text-align: center;
+    }
+}
+
+/* =========================================
+   RADAR ANIMATION
+   ========================================= */
+.radar-scanner-wrapper {
+    position: relative;
+    width: 320px;
+    height: 320px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.radar-svg {
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 0 20px rgba(6, 182, 212, 0.25));
+}
+
+.radar-grid {
+    fill: none;
+    stroke: rgba(6, 182, 212, 0.15);
+    stroke-width: 1;
+}
+
+.radar-grid.outer {
+    stroke: rgba(6, 182, 212, 0.25);
+    stroke-dasharray: 4 2;
+}
+
+.radar-axis {
+    stroke: rgba(6, 182, 212, 0.1);
+    stroke-width: 1;
+}
+
+@keyframes sweepRotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.radar-sweep-g {
+    transform-origin: 100px 100px;
+    animation: sweepRotate 4s infinite linear;
+}
+
+.radar-sweep-edge {
+    stroke: #22d3ee;
+    stroke-width: 1.5;
+    filter: drop-shadow(0 0 3px #06b6d4);
+}
+
+@keyframes blipBlink {
+    0% { opacity: 0.2; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.1); filter: drop-shadow(0 0 8px #ef4444); }
+    100% { opacity: 0.2; transform: scale(0.8); }
+}
+
+.blip {
+    fill: #ef4444;
+    transform-origin: center;
+    animation: blipBlink 2s infinite ease-in-out;
+}
+
+.blip-lost {
+    animation-delay: 0.5s;
+}
+
+.blip-lost-2 {
+    animation-delay: 1.2s;
+    fill: #f59e0b;
+}
+
+.radar-coordinates {
+    position: absolute;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    color: #06b6d4;
+    text-shadow: 0 0 4px rgba(6, 182, 212, 0.5);
+    opacity: 0.7;
+}
+
+.radar-coordinates.top-left { top: -10px; left: 0; }
+.radar-coordinates.top-right { top: -10px; right: 0; }
+.radar-coordinates.bottom-left { bottom: -10px; left: 0; }
+.radar-coordinates.bottom-right { bottom: -10px; right: 0; color: #ef4444; }
+
+/* =========================================
+   ERROR CARD
+   ========================================= */
+.notfound-card {
+    background: rgba(15, 23, 42, 0.45);
+    border: 1px solid rgba(6, 182, 212, 0.15);
+    backdrop-filter: blur(12px);
+    padding: 3rem;
+    border-radius: 16px;
+    max-width: 450px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    animation: techSlideIn 0.8s ease-out;
+}
+
+.error-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 50px;
+    color: #f87171;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-bottom: 1.5rem;
+}
+
+.notfound-card .error-code {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 6rem;
+    font-weight: 800;
+    line-height: 0.9;
+    margin: 0;
+    background: linear-gradient(135deg, #f87171, #ef4444);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.3));
+    letter-spacing: -2px;
+}
+
+.notfound-card h2 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 1rem 0 0.8rem 0;
+    color: #ffffff;
+}
+
+.notfound-card p {
+    color: #94a3b8;
+    line-height: 1.6;
+    margin-bottom: 2rem;
+    font-size: 0.95rem;
+}
+
+.btn-notfound-home {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 16px;
+    background: #3b82f6;
+    border: none;
+    color: white;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+}
+
+.btn-notfound-home:hover {
+    background: #2563eb;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+.btn-notfound-home:active {
+    transform: translateY(0);
+}

@@ -1,23 +1,44 @@
 import { useState, useEffect, type FormEvent, type MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, X, Send, ShieldAlert } from 'lucide-react';
+import { AlertCircle, X, Send, ShieldAlert, Eye, EyeOff } from 'lucide-react';
 import '../styles/Login.css';
 
 const Login = () => {
     // Default active tab (visual only, logic relies on DB response)
-    const [activeRole, setActiveRole] = useState('pasante');
-    const [email, setEmail] = useState('');
+    const [activeRole, setActiveRole] = useState(() => {
+        try {
+            return localStorage.getItem('savedRole') || 'pasante';
+        } catch {
+            return 'pasante';
+        }
+    });
+    const [email, setEmail] = useState(() => {
+        try {
+            return localStorage.getItem('savedEmail') || '';
+        } catch {
+            return '';
+        }
+    });
     const [password, setPassword] = useState('');
-    const [rememberMe, setRememberMe] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [rememberMe, setRememberMe] = useState(() => {
+        try {
+            return !!localStorage.getItem('savedEmail');
+        } catch {
+            return false;
+        }
+    });
 
     // Modals state
     const [showStatusModal, setShowStatusModal] = useState(false);
     const [showFinishedModal, setShowFinishedModal] = useState(false);
     const [showRecoveryModal, setShowRecoveryModal] = useState(false);
     const [showAttendedModal, setShowAttendedModal] = useState(false);
+    const [showRoleMismatchModal, setShowRoleMismatchModal] = useState(false);
 
     // Estado para guardar la razón específica del bloqueo
     const [blockReason, setBlockReason] = useState('');
+    const [userActualRole, setUserActualRole] = useState('');
 
     const [tempUser, setTempUser] = useState<any>(null);
 
@@ -33,15 +54,21 @@ const Login = () => {
 
     useEffect(() => {
         try {
-            const savedEmail = localStorage.getItem('savedEmail');
-            if (savedEmail) {
-                setEmail(savedEmail);
-                setRememberMe(true);
+            if (rememberMe) {
+                if (email.trim()) {
+                    localStorage.setItem('savedEmail', email.trim());
+                } else {
+                    localStorage.removeItem('savedEmail');
+                }
+                localStorage.setItem('savedRole', activeRole);
+            } else {
+                localStorage.removeItem('savedEmail');
+                localStorage.removeItem('savedRole');
             }
         } catch (e) {
-            localStorage.clear();
+            console.error("Error writing rememberMe to localStorage:", e);
         }
-    }, []);
+    }, [rememberMe, email, activeRole]);
 
     const handleRecovery = (e: MouseEvent<HTMLAnchorElement>) => {
         e.preventDefault();
@@ -59,6 +86,19 @@ const Login = () => {
         };
         localStorage.setItem('alertasRRHH', JSON.stringify([...alertasGuardadas, nuevaAlerta]));
         setShowRecoveryModal(true);
+    };
+
+    const handleAutoSwitchRole = () => {
+        let matchedRoleId = '';
+        if (userActualRole === 'Administrador') matchedRoleId = 'admin';
+        else if (userActualRole === 'Talento Humano' || userActualRole === 'RR.HH.') matchedRoleId = 'human_resources';
+        else if (userActualRole === 'Seguridad') matchedRoleId = 'security';
+        else if (userActualRole === 'Pasante') matchedRoleId = 'pasante';
+        
+        if (matchedRoleId) {
+            setActiveRole(matchedRoleId);
+        }
+        setShowRoleMismatchModal(false);
     };
 
     const handleConfirmAttended = async () => {
@@ -136,6 +176,11 @@ const Login = () => {
 
         // 1. Super Admin Bypass
         if (email === 'admin@inamhi.gob.ec' && password === 'admin123') {
+            if (activeRole !== 'admin') {
+                setUserActualRole('Administrador');
+                setShowRoleMismatchModal(true);
+                return;
+            }
             saveSessionData({ nombre: 'Super Admin', rol: 'Administrador' });
             navigate('/admin');
             return;
@@ -155,6 +200,21 @@ const Login = () => {
 
             if (response.ok) {
                 console.log("Login successful:", data);
+
+                // Validar correspondencia de rol seleccionado y rol del usuario en base de datos
+                const dbRole = data.role || data.rol || '';
+                let roleMatches = false;
+                
+                if (activeRole === 'admin' && dbRole === 'Administrador') roleMatches = true;
+                else if (activeRole === 'human_resources' && (dbRole === 'Talento Humano' || dbRole === 'RR.HH.')) roleMatches = true;
+                else if (activeRole === 'security' && dbRole === 'Seguridad') roleMatches = true;
+                else if (activeRole === 'pasante' && dbRole === 'Pasante') roleMatches = true;
+                
+                if (!roleMatches) {
+                    setUserActualRole(dbRole);
+                    setShowRoleMismatchModal(true);
+                    return;
+                }
 
                 if (data.estadoRecuperacion === 'Atendido') {
                     setTempUser(data);
@@ -187,23 +247,36 @@ const Login = () => {
             localStorage.setItem('role', userSafe.role || userSafe.rol);
             localStorage.setItem('token', 'dummy-token');
 
-            if (rememberMe) localStorage.setItem('savedEmail', email);
-            else localStorage.removeItem('savedEmail');
+            if (rememberMe) {
+                localStorage.setItem('savedEmail', email.trim());
+                localStorage.setItem('savedRole', activeRole);
+            } else {
+                localStorage.removeItem('savedEmail');
+                localStorage.removeItem('savedRole');
+            }
         } catch (e) {
             console.warn("Storage quota exceeded, clearing...");
             localStorage.clear();
-            localStorage.setItem('user', JSON.stringify(userSafe));
-            localStorage.setItem('role', userSafe.role || userSafe.rol);
-            localStorage.setItem('token', 'dummy-token');
+            try {
+                localStorage.setItem('user', JSON.stringify(userSafe));
+                localStorage.setItem('role', userSafe.role || userSafe.rol);
+                localStorage.setItem('token', 'dummy-token');
+                if (rememberMe) {
+                    localStorage.setItem('savedEmail', email.trim());
+                    localStorage.setItem('savedRole', activeRole);
+                }
+            } catch (innerError) {
+                console.error("Critical error saving session data:", innerError);
+            }
         }
     };
 
     return (
-        <div className="split-screen-container">
+        <div className={`split-screen-container role-${activeRole || 'none'}`}>
             <div className="brand-section">
                 <div className="radar-blip"></div>
                 <div className="brand-logo-large">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" style={{ width: '50px', height: '50px', color: '#67e8f9' }}>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" style={{ width: '50px', height: '50px', color: 'var(--radar-light)', transition: 'color 0.8s ease' }}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
                     </svg>
                 </div>
@@ -248,16 +321,26 @@ const Login = () => {
                         </div>
                         <div className="input-block">
                             <label>CONTRASEÑA</label>
-                            <input
-                                type="password"
-                                name="password"
-                                autoComplete="current-password"
-                                placeholder="••••••••••••"
-                                className="input-field"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                required
-                            />
+                            <div className="password-wrapper">
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    name="password"
+                                    autoComplete="current-password"
+                                    placeholder="••••••••••••"
+                                    className="input-field"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                />
+                                <button
+                                    type="button"
+                                    className="password-toggle-btn"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    title={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                                >
+                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                </button>
+                            </div>
                         </div>
                         <div className="form-actions">
                             <label className="checkbox-simple">
@@ -339,6 +422,28 @@ const Login = () => {
                         <button className="close-modal-btn" onClick={() => setShowAttendedModal(false)}><X size={20} /></button>
                         <h3>Recuperación Atendida</h3>
                         <button className="btn-modal-action-green" onClick={handleConfirmAttended}>Ingresar</button>
+                    </div>
+                </div>
+            )}
+            {showRoleMismatchModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content-warning" style={{ borderTop: '5px solid #ef4444' }}>
+                        <button className="close-modal-btn" onClick={() => setShowRoleMismatchModal(false)}><X size={20} /></button>
+                        <div className="modal-icon-wrapper" style={{ borderColor: '#ef4444', color: '#ef4444', boxShadow: '0 0 15px rgba(239, 68, 68, 0.4)' }}>
+                            <ShieldAlert size={48} />
+                        </div>
+                        <h3 style={{ color: '#ef4444' }}>Rol Incorrecto</h3>
+                        <p className="modal-message">
+                            Estás intentando ingresar como <strong>{roles.find(r => r.id === activeRole)?.label || activeRole}</strong>, pero tu cuenta tiene asignado el rol de <strong>{userActualRole}</strong>.
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
+                            <button type="button" className="btn-modal-action" style={{ color: '#ef4444', borderColor: '#ef4444' }} onClick={handleAutoSwitchRole}>
+                                Cambiar a {userActualRole}
+                            </button>
+                            <button type="button" className="btn-modal-action-blue" style={{ border: 'none', background: '#3b82f6', color: 'white' }} onClick={() => setShowRoleMismatchModal(false)}>
+                                Cancelar
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

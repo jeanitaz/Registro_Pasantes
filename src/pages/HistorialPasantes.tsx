@@ -28,6 +28,11 @@ interface Pasante {
     horaEntrada?: string;
     horaSalida?: string;
     telefono_emergencia?: string;
+    fecha_nacimiento?: string;
+    delegado?: string;
+    discapacidad?: string;
+    email?: string;
+    telefono?: string;
 }
 
 const formatDecimalToTime = (decimalHours: number | string | undefined): string => {
@@ -130,7 +135,8 @@ const HistorialPasantes = () => {
     const handleExportExcel = () => {
         if (filteredPasantes.length === 0) return;
         const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.json_to_sheet(filteredPasantes.map(p => ({
+        
+        const data = filteredPasantes.map(p => ({
             Cédula: p.cedula,
             Nombres: p.nombres,
             Apellidos: p.apellidos,
@@ -138,7 +144,125 @@ const HistorialPasantes = () => {
             Estado: p.estado,
             Horas: `${p.horasCompletadas}/${p.horasRequeridas}`,
             'Horario': `${p.horaEntrada || '--'} - ${p.horaSalida || '--'}`
-        })));
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(data);
+
+        // Estilos para celdas
+        const headerStyle = {
+            font: { bold: true, color: { rgb: "FFFFFF" }, name: "Segoe UI", sz: 11 },
+            fill: { fgColor: { rgb: "1E3A8A" } }, // Azul Marino Oscuro
+            alignment: { vertical: "center", horizontal: "center", wrapText: true },
+            border: {
+                top: { style: "thin", color: { rgb: "94A3B8" } },
+                bottom: { style: "medium", color: { rgb: "1E3A8A" } },
+                left: { style: "thin", color: { rgb: "94A3B8" } },
+                right: { style: "thin", color: { rgb: "94A3B8" } }
+            }
+        };
+
+        const borderStyle = {
+            top: { style: "thin", color: { rgb: "E2E8F0" } },
+            bottom: { style: "thin", color: { rgb: "E2E8F0" } },
+            left: { style: "thin", color: { rgb: "E2E8F0" } },
+            right: { style: "thin", color: { rgb: "E2E8F0" } }
+        };
+
+        const cellStyleNormal = {
+            font: { name: "Segoe UI", sz: 10, color: { rgb: "1E293B" } },
+            alignment: { vertical: "center", horizontal: "left" },
+            border: borderStyle
+        };
+
+        const cellStyleCenter = {
+            font: { name: "Segoe UI", sz: 10, color: { rgb: "1E293B" } },
+            alignment: { vertical: "center", horizontal: "center" },
+            border: borderStyle
+        };
+
+        const cellStyleZebraNormal = {
+            font: { name: "Segoe UI", sz: 10, color: { rgb: "1E293B" } },
+            fill: { fgColor: { rgb: "F8FAFC" } }, // Grisáceo suave
+            alignment: { vertical: "center", horizontal: "left" },
+            border: borderStyle
+        };
+
+        const cellStyleZebraCenter = {
+            font: { name: "Segoe UI", sz: 10, color: { rgb: "1E293B" } },
+            fill: { fgColor: { rgb: "F8FAFC" } },
+            alignment: { vertical: "center", horizontal: "center" },
+            border: borderStyle
+        };
+
+        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:G1');
+        
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+                const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
+                const cell = ws[cell_address];
+                if (!cell) continue;
+
+                if (R === 0) {
+                    cell.s = headerStyle;
+                } else {
+                    const isEven = R % 2 === 0;
+                    const isCenterCol = [0, 4, 5, 6].includes(C); // Cédula, Estado, Horas, Horario van centrados
+
+                    if (C === 4) { // Columna Estado
+                        const estado = String(cell.v).toLowerCase();
+                        if (estado === "activo") {
+                            cell.s = {
+                                font: { name: "Segoe UI", sz: 10, bold: true, color: { rgb: "166534" } },
+                                fill: { fgColor: { rgb: "DCFCE7" } }, // Verde suave
+                                alignment: { vertical: "center", horizontal: "center" },
+                                border: borderStyle
+                            };
+                        } else if (estado.includes("finalizado") && !estado.includes("excedid") && !estado.includes("falta")) {
+                            cell.s = {
+                                font: { name: "Segoe UI", sz: 10, bold: true, color: { rgb: "1E40AF" } },
+                                fill: { fgColor: { rgb: "DBEAFE" } }, // Azul suave
+                                alignment: { vertical: "center", horizontal: "center" },
+                                border: borderStyle
+                            };
+                        } else if (estado.includes("excedid") || estado.includes("falta") || estado === "retiro anticipado" || estado === "retirado") {
+                            cell.s = {
+                                font: { name: "Segoe UI", sz: 10, bold: true, color: { rgb: "991B1B" } },
+                                fill: { fgColor: { rgb: "FEE2E2" } }, // Rojo suave
+                                alignment: { vertical: "center", horizontal: "center" },
+                                border: borderStyle
+                            };
+                        } else {
+                            cell.s = isEven ? cellStyleZebraCenter : cellStyleCenter;
+                        }
+                    } else {
+                        if (isCenterCol) {
+                            cell.s = isEven ? cellStyleZebraCenter : cellStyleCenter;
+                        } else {
+                            cell.s = isEven ? cellStyleZebraNormal : cellStyleNormal;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Altura de filas
+        ws['!rows'] = [];
+        ws['!rows'][0] = { hpt: 28 }; // Fila cabecera
+        for (let R = 1; R <= range.e.r; ++R) {
+            ws['!rows'][R] = { hpt: 22 }; // Filas de datos
+        }
+
+        // Ancho de columnas adaptativo
+        ws['!cols'] = [
+            { wch: 16 }, // Cédula
+            { wch: 22 }, // Nombres
+            { wch: 22 }, // Apellidos
+            { wch: 32 }, // Carrera
+            { wch: 22 }, // Estado
+            { wch: 14 }, // Horas
+            { wch: 20 }  // Horario
+        ];
+
         XLSX.utils.book_append_sheet(wb, ws, "Pasantes");
         XLSX.writeFile(wb, "Reporte_Pasantes.xlsx");
     };
@@ -157,7 +281,12 @@ const HistorialPasantes = () => {
             ...pasante,
             horasCompletadas: decimalToTimeInput(Number(pasante.horasCompletadas || 0)),
             horaEntrada: pasante.horaEntrada || '',
-            horaSalida: pasante.horaSalida || ''
+            horaSalida: pasante.horaSalida || '',
+            fecha_nacimiento: pasante.fecha_nacimiento ? pasante.fecha_nacimiento.split('T')[0] : '',
+            delegado: pasante.delegado || '',
+            discapacidad: pasante.discapacidad || 'No',
+            email: pasante.email || '',
+            telefono: pasante.telefono || ''
         });
         setIsModalOpen(true);
     };
@@ -202,7 +331,13 @@ const HistorialPasantes = () => {
             estado: editingPasante.estado,
             horaEntrada: editingPasante.horaEntrada || null,
             horaSalida: editingPasante.horaSalida || null,
-            fotoUrl: editingPasante.fotoUrl
+            fotoUrl: editingPasante.fotoUrl,
+            fecha_nacimiento: editingPasante.fecha_nacimiento || null,
+            delegado: editingPasante.delegado || null,
+            discapacidad: editingPasante.discapacidad || 'No',
+            email: editingPasante.email || null,
+            telefono: editingPasante.telefono || null,
+            horasRequeridas: Number(editingPasante.horasRequeridas || 0)
         };
 
         if (editingPasante.password && editingPasante.password.trim().length > 0) {
@@ -399,21 +534,30 @@ const HistorialPasantes = () => {
                                     <input type="file" id="photo-upload" accept="image/*" style={{ display: 'none' }} ref={fileInputRef} onChange={handlePhotoChange} />
                                 </div>
                             </div>
-
-                            {/* RESTO DE CAMPOS DEL MODAL (Abreviado para limpieza, es igual al original) */}
                             <h4 style={{ fontSize: '14px', color: '#64748b', marginBottom: '10px', marginTop: '0', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>Datos Personales</h4>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
                                 <div className="input-group"><label>Nombres</label><input type="text" value={editingPasante.nombres} onChange={(e) => setEditingPasante({ ...editingPasante, nombres: e.target.value })} /></div>
                                 <div className="input-group"><label>Apellidos</label><input type="text" value={editingPasante.apellidos} onChange={(e) => setEditingPasante({ ...editingPasante, apellidos: e.target.value })} /></div>
                                 <div className="input-group"><label>Cédula</label><input type="text" value={editingPasante.cedula} onChange={(e) => setEditingPasante({ ...editingPasante, cedula: e.target.value })} /></div>
+                                <div className="input-group"><label>Fecha Nacimiento</label><input type="date" value={editingPasante.fecha_nacimiento || ''} onChange={(e) => setEditingPasante({ ...editingPasante, fecha_nacimiento: e.target.value })} /></div>
+                                <div className="input-group"><label>Correo Electrónico</label><input type="email" value={editingPasante.email || ''} onChange={(e) => setEditingPasante({ ...editingPasante, email: e.target.value })} /></div>
+                                <div className="input-group"><label>Teléfono Personal</label><input type="text" value={editingPasante.telefono || ''} onChange={(e) => setEditingPasante({ ...editingPasante, telefono: e.target.value })} /></div>
                                 <div className="input-group"><label>Teléfono Emergencia</label><input type="text" value={editingPasante.telefono_emergencia || ''} onChange={(e) => setEditingPasante({ ...editingPasante, telefono_emergencia: e.target.value })} /></div>
+                                <div className="input-group">
+                                    <label>Discapacidad</label>
+                                    <select value={editingPasante.discapacidad || 'No'} onChange={(e) => setEditingPasante({ ...editingPasante, discapacidad: e.target.value })}>
+                                        <option value="No">No</option>
+                                        <option value="Si">Si</option>
+                                    </select>
+                                </div>
                             </div>
 
                             <h4 style={{ fontSize: '14px', color: '#64748b', marginBottom: '10px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>Datos Académicos</h4>
-                            <div style={{ marginBottom: '15px' }}>
-                                <div className="input-group" style={{ marginBottom: '10px' }}><label>Institución</label><input type="text" value={editingPasante.institucion} onChange={(e) => setEditingPasante({ ...editingPasante, institucion: e.target.value })} /></div>
-                                <div className="input-group" style={{ marginBottom: '10px' }}><label>Carrera</label><input type="text" value={editingPasante.carrera} onChange={(e) => setEditingPasante({ ...editingPasante, carrera: e.target.value })} /></div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+                                <div className="input-group" style={{ gridColumn: 'span 2' }}><label>Institución</label><input type="text" value={editingPasante.institucion} onChange={(e) => setEditingPasante({ ...editingPasante, institucion: e.target.value })} /></div>
+                                <div className="input-group" style={{ gridColumn: 'span 2' }}><label>Carrera</label><input type="text" value={editingPasante.carrera} onChange={(e) => setEditingPasante({ ...editingPasante, carrera: e.target.value })} /></div>
                                 <div className="input-group"><label>Dependencia</label><input type="text" value={editingPasante.dependencia} onChange={(e) => setEditingPasante({ ...editingPasante, dependencia: e.target.value })} /></div>
+                                <div className="input-group"><label>Tutor / Delegado</label><input type="text" value={editingPasante.delegado || ''} onChange={(e) => setEditingPasante({ ...editingPasante, delegado: e.target.value })} /></div>
                             </div>
 
                             <h4 style={{ fontSize: '14px', color: '#64748b', marginBottom: '10px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>Credenciales</h4>
@@ -426,11 +570,9 @@ const HistorialPasantes = () => {
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
                                 <div className="input-group"><label>Hora Entrada</label><input type="time" value={editingPasante.horaEntrada || ''} onChange={(e) => setEditingPasante({ ...editingPasante, horaEntrada: e.target.value })} /></div>
                                 <div className="input-group"><label>Hora Salida</label><input type="time" value={editingPasante.horaSalida || ''} onChange={(e) => setEditingPasante({ ...editingPasante, horaSalida: e.target.value })} /></div>
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                                 <div className="input-group"><label>Horas Completadas</label><input type="text" placeholder="Ej: 120:30 o 120.30" value={editingPasante.horasCompletadas ?? ''} onChange={(e) => setEditingPasante({ ...editingPasante, horasCompletadas: e.target.value })} /></div>
-                                <div className="input-group">
+                                <div className="input-group"><label>Meta Horas Requeridas</label><input type="number" value={editingPasante.horasRequeridas || 0} onChange={(e) => setEditingPasante({ ...editingPasante, horasRequeridas: Number(e.target.value) })} /></div>
+                                <div className="input-group" style={{ gridColumn: 'span 2' }}>
                                     <label>Estado</label>
                                     <select value={editingPasante.estado} onChange={(e) => setEditingPasante({ ...editingPasante, estado: e.target.value })}>
                                         <option value="No habilitado">No habilitado</option>
